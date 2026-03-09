@@ -210,7 +210,8 @@ let searchTimer = null
 
 const filters = [
   { label: '全部', value: 'all' },
-  { label: '置顶', value: 'pinned' }
+  { label: '置顶', value: 'pinned' },
+  { label: '已归档 📦', value: 'archived' }
 ]
 
 const greeting = computed(() => {
@@ -258,9 +259,14 @@ function handleSearch() {
 }
 
 async function fetchData() {
-  const params = { archived: false }
+  const params = {}
+  if (activeFilter.value === 'archived') {
+    params.archived = true
+  } else {
+    params.archived = false
+    if (activeFilter.value === 'pinned') params.pinned = true
+  }
   if (searchQuery.value) params.search = searchQuery.value
-  if (activeFilter.value === 'pinned') params.pinned = true
   await notesStore.fetchNotes(params)
 }
 

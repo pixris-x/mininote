@@ -80,11 +80,10 @@
         <!-- 内容 -->
         <textarea
           v-model="note.content"
-          class="note-content-input"
+          class="note-textarea"
           placeholder="写点什么..."
           @input="markDirty"
-          ref="contentRef"
-        ></textarea>
+        />
 
         <!-- 底部信息 -->
         <div class="note-meta">
@@ -163,6 +162,7 @@ import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'
 import dayjs from 'dayjs'
 
+
 const route = useRoute()
 const router = useRouter()
 const notesStore = useNotesStore()
@@ -215,9 +215,10 @@ function formatCalDate(date) {
 
 async function saveNote() {
   if (!isDirty.value) return
+  if (!note.value?.id) return
   saving.value = true
   try {
-    await notesStore.updateNote(route.params.id, {
+    await notesStore.updateNote(note.value.id, {
       title: note.value.title,
       content: note.value.content,
       color: note.value.color,
@@ -450,23 +451,28 @@ onBeforeUnmount(() => {
   color: var(--color-text-light);
 }
 
-/* 内容输入 */
-.note-content-input {
+/* Markdown 编辑器适配 */
+.note-textarea {
   width: 100%;
-  min-height: 300px;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--color-text);
+  min-height: 400px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.55);
+  padding: 16px;
   font-size: 15px;
   line-height: 1.8;
-  resize: none;
   font-family: inherit;
+  color: var(--color-text-primary);
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
   margin-bottom: 24px;
+  transition: border-color 0.2s;
 }
 
-.note-content-input::placeholder {
-  color: var(--color-text-light);
+.note-textarea:focus {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.75);
 }
 
 /* 底部信息 */

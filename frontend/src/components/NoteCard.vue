@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <p v-if="note.content" class="note-content">{{ truncate(note.content, 80) }}</p>
+    <p v-if="note.content" class="note-content">{{ truncate(stripMarkdown(note.content), 80) }}</p>
 
     <div class="note-footer">
       <div class="note-tags">
@@ -46,6 +46,21 @@ defineEmits(['click', 'pin', 'delete'])
 function truncate(str, maxLen) {
   if (!str) return ''
   return str.length > maxLen ? str.slice(0, maxLen) + '...' : str
+}
+
+function stripMarkdown(str) {
+  if (!str) return ''
+  return str
+    .replace(/#{1,6}\s/g, '')          // 标题
+    .replace(/\*\*(.*?)\*\*/g, '$1')   // 加粗
+    .replace(/\*(.*?)\*/g, '$1')       // 斜体
+    .replace(/~~(.*?)~~/g, '$1')       // 删除线
+    .replace(/`{1,3}[^`]*`{1,3}/g, '') // 代码
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // 链接
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '') // 图片
+    .replace(/^[>\-*+]\s+/gm, '')     // 引用/列表
+    .replace(/\n+/g, ' ')
+    .trim()
 }
 
 function formatDate(date) {

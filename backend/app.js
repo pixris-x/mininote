@@ -9,6 +9,7 @@ const calendarRoutes = require('./routes/calendar')
 const adminRoutes = require('./routes/admin')
 const expensesRoutes = require('./routes/expenses')
 const expenseCategoriesRoutes = require('./routes/expense-categories')
+const uploadRoutes = require('./routes/upload')
 const { errorLoggerMiddleware, requestLoggerMiddleware } = require('./utils/logger')
 
 const app = express()
@@ -28,6 +29,10 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
 app.use(requestLoggerMiddleware)
 
+// 静态文件：上传的图片
+const path = require('path')
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+
 // 健康检查
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'MiniList API 运行中 🎉', time: new Date().toISOString() })
@@ -41,6 +46,7 @@ app.use('/api/calendar', calendarRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/expenses', expensesRoutes)
 app.use('/api/expense-categories', expenseCategoriesRoutes)
+app.use('/api/upload', uploadRoutes)
 
 // 404 处理
 app.use((req, res) => {

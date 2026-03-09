@@ -6,6 +6,10 @@
         <p class="page-sub">在日历上记录每一天的故事</p>
       </div>
 
+      <div class="calendar-layout">
+        <!-- 左列：日历 + 即将到来 -->
+        <div class="calendar-left">
+
       <!-- 月份导航 -->
       <div class="month-nav card">
         <button class="nav-arrow" @click="prevMonth">‹</button>
@@ -21,7 +25,12 @@
       <div class="calendar-grid card">
         <!-- 星期表头 -->
         <div class="week-headers">
-          <div v-for="day in weekDays" :key="day" class="week-header">{{ day }}</div>
+          <div
+            v-for="(day, idx) in weekDays"
+            :key="day"
+            class="week-header"
+            :class="{ 'weekend-header': idx === 0 || idx === 6 }"
+          >{{ day }}</div>
         </div>
 
         <!-- 日期格子 -->
@@ -37,11 +46,15 @@
             :class="{
               today: isToday(day),
               selected: selectedDay === day,
-              'has-notes': getDayNotes(day).length > 0
+              'has-notes': getDayNotes(day).length > 0,
+              'is-weekend': isWeekend(day),
+              [`holiday-${getDayHoliday(day)?.type}`]: !!getDayHoliday(day)
             }"
             @click="selectDay(day)"
           >
             <span class="day-number">{{ day }}</span>
+            <span v-if="getDayHoliday(day)" class="day-holiday">{{ getDayHoliday(day).name }}</span>
+            <span v-else class="day-lunar">{{ getLunarDay(day) }}</span>
             <div class="day-dots">
               <span
                 v-for="(note, i) in getDayNotes(day).slice(0, 3)"
@@ -54,6 +67,32 @@
         </div>
       </div>
 
+      <!-- 即将来到的节日 -->
+      <div class="upcoming-panel card" v-if="upcomingHolidays.length > 0">
+        <div class="upcoming-title">🗓️ 即将到来</div>
+        <div class="upcoming-list">
+          <div
+            v-for="item in upcomingHolidays"
+            :key="item.date"
+            class="upcoming-item"
+            :class="`upcoming-${item.type}`"
+          >
+            <div class="upcoming-left">
+              <span class="upcoming-name">{{ item.name }}</span>
+              <span class="upcoming-date">{{ item.month }}月{{ item.day }}日 | 周{{ item.weekDay }}</span>
+            </div>
+            <div class="upcoming-right">
+              <span v-if="item.daysLeft === 0" class="upcoming-badge today">今天</span>
+              <span v-else class="upcoming-badge">{{ item.daysLeft }}<em>天</em></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+        </div>
+        <!-- 右列：记事详情 -->
+        <div class="calendar-right">
+
       <!-- 选中日期的记事列表 -->
       <div v-if="selectedDay" class="selected-day-panel">
         <div class="selected-day-header">
@@ -61,9 +100,14 @@
             {{ currentYear }}年{{ currentMonth }}月{{ selectedDay }}日
             <span v-if="isToday(selectedDay)" class="today-badge">今天</span>
           </h3>
-          <button class="btn btn-primary btn-sm" @click="showLinkModal = true">
-            ＋ 关联记事
-          </button>
+          <div class="header-actions">
+            <button class="btn btn-primary btn-sm" @click="openQuickNote">
+              ✏️ 新建记事
+            </button>
+            <button class="btn btn-outline btn-sm" @click="showLinkModal = true">
+              🔗 关联记事
+            </button>
+          </div>
         </div>
 
         <div v-if="dayLoading" class="loading-center" style="padding: 24px">
@@ -72,7 +116,11 @@
 
         <div v-else-if="selectedDayNotes.length === 0" class="empty-state" style="padding: 24px">
           <span class="empty-icon" style="font-size:40px">📋</span>
-          <p>这一天还没有记事，关联一条吧~</p>
+          <p>这一天还没有记事</p>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-primary btn-sm" @click="openQuickNote">✏️ 新建记事</button>
+            <button class="btn btn-outline btn-sm" @click="showLinkModal = true">🔗 关联记事</button>
+          </div>
         </div>
 
         <div v-else class="day-notes-list">
@@ -93,6 +141,78 @@
           </div>
         </div>
       </div>
+
+      <!-- 未选中日期占位 -->
+      <div v-else class="no-day-selected">
+        <span style="font-size:48px">📅</span>
+        <p>点击左侧日历中的某一天<br/>查看当天的记事</p>
+      </div>
+
+        </div>
+      </div><!-- end calendar-layout -->
+
+      <!-- 快速新建记事弹窗 -->
+      <Teleport to="body">
+        <div v-if="showQuickNoteModal" class="modal-overlay" @click.self="closeQuickNote">
+          <div class="modal-card card">
+            <div class="modal-header">
+              <h2>✏️ 新建记事 · {{ currentMonth }}月{{ selectedDay }}日</h2>
+              <button class="btn btn-ghost btn-icon" @click="closeQuickNote">✕</button>
+            </div>
+
+            <div class="quick-note-form">
+              <div class="form-group">
+                <label class="form-label">标题 <span style="color:var(--color-danger)">*</span></label>
+                <input
+                  v-model="quickNoteForm.title"
+                  type="text"
+                  class="input"
+                  placeholder="记事标题..."
+                  maxlength="100"
+                  autofocus
+                  @keydown.enter.prevent="saveQuickNote"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">内容</label>
+                <textarea
+                  v-model="quickNoteForm.content"
+                  class="input quick-note-textarea"
+                  placeholder="记事内容（可选）..."
+                  rows="4"
+                ></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">颜色</label>
+                <div class="color-picker">
+                  <div
+                    v-for="c in NOTE_COLORS"
+                    :key="c.value"
+                    class="color-dot"
+                    :class="{ selected: quickNoteForm.color === c.value }"
+                    :style="{ background: c.value, border: c.value === '#FFFFFF' ? '1px solid #ddd' : 'none' }"
+                    :title="c.label"
+                    @click="quickNoteForm.color = c.value"
+                  ></div>
+                </div>
+              </div>
+
+              <div class="quick-note-actions">
+                <button class="btn btn-ghost" @click="closeQuickNote">取消</button>
+                <button
+                  class="btn btn-primary"
+                  :disabled="!quickNoteForm.title.trim() || quickNoteSaving"
+                  @click="saveQuickNote"
+                >
+                  {{ quickNoteSaving ? '保存中...' : '✓ 保存并关联' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Teleport>
 
       <!-- 关联记事弹窗 -->
       <Teleport to="body">
@@ -145,6 +265,8 @@ import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'
 import dayjs from 'dayjs'
+import { getHoliday, getUpcomingHolidays } from '@/utils/holidays'
+import { Solar } from 'lunar-javascript'
 
 const router = useRouter()
 const notesStore = useNotesStore()
@@ -158,6 +280,19 @@ const selectedDayNotes = ref([])
 const dayLoading = ref(false)
 const showLinkModal = ref(false)
 const linkSearch = ref('')
+const showQuickNoteModal = ref(false)
+const quickNoteSaving = ref(false)
+const quickNoteForm = ref({ title: '', content: '', color: '#FFFFFF' })
+
+const NOTE_COLORS = [
+  { label: '白色', value: '#FFFFFF' },
+  { label: '粉色', value: '#FFD6E0' },
+  { label: '薄荷', value: '#D4F5E9' },
+  { label: '薰衣草', value: '#E4E8F8' },
+  { label: '蜜桃', value: '#FFE8D6' },
+  { label: '柠檬', value: '#FFF8D6' },
+  { label: '天蓝', value: '#D6EEFF' }
+]
 
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
@@ -168,6 +303,37 @@ const daysInMonth = computed(() => {
 
 const firstDayOffset = computed(() => {
   return dayjs(`${currentYear.value}-${currentMonth.value}-01`).day()
+})
+
+// 获取农历日期文字（初一显示月份名，其余显示日期）
+function getLunarDay(day) {
+  try {
+    const lunar = Solar.fromYmd(currentYear.value, currentMonth.value, day).getLunar()
+    const lunarDay = lunar.getDay()
+    if (lunarDay === 1) {
+      // 初一显示农历月份
+      return lunar.getMonthInChinese() + '月'
+    }
+    return lunar.getDayInChinese()
+  } catch {
+    return ''
+  }
+}
+
+// 判断是否是周末
+function isWeekend(day) {
+  const col = (firstDayOffset.value + day - 1) % 7
+  return col === 0 || col === 6
+}
+
+// 获取某天的节日
+function getDayHoliday(day) {
+  return getHoliday(currentYear.value, currentMonth.value, day)
+}
+
+// 即将到来的节日（始终基于今天往后计算，与当前月份无关）
+const upcomingHolidays = computed(() => {
+  return getUpcomingHolidays(90)
 })
 
 function isToday(day) {
@@ -243,6 +409,41 @@ function goToday() {
   selectDay(today.date())
 }
 
+// 快速新建记事
+function openQuickNote() {
+  quickNoteForm.value = { title: '', content: '', color: '#FFFFFF' }
+  showQuickNoteModal.value = true
+}
+
+function closeQuickNote() {
+  showQuickNoteModal.value = false
+}
+
+async function saveQuickNote() {
+  if (!quickNoteForm.value.title.trim()) return
+  if (!selectedDay.value) return
+  quickNoteSaving.value = true
+  try {
+    const createRes = await notesStore.createNote({
+      title: quickNoteForm.value.title.trim(),
+      content: quickNoteForm.value.content.trim() || null,
+      color: quickNoteForm.value.color
+    })
+    if (!createRes.success) throw new Error(createRes.message || '创建失败')
+    const newNote = createRes.data
+    const dateStr = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}-${String(selectedDay.value).padStart(2, '0')}`
+    await calendarApi.linkNote(newNote.id, dateStr)
+    selectedDayNotes.value.push(newNote)
+    await loadMonthData()
+    closeQuickNote()
+    toast.success('记事已创建并关联到日历 ✨')
+  } catch (err) {
+    toast.error(err.message)
+  } finally {
+    quickNoteSaving.value = false
+  }
+}
+
 // 关联逻辑
 const filteredLinkNotes = computed(() => {
   const q = linkSearch.value.toLowerCase()
@@ -299,8 +500,65 @@ onMounted(async () => {
 <style scoped>
 .calendar-page {
   padding: 24px 20px;
-  max-width: 700px;
+  max-width: 1100px;
   margin: 0 auto;
+}
+
+/* ===== 两栏布局（PC端） ===== */
+.calendar-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calendar-left {
+  width: 100%;
+}
+
+.calendar-right {
+  width: 100%;
+}
+
+/* 未选中占位 */
+.no-day-selected {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 48px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.8;
+  min-height: 200px;
+}
+
+@media (min-width: 800px) {
+  .calendar-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .calendar-left {
+    flex: 0 0 520px;
+    min-width: 0;
+  }
+
+  .calendar-right {
+    flex: 1;
+    min-width: 0;
+    position: sticky;
+    top: 20px;
+  }
+
+  /* PC 端右侧详情面板撑满高度 */
+  .selected-day-panel {
+    min-height: 300px;
+  }
 }
 
 .page-header { margin-bottom: 20px; }
@@ -395,17 +653,18 @@ onMounted(async () => {
 }
 
 .day-cell {
-  aspect-ratio: 1;
+  min-height: 62px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 6px;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition);
   position: relative;
-  gap: 3px;
-  padding: 4px;
+  gap: 2px;
+  padding: 4px 2px;
 }
 
 .day-cell:not(.empty):hover {
@@ -629,5 +888,194 @@ onMounted(async () => {
 .link-note-date {
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+/* ===== 周末加深 ===== */
+.week-header.weekend-header {
+  color: #e8698a;
+  font-weight: 700;
+}
+
+.day-cell.is-weekend {
+  background: rgba(255, 182, 193, 0.08);
+}
+
+.day-cell.is-weekend .day-number {
+  color: #e8698a;
+}
+
+.day-cell.is-weekend.today .day-number {
+  color: #fff;
+}
+
+/* ===== 节日标签 ===== */
+.day-holiday {
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+.holiday-holiday .day-holiday { color: #e8698a; font-weight: 600; }
+.holiday-festival .day-holiday { color: #a78bfa; font-weight: 500; }
+.holiday-solar .day-holiday { color: #34c68a; font-weight: 500; }
+
+/* 农历日期 */
+.day-lunar {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.is-weekend .day-lunar {
+  color: rgba(232, 105, 138, 0.6);
+}
+
+/* ===== 即将到来的节日面板 ===== */
+.upcoming-panel {
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+}
+
+.upcoming-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 12px;
+}
+
+.upcoming-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upcoming-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  border-left: 3px solid #ddd;
+}
+
+.upcoming-holiday { border-left-color: #e8698a; }
+.upcoming-festival { border-left-color: #a78bfa; }
+.upcoming-solar { border-left-color: #34c68a; }
+
+.upcoming-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upcoming-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.upcoming-date {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.upcoming-right { flex-shrink: 0; }
+
+.upcoming-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--theme-primary-dark);
+  min-width: 40px;
+  justify-content: flex-end;
+}
+
+.upcoming-badge em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.upcoming-badge.today {
+  font-size: 13px;
+  background: var(--theme-primary);
+  color: #fff;
+  border-radius: var(--radius-full);
+  padding: 2px 10px;
+}
+
+/* ===== 日期头部按钮组 ===== */
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ===== 快速新建记事表单 ===== */
+.quick-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.quick-note-textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.color-picker {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.color-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.selected {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 3px var(--theme-primary);
+}
+
+.quick-note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
 }
 </style>
