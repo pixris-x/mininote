@@ -82,11 +82,13 @@
           <input
             v-model="registerForm.username"
             type="text"
-            class="input"
+            :class="['input', { 'input-error': fieldErrors.username }]"
             placeholder="3-20位字母数字"
             autocomplete="username"
             required
+            @input="fieldErrors.username = ''"
           />
+          <p v-if="fieldErrors.username" class="field-error-msg">{{ fieldErrors.username }}</p>
         </div>
         <div class="form-group">
           <label class="form-label">昵称</label>
@@ -102,11 +104,13 @@
           <input
             v-model="registerForm.email"
             type="email"
-            class="input"
+            :class="['input', { 'input-error': fieldErrors.email }]"
             placeholder="your@email.com"
             autocomplete="email"
             required
+            @input="fieldErrors.email = ''"
           />
+          <p v-if="fieldErrors.email" class="field-error-msg">{{ fieldErrors.email }}</p>
         </div>
         <div class="form-group">
           <label class="form-label">密码 <span class="required">*</span></label>
@@ -150,9 +154,12 @@ const showPass = ref(false)
 
 const loginForm = reactive({ username: '', password: '' })
 const registerForm = reactive({ username: '', nickname: '', email: '', password: '' })
+const fieldErrors = reactive({ username: '', email: '' })
 
 function clearError() {
   errorMsg.value = ''
+  fieldErrors.username = ''
+  fieldErrors.email = ''
 }
 
 async function handleLogin() {
@@ -186,7 +193,13 @@ async function handleRegister() {
       router.push('/notes')
     }
   } catch (err) {
-    errorMsg.value = err.message
+    if (err.field === 'username') {
+      fieldErrors.username = err.message
+    } else if (err.field === 'email') {
+      fieldErrors.email = err.message
+    } else {
+      errorMsg.value = err.message
+    }
   } finally {
     loading.value = false
   }
@@ -300,6 +313,18 @@ async function handleRegister() {
   padding: 10px 14px;
   font-size: 13px;
   margin-bottom: 16px;
+}
+
+.input-error {
+  border-color: #E74C3C !important;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.15);
+}
+
+.field-error-msg {
+  font-size: 12px;
+  color: #C0392B;
+  margin: 0;
+  padding-left: 2px;
 }
 
 .form {

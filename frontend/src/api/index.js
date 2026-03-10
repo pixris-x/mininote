@@ -27,8 +27,11 @@ api.interceptors.response.use(
       localStorage.removeItem('minilist_user')
       window.location.href = '/login'
     }
-    const message = error.response?.data?.message || '网络错误，请稍后重试'
-    return Promise.reject(new Error(message))
+    const data = error.response?.data || {}
+    const message = data.message || '网络错误，请稍后重试'
+    const err = new Error(message)
+    if (data.field) err.field = data.field
+    return Promise.reject(err)
   }
 )
 

@@ -5,15 +5,18 @@ const path = require('path')
 const fs = require('fs')
 const authMiddleware = require('../middleware/auth')
 
-// 确保上传目录存在
-const uploadDir = path.join(__dirname, '../uploads/images')
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true })
-}
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir)
+    const { id, username } = req.user
+    const now = new Date()
+    const year  = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day   = String(now.getDate()).padStart(2, '0')
+
+    // 路径：uploads/images/username_id/年/月/日
+    const dir = path.join(__dirname, '../uploads/images', `${username}_${id}`, String(year), month, day)
+    fs.mkdirSync(dir, { recursive: true })
+    cb(null, dir)
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase()
@@ -42,8 +45,11 @@ router.post('/image', authMiddleware, upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: '没有收到文件' })
   }
-  const url = `/uploads/images/${req.file.filename}`
-  res.json({ success: true, url })
+  // 将绝对路径转为相对于 backend 目录的 URL
+  const relativePath = req.file.path
+    .replace(/\\/g, '/')
+    .replace(/^.*\/uploads\//, '/uploads/')
+  res.json({ success: true, url: relativePath })
 })
 
 // 错误处理（multer 限制）

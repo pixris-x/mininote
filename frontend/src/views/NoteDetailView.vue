@@ -7,23 +7,29 @@
           ‹ 返回
         </button>
         <div class="toolbar-actions">
+          <!-- 已归档标识 -->
+          <span v-if="note?.is_archived" class="archived-badge">📦 已归档</span>
+
+          <!-- 预览/编辑切换 -->
           <button
+            v-if="!note?.is_archived"
             class="btn btn-ghost btn-icon"
-            :class="{ 'pin-active': note?.is_pinned }"
-            @click="togglePin"
-            title="置顶"
-          >📌</button>
+            :class="{ 'preview-active': previewMode }"
+            @click="previewMode = !previewMode"
+            :title="previewMode ? '切换编辑' : '切换预览'"
+          >
+            {{ previewMode ? '✏️' : '👁' }}
+          </button>
+
+          <button class="btn btn-ghost btn-icon" :class="{ 'pin-active': note?.is_pinned }" @click="togglePin"
+            title="置顶">📌</button>
           <button class="btn btn-ghost btn-icon" @click="toggleArchive" title="归档">
             {{ note?.is_archived ? '📤' : '📦' }}
           </button>
           <button class="btn btn-ghost btn-icon delete-btn" @click="showDeleteConfirm = true" title="删除">
             🗑️
           </button>
-          <button
-            class="btn btn-primary"
-            @click="saveNote"
-            :disabled="saving || !isDirty"
-          >
+          <button v-if="!isReadOnly" class="btn btn-primary" @click="saveNote" :disabled="saving || !isDirty">
             <span v-if="saving" class="loading-spinner" style="width:14px;height:14px;border-width:2px"></span>
             <span v-else>{{ isDirty ? '保存 ✨' : '已保存 ✅' }}</span>
           </button>
@@ -38,17 +44,11 @@
 
       <!-- 记事内容 -->
       <div v-else-if="note" class="detail-content" :style="{ background: note.color }">
-        <!-- 颜色选择 -->
-        <div class="color-bar">
-          <button
-            v-for="c in notesStore.NOTE_COLORS"
-            :key="c.value"
-            class="color-dot"
-            :class="{ active: note.color === c.value }"
-            :style="{ background: c.value || '#eee' }"
-            :title="c.label"
-            @click="changeColor(c.value)"
-          ></button>
+        <!-- 颜色选择（编辑模式） -->
+        <div v-if="!isReadOnly" class="color-bar">
+          <button v-for="c in notesStore.NOTE_COLORS" :key="c.value" class="color-dot"
+            :class="{ active: note.color === c.value }" :style="{ background: c.value || '#eee' }" :title="c.label"
+            @click="changeColor(c.value)"></button>
 
           <!-- 标签管理 -->
           <div class="tag-section">
@@ -57,33 +57,23 @@
                 {{ tag }}
                 <button @click="removeTag(i)">✕</button>
               </span>
-              <input
-                v-model="tagInput"
-                type="text"
-                class="inline-tag-input"
-                placeholder="＋ 标签"
-                @keydown.enter.prevent="addTag"
-              />
+              <input v-model="tagInput" type="text" class="inline-tag-input" placeholder="＋ 标签"
+                @keydown.enter.prevent="addTag" />
             </div>
           </div>
         </div>
 
+        <!-- 只读时的标签展示 -->
+        <div v-else-if="note.tags?.length" class="color-bar readonly-tags">
+          <span v-for="tag in note.tags" :key="tag" class="tag">{{ tag }}</span>
+        </div>
+
         <!-- 标题 -->
-        <input
-          v-model="note.title"
-          type="text"
-          class="note-title-input"
-          placeholder="标题"
-          @input="markDirty"
-        />
+        <input v-if="!isReadOnly" v-model="note.title" type="text" class="note-title-input" placeholder="标题" @input="markDirty" />
+        <h1 v-else class="note-title-preview">{{ note.title || '无标题' }}</h1>
 
         <!-- 内容 -->
-        <textarea
-          v-model="note.content"
-          class="note-textarea"
-          placeholder="写点什么..."
-          @input="markDirty"
-        />
+        <TiptapEditor v-model="note.content" placeholder="写点什么..." :editable="!isReadOnly" @change="markDirty" />
 
         <!-- 底部信息 -->
         <div class="note-meta">
@@ -101,11 +91,7 @@
           </div>
 
           <div class="linked-dates">
-            <span
-              v-for="date in note.calendar_dates"
-              :key="date"
-              class="linked-date"
-            >
+            <span v-for="date in note.calendar_dates" :key="date" class="linked-date">
               {{ formatCalDate(date) }}
               <button @click="removeCalDate(date)">✕</button>
             </span>
@@ -114,12 +100,7 @@
 
           <!-- 简单日期选择器 -->
           <div v-if="showCalPicker" class="date-picker">
-            <input
-              v-model="newCalDate"
-              type="date"
-              class="input"
-              :min="todayStr"
-            />
+            <input v-model="newCalDate" type="date" class="input" :min="todayStr" />
             <button class="btn btn-primary btn-sm" @click="addCalDate" :disabled="!newCalDate">
               确认
             </button>
@@ -157,6 +138,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/AppLayout.vue'
+import TiptapEditor from '@/components/TiptapEditor.vue'
 import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'
@@ -176,10 +158,14 @@ const showDeleteConfirm = ref(false)
 const showCalPicker = ref(false)
 const newCalDate = ref('')
 const todayStr = dayjs().format('YYYY-MM-DD')
+const previewMode = ref(false)
+
+const isReadOnly = computed(() => note.value?.is_archived || previewMode.value)
 
 const wordCount = computed(() => {
   if (!note.value?.content) return 0
-  return note.value.content.replace(/\s/g, '').length
+  // 去除 HTML 标签后统计字符数
+  return note.value.content.replace(/<[^>]+>/g, '').replace(/\s/g, '').length
 })
 
 function markDirty() {
@@ -247,6 +233,7 @@ async function toggleArchive() {
   try {
     await notesStore.updateNote(note.value.id, { is_archived: !note.value.is_archived })
     note.value.is_archived = !note.value.is_archived
+    if (!note.value.is_archived) previewMode.value = false
     toast.success(note.value.is_archived ? '已归档 📦' : '已取消归档')
   } catch (err) {
     toast.error(err.message)
@@ -346,6 +333,23 @@ onBeforeUnmount(() => {
   color: var(--theme-primary-dark);
 }
 
+.preview-active {
+  background: var(--theme-primary-light);
+  color: var(--theme-primary-dark);
+}
+
+.archived-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: #FFF3CD;
+  color: #856404;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #FFECB5;
+}
+
 .delete-btn:hover {
   background: #FFE0E0;
   color: #C0392B;
@@ -384,11 +388,12 @@ onBeforeUnmount(() => {
   border: 2px solid transparent;
   cursor: pointer;
   transition: all var(--transition);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
 }
 
-.color-dot:hover, .color-dot.active {
+.color-dot:hover,
+.color-dot.active {
   transform: scale(1.25);
   border-color: var(--theme-primary-dark);
 }
@@ -451,28 +456,18 @@ onBeforeUnmount(() => {
   color: var(--color-text-light);
 }
 
-/* Markdown 编辑器适配 */
-.note-textarea {
-  width: 100%;
-  min-height: 400px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.55);
-  padding: 16px;
-  font-size: 15px;
-  line-height: 1.8;
-  font-family: inherit;
-  color: var(--color-text-primary);
-  resize: vertical;
-  outline: none;
-  box-sizing: border-box;
-  margin-bottom: 24px;
-  transition: border-color 0.2s;
+.note-title-preview {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0 0 12px;
+  line-height: 1.3;
+  user-select: text;
 }
 
-.note-textarea:focus {
-  border-color: rgba(0, 0, 0, 0.2);
-  background: rgba(255, 255, 255, 0.75);
+.readonly-tags {
+  pointer-events: none;
+  margin-bottom: 16px;
 }
 
 /* 底部信息 */
@@ -489,7 +484,7 @@ onBeforeUnmount(() => {
 /* 日历关联 */
 .calendar-links {
   padding: 16px;
-  background: rgba(255,255,255,0.5);
+  background: rgba(255, 255, 255, 0.5);
   border-radius: var(--radius-md);
 }
 
@@ -551,7 +546,7 @@ onBeforeUnmount(() => {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.18);
+  background: rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -565,8 +560,15 @@ onBeforeUnmount(() => {
 }
 
 @keyframes popIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .btn-danger {

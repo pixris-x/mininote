@@ -20,12 +20,20 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    const existUser = await pool.query(
-      'SELECT id FROM users WHERE username = $1 OR email = $2',
-      [username, email]
+    const usernameCheck = await pool.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
     )
-    if (existUser.rows.length > 0) {
-      return res.status(400).json({ success: false, message: '用户名或邮箱已被注册' })
+    if (usernameCheck.rows.length > 0) {
+      return res.status(400).json({ success: false, message: '该用户名已被使用', field: 'username' })
+    }
+
+    const emailCheck = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    )
+    if (emailCheck.rows.length > 0) {
+      return res.status(400).json({ success: false, message: '该邮箱已被注册', field: 'email' })
     }
 
     const passwordHash = await bcrypt.hash(password, 10)
