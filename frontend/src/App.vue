@@ -12,6 +12,9 @@
       </div>
     </div>
 
+    <!-- 全局 Alert/Confirm 弹窗 -->
+    <AppAlert />
+
     <!-- 路由视图 -->
     <router-view v-slot="{ Component, route }">
       <transition name="page-fade" mode="out-in">
@@ -22,6 +25,7 @@
 </template>
 
 <script setup>
+import AppAlert from '@/components/AppAlert.vue'
 import { toasts } from '@/utils/toast'
 
 function toastIcon(type) {

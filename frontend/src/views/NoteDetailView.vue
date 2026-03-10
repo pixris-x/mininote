@@ -100,7 +100,7 @@
 
           <!-- 简单日期选择器 -->
           <div v-if="showCalPicker" class="date-picker">
-            <input v-model="newCalDate" type="date" class="input" :min="todayStr" />
+            <AppDatePicker v-model="newCalDate" placeholder="选择日期" :min-date="todayStr" />
             <button class="btn btn-primary btn-sm" @click="addCalDate" :disabled="!newCalDate">
               确认
             </button>
@@ -138,6 +138,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/AppLayout.vue'
+import AppDatePicker from '@/components/AppDatePicker.vue'
 import TiptapEditor from '@/components/TiptapEditor.vue'
 import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'
@@ -410,22 +411,6 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
-.tag-removable {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tag-removable button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 10px;
-  color: var(--theme-primary-dark);
-  padding: 0;
-  line-height: 1;
-}
-
 .inline-tag-input {
   border: none;
   border-bottom: 1px dashed var(--color-border);
@@ -543,42 +528,8 @@ onBeforeUnmount(() => {
 }
 
 /* 弹窗 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-}
-
 .modal-card {
   animation: popIn 0.2s ease;
 }
 
-@keyframes popIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.btn-danger {
-  background: #FF7B8A;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: var(--radius-full);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
 </style>

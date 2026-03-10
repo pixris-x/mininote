@@ -23,9 +23,14 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('minilist_token')
-      localStorage.removeItem('minilist_user')
-      window.location.href = '/login'
+      // 登录/注册/重置密码接口返回 401 是预期行为，不强制跳转
+      const url = error.config?.url || ''
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/reset-password')
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('minilist_token')
+        localStorage.removeItem('minilist_user')
+        window.location.href = '/login'
+      }
     }
     const data = error.response?.data || {}
     const message = data.message || '网络错误，请稍后重试'
@@ -88,6 +93,24 @@ export const expenseCategoryApi = {
   create: (data) => api.post('/expense-categories', data),
   update: (id, data) => api.put(`/expense-categories/${id}`, data),
   delete: (id) => api.delete(`/expense-categories/${id}`)
+}
+
+// ====== 计划 API ======
+export const planApi = {
+  getAll:   (params) => api.get('/plans', { params }),
+  getById:  (id)     => api.get(`/plans/${id}`),
+  create:   (data)   => api.post('/plans', data),
+  update:   (id, data) => api.put(`/plans/${id}`, data),
+  delete:   (id)     => api.delete(`/plans/${id}`)
+}
+
+// ====== 计划步骤 API ======
+export const planStepApi = {
+  getByPlan: (plan_id)     => api.get('/plan-steps', { params: { plan_id } }),
+  create:    (data)        => api.post('/plan-steps', data),
+  update:    (id, data)    => api.put(`/plan-steps/${id}`, data),
+  reorder:   (items)       => api.patch('/plan-steps/reorder', { items }),
+  delete:    (id)          => api.delete(`/plan-steps/${id}`)
 }
 
 // ====== 上传 API ======

@@ -1,0 +1,47 @@
+// ===== 按钮扩展样式 =====
+// 补充 main.scss 中基础 .btn 系列（.btn/.btn-primary 等已在 main.scss 定义）
+
+// 危险操作按钮（红色实心，用于删除确认弹窗）
+.btn-danger {
+  background: #FF7B8A;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter var(--transition);
+
+  &:hover {
+    filter: brightness(1.05);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// 小号图标按钮（弹窗内操作按钮）
+.btn-icon-sm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  transition: all var(--transition);
+
+  &:hover {
+    background: var(--color-border);
+    color: var(--color-text);
+  }
+}

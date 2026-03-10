@@ -954,40 +954,11 @@ onMounted(fetchStats)
 }
 
 /* 弹窗 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.18);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-}
-
 .modal-card {
   width: 100%;
   max-width: 380px;
   padding: 24px;
   animation: popIn 0.2s ease;
-}
-
-@keyframes popIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.btn-danger {
-  background: #FF7B8A;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: var(--radius-full);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
 }
 
 @media (max-width: 600px) {

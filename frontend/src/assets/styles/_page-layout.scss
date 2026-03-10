@@ -1,0 +1,32 @@
+// ===== 页面头部 / 加载占位公共样式 =====
+
+// 页头容器
+.page-header {
+  margin-bottom: 24px;
+}
+
+// 页面主标题
+.page-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+// 页面副标题
+.page-sub {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+// 居中加载占位（列表为空或加载中时）
+.loading-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}

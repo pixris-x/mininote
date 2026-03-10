@@ -101,14 +101,17 @@ function errorLoggerMiddleware(err, req, res, next) {
 
 /**
  * Express 请求日志中间件（仅记录 4xx/5xx）
+ * 使用 res.on('finish') 监听响应完成事件，兼容 Express 5
  */
+// 登录/注册失败是预期行为，不记录警告日志
+const SILENT_ROUTES = new Set(['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password'])
+
 function requestLoggerMiddleware(req, res, next) {
-  const originalJson = res.json.bind(res)
-  res.json = function (body) {
-    if (res.statusCode >= 400) {
+  res.on('finish', () => {
+    if (res.statusCode >= 400 && !SILENT_ROUTES.has(req.path)) {
       const userId = req.user?.id || null
       const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
-      logger.warn(body?.message || `HTTP ${res.statusCode}`, {
+      logger.warn(`HTTP ${res.statusCode} ${req.method} ${req.path}`, {
         route: req.path,
         method: req.method,
         statusCode: res.statusCode,
@@ -116,8 +119,7 @@ function requestLoggerMiddleware(req, res, next) {
         ip
       })
     }
-    return originalJson(body)
-  }
+  })
   next()
 }
 

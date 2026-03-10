@@ -1,0 +1,42 @@
+// ===== 弹窗公共样式 =====
+// 全项目通用：NotesView / NoteDetailView / CalendarView / ProfileView / AdminView / PlanView
+
+// 遮罩层
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+// 弹出动画（keyframes 本身不受 scoped 限制，定义一次全局生效）
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+// 弹窗头部（flex 布局 + 标题字号）
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  h2, h3 {
+    font-size: 18px;
+    font-weight: 700;
+  }
+}
+
+// 弹窗底部操作栏
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+
+}

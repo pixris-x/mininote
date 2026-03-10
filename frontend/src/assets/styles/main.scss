@@ -1,3 +1,10 @@
+// ===== 公共分块样式导入 =====
+@use 'modal';
+@use 'page-layout';
+@use 'filter';
+@use 'forms';
+@use 'buttons';
+
 /* ===== MiniList 全局样式 - 扁平化可爱风 ===== */
 
 /* 主题色变量 */
@@ -108,6 +115,8 @@
 html {
     font-size: 16px;
     -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
     text-size-adjust: 100%;
 }
 
@@ -119,6 +128,7 @@ body {
     min-height: 100vh;
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* 滚动条美化 */

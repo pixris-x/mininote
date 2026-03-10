@@ -76,14 +76,14 @@ router.post('/login', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' })
+      return res.status(401).json({ success: false, message: '账号不存在，请检查用户名或邮筱' })
     }
 
     const user = result.rows[0]
     const isValid = await bcrypt.compare(password, user.password_hash)
 
     if (!isValid) {
-      return res.status(401).json({ success: false, message: '用户名或密码错误' })
+      return res.status(401).json({ success: false, message: '密码错误，请重新输入' })
     }
 
     const token = jwt.sign(

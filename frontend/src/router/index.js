@@ -48,6 +48,12 @@ const routes = [
     meta: { requiresAuth: true, title: '记账本' }
   },
   {
+    path: '/plans',
+    name: 'Plans',
+    component: () => import('@/views/PlanView.vue'),
+    meta: { requiresAuth: true, title: '我的计划 - MiniList' }
+  },
+  {
     path: '/admin',
     name: 'Admin',
     component: () => import('@/views/AdminView.vue'),

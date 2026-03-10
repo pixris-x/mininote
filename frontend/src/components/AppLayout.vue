@@ -72,7 +72,8 @@ function toggleCollapse() {
 
 const navItems = computed(() => {
   const items = [
-    { name: 'Notes', path: '/notes', icon: '📝', label: '记事' },
+    { name: 'Notes',   path: '/notes',   icon: '📝', label: '记事' },
+    { name: 'Plans',   path: '/plans',   icon: '🎯', label: '计划' },
     { name: 'Calendar', path: '/calendar', icon: '📅', label: '日历' },
     { name: 'Expense', path: '/expense', icon: '💰', label: '记账' },
     { name: 'Profile', path: '/profile', icon: '🌸', label: '我的' }

@@ -325,27 +325,11 @@ onMounted(fetchData)
   margin: 0 auto;
 }
 
-.page-header {
-  margin-bottom: 24px;
-}
-
 .header-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 16px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-.page-sub {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-top: 2px;
 }
 
 /* 搜索 */
@@ -400,37 +384,6 @@ onMounted(fetchData)
   flex-wrap: wrap;
 }
 
-.filter-btn {
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  border: 2px solid var(--color-border);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  background: transparent;
-  color: var(--color-text-secondary);
-  transition: all var(--transition);
-  font-family: inherit;
-}
-
-.filter-btn.active,
-.filter-btn:hover {
-  border-color: var(--theme-primary);
-  background: var(--theme-primary-light);
-  color: var(--theme-primary-dark);
-}
-
-/* 加载 */
-.loading-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 48px;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-}
-
 /* 笔记区块 */
 .notes-section {
   margin-bottom: 20px;
@@ -458,18 +411,6 @@ onMounted(fetchData)
 }
 
 /* 弹窗 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-}
-
 .modal-card {
   width: 100%;
   max-width: 480px;
@@ -477,23 +418,6 @@ onMounted(fetchData)
   overflow-y: auto;
   padding: 24px;
   animation: popIn 0.2s ease;
-}
-
-@keyframes popIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.modal-header h2 {
-  font-size: 18px;
-  font-weight: 700;
 }
 
 .create-form {
@@ -602,9 +526,6 @@ onMounted(fetchData)
 }
 
 .modal-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
   margin-top: 4px;
 }
 
@@ -632,20 +553,11 @@ onMounted(fetchData)
 }
 
 .btn-danger {
-  background: #FF7B8A;
-  color: white;
-  border: none;
   box-shadow: 0 4px 12px rgba(255, 80, 100, 0.25);
 }
 
-.btn-danger:hover {
-  filter: brightness(1.05);
-}
-
 .form-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  font-size: 12px; /* 此处比全局 13px 略小，保留 */
   flex-shrink: 0;
 }
 </style>

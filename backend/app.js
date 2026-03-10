@@ -10,6 +10,8 @@ const adminRoutes = require('./routes/admin')
 const expensesRoutes = require('./routes/expenses')
 const expenseCategoriesRoutes = require('./routes/expense-categories')
 const uploadRoutes = require('./routes/upload')
+const plansRoutes = require('./routes/plans')
+const planStepsRoutes = require('./routes/plan-steps')
 const { errorLoggerMiddleware, requestLoggerMiddleware } = require('./utils/logger')
 
 const app = express()
@@ -47,6 +49,8 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/expenses', expensesRoutes)
 app.use('/api/expense-categories', expenseCategoriesRoutes)
 app.use('/api/upload', uploadRoutes)
+app.use('/api/plans', plansRoutes)
+app.use('/api/plan-steps', planStepsRoutes)
 
 // 404 处理
 app.use((req, res) => {

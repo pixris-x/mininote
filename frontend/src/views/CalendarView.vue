@@ -561,19 +561,7 @@ onMounted(async () => {
   }
 }
 
-.page-header { margin-bottom: 20px; }
-
-.page-title {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--color-text);
-}
-
-.page-sub {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-top: 2px;
-}
+.page-header { margin-bottom: 20px; } /* 局部覆盖全局 24px */
 
 /* 月份导航 */
 .month-nav {
@@ -806,18 +794,6 @@ onMounted(async () => {
 }
 
 /* 弹窗 */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.18);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-}
-
 .modal-card {
   width: 100%;
   max-width: 440px;
@@ -827,16 +803,8 @@ onMounted(async () => {
   animation: popIn 0.2s ease;
 }
 
-@keyframes popIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
 .modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 16px; /* 局部覆盖全局 20px */
 }
 
 .modal-header h2 {
@@ -1029,18 +997,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
 }
 
 .quick-note-textarea {

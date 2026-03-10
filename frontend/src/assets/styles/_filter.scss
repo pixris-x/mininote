@@ -1,0 +1,22 @@
+// ===== 筛选胶囊按钮公共样式 =====
+// 用于 NotesView / PlanView 等页面的过滤器
+
+.filter-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: all var(--transition);
+  font-family: inherit;
+
+  &.active,
+  &:hover {
+    border-color: var(--theme-primary);
+    background: var(--theme-primary-light);
+    color: var(--theme-primary-dark);
+  }
+}

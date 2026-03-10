@@ -272,7 +272,7 @@
                                 </div>
                                 <div class="modal-field">
                                     <div class="modal-label">日期</div>
-                                    <input v-model="form.expense_date" type="date" class="modal-input" />
+                                    <AppDatePicker v-model="form.expense_date" placeholder="选择消费日期" />
                                 </div>
                             </div>
                             <div class="modal-actions">
@@ -340,6 +340,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import AppLayout from '@/components/AppLayout.vue'
+import AppDatePicker from '@/components/AppDatePicker.vue'
 import * as echarts from 'echarts/core'
 import { LineChart, PieChart } from 'echarts/charts'
 import {
@@ -349,6 +350,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 echarts.use([LineChart, PieChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 import { useExpenseStore } from '@/stores/expense'
 import { toast } from '@/utils/toast'
+import { showConfirm } from '@/utils/alert'
 import dayjs from 'dayjs'
 
 const store = useExpenseStore()
@@ -626,7 +628,14 @@ async function handleSave() {
 }
 
 async function handleDelete() {
-    if (!editingExpense.value || !confirm('确认删除这条记录？')) return
+    if (!editingExpense.value) return
+    const ok = await showConfirm('确认删除这条记录？', {
+        title: '删除记录',
+        icon: '🗑️',
+        confirmText: '删除',
+        variant: 'danger',
+    })
+    if (!ok) return
     saving.value = true
     try {
         const res = await store.deleteExpense(editingExpense.value.id)
@@ -655,7 +664,13 @@ async function handleAddCat() {
     } catch (e) { toast.error(e.message || '添加失败') }
 }
 async function handleDeleteCat(id) {
-    if (!confirm('删除该分类？（已有记录不受影响）')) return
+    const ok = await showConfirm('删除该分类？（已有记录不受影响）', {
+        title: '删除分类',
+        icon: '🗑️',
+        confirmText: '删除',
+        variant: 'danger',
+    })
+    if (!ok) return
     try {
         const res = await store.deleteCategory(id)
         if (res.success) toast.success('已删除')

@@ -1,0 +1,65 @@
+// ===== 表单公共样式 =====
+
+// 表单分组（label + input 竖向排列）
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+// 表单标签
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+// 通用表单输入框（较 .input 更紧凑，适用于弹窗内）
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--transition);
+  font-family: inherit;
+
+  &:focus {
+    border-color: var(--theme-primary);
+    box-shadow: 0 0 0 3px var(--theme-primary-light);
+  }
+
+  &::placeholder {
+    color: var(--color-text-light);
+  }
+}
+
+// 错误提示框
+.error-msg {
+  background: #FFE0E0;
+  color: #C0392B;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+// 可移除标签片段（标签输入、笔记详情等通用）
+.tag-removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--theme-primary-dark);
+    padding: 0;
+    line-height: 1;
+  }
+}

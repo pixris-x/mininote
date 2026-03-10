@@ -457,47 +457,11 @@ onMounted(() => {
 }
 
 /* 弹窗 */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.18);
-    backdrop-filter: blur(4px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 16px;
-}
-
 .modal-card {
     width: 100%;
     max-width: 420px;
     padding: 24px;
     animation: popIn 0.2s ease;
-}
-
-@keyframes popIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-.modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-
-.modal-header h2 {
-    font-size: 18px;
-    font-weight: 700;
 }
 
 .edit-form {
@@ -506,29 +470,7 @@ onMounted(() => {
     gap: 14px;
 }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
 .form-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text);
-}
-
-.error-msg {
-    background: #FFE0E0;
-    color: #C0392B;
-    border-radius: var(--radius-md);
-    padding: 10px 14px;
-    font-size: 13px;
-}
-
-.modal-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-end;
+    color: var(--color-text); /* 覆盖全局的 color-text-secondary，此页使用深色 */
 }
 </style>
