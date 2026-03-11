@@ -75,7 +75,7 @@
                     <div class="timeline-header">
                         <div class="timeline-header-left">
                             <span class="timeline-plan-icon">{{ planStore.currentPlan?.icon }}</span>
-                            <div>
+                            <div class="timeline-header-info">
                                 <h2 class="timeline-plan-title">{{ planStore.currentPlan?.title }}</h2>
                                 <p v-if="planStore.currentPlan?.description" class="timeline-plan-desc">
                                     {{ planStore.currentPlan?.description }}
@@ -137,7 +137,15 @@
                                 </div>
 
                                 <h3 class="timeline-card-title">{{ step.title }}</h3>
-                                <p v-if="step.description" class="timeline-card-desc">{{ step.description }}</p>
+                                <div v-if="step.description" class="timeline-card-desc-wrap">
+                                    <p class="timeline-card-desc"
+                                        :class="{ 'is-clamped': isDescLong(step) && !isDescExpanded(step) }"
+                                    >{{ step.description }}</p>
+                                    <button v-if="isDescLong(step)" class="desc-toggle-btn"
+                                        @click.stop="toggleDesc(step)">
+                                        {{ isDescExpanded(step) ? '▲ 收起' : '▼ 展开' }}
+                                    </button>
+                                </div>
 
                                 <!-- 地图导航按钮 -->
                                 <div v-if="step.location" class="step-map-links">
@@ -460,6 +468,15 @@ const shareUrl = computed(() => shareToken.value ? `${window.location.origin}/sh
 const editingPlan = ref(null)
 const editingStep = ref(null)
 const previewState = ref({ show: false, imgs: [], index: 0 })
+const expandedDescs = ref(new Set())
+const DESC_LIMIT = 120
+function isDescLong(step) { return (step.description || '').length > DESC_LIMIT }
+function isDescExpanded(step) { return expandedDescs.value.has(step.id) }
+function toggleDesc(step) {
+    const s = expandedDescs.value
+    s.has(step.id) ? s.delete(step.id) : s.add(step.id)
+    expandedDescs.value = new Set(s)
+}
 const uploadingItems = ref([]) // [{ id, localUrl }]
 const uploading = computed(() => uploadingItems.value.length > 0)
 
@@ -1130,6 +1147,8 @@ async function handleImgUpload(e) {
     display: flex;
     align-items: flex-start;
     gap: 12px;
+    flex: 1;
+    min-width: 0;
 }
 
 .timeline-plan-icon {
@@ -1147,6 +1166,14 @@ async function handleImgUpload(e) {
     font-size: 0.85rem;
     color: var(--color-text-secondary);
     margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.timeline-header-info {
+    min-width: 0;
 }
 
 /* ── 时间线 ── */
@@ -1284,13 +1311,39 @@ async function handleImgUpload(e) {
     margin-bottom: 6px;
 }
 
+.timeline-card-desc-wrap {
+    margin-bottom: 10px;
+}
+
 .timeline-card-desc {
     font-size: 0.85rem;
     color: var(--color-text-secondary);
     line-height: 1.6;
-    margin-bottom: 10px;
     white-space: pre-wrap;
+    margin: 0;
+    overflow: hidden;
 }
+
+.timeline-card-desc.is-clamped {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    white-space: normal;
+}
+
+.desc-toggle-btn {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--theme-primary-dark);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-weight: 600;
+    transition: opacity 0.15s;
+}
+.desc-toggle-btn:hover { opacity: 0.7; }
 
 /* ── 时间线卡片多图网格 ── */
 .step-img-grid {

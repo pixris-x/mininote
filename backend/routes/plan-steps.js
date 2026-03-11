@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/plan-steps — 新增步骤
 router.post('/', async (req, res) => {
-  const { plan_id, title, description, badge, badge_color, due_date, start_date, sort_order, image_urls, location } = req.body
+  const { plan_id, title, description, status, badge, badge_color, due_date, start_date, sort_order, image_urls, location } = req.body
   if (!plan_id || !title?.trim()) {
     return res.status(400).json({ success: false, message: 'plan_id 和步骤标题不能为空' })
   }
@@ -55,23 +55,27 @@ router.post('/', async (req, res) => {
   }
 
   const urlsJson = JSON.stringify(Array.isArray(image_urls) ? image_urls : [])
+  const stepStatus = status || 'pending'
+  const completedAt = stepStatus === 'completed' ? new Date() : null
 
   const result = await pool.query(
     `INSERT INTO plan_steps
-       (plan_id, user_id, title, description, badge, badge_color, due_date, sort_order, image_urls, location, start_date)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
+       (plan_id, user_id, title, description, status, badge, badge_color, due_date, sort_order, image_urls, location, start_date, completed_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13)
      RETURNING *`,
     [
       plan_id, req.user.id,
       title.trim(),
       description || '',
+      stepStatus,
       badge || '',
       badge_color || '',
       due_date || null,
       nextOrder,
       urlsJson,
       location || '',
-      start_date || null
+      start_date || null,
+      completedAt
     ]
   )
   res.status(201).json({ success: true, data: result.rows[0] })
