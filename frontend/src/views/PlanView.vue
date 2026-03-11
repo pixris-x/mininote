@@ -271,7 +271,7 @@
         </div>
 
         <!-- ── 步骤 Modal ── -->
-        <div v-if="showStepModal" class="modal-overlay" @click.self="showStepModal = false">
+        <div v-if="showStepModal" class="modal-overlay">
             <div class="modal modal-lg">
                 <div class="modal-header">
                     <h3>{{ editingStep?.id ? '编辑步骤' : '添加步骤' }}</h3>
