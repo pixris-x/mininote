@@ -120,4 +120,43 @@ router.delete('/:id', async (req, res) => {
   res.json({ success: true, message: '计划已删除' })
 })
 
+// POST /api/plans/:id/share — 生成或获取分享 token
+const crypto = require('crypto')
+router.post('/:id/share', async (req, res) => {
+  const check = await pool.query(
+    'SELECT id, share_token FROM plans WHERE id = $1 AND user_id = $2',
+    [req.params.id, req.user.id]
+  )
+  if (check.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '计划不存在' })
+  }
+
+  let token = check.rows[0].share_token
+  if (!token) {
+    token = crypto.randomBytes(32).toString('hex')
+    await pool.query(
+      'UPDATE plans SET share_token = $1 WHERE id = $2 AND user_id = $3',
+      [token, req.params.id, req.user.id]
+    )
+  }
+
+  res.json({ success: true, token })
+})
+
+// DELETE /api/plans/:id/share — 撤销分享 token
+router.delete('/:id/share', async (req, res) => {
+  const check = await pool.query(
+    'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
+    [req.params.id, req.user.id]
+  )
+  if (check.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '计划不存在' })
+  }
+  await pool.query(
+    'UPDATE plans SET share_token = NULL WHERE id = $1 AND user_id = $2',
+    [req.params.id, req.user.id]
+  )
+  res.json({ success: true, message: '分享已撤销' })
+})
+
 module.exports = router

@@ -101,7 +101,9 @@ export const planApi = {
   getById:  (id)     => api.get(`/plans/${id}`),
   create:   (data)   => api.post('/plans', data),
   update:   (id, data) => api.put(`/plans/${id}`, data),
-  delete:   (id)     => api.delete(`/plans/${id}`)
+  delete:   (id)     => api.delete(`/plans/${id}`),
+  share:    (id)     => api.post(`/plans/${id}/share`),
+  unshare:  (id)     => api.delete(`/plans/${id}/share`)
 }
 
 // ====== 计划步骤 API ======

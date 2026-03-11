@@ -52,6 +52,35 @@ app.use('/api/upload', uploadRoutes)
 app.use('/api/plans', plansRoutes)
 app.use('/api/plan-steps', planStepsRoutes)
 
+// 公开分享只读接口（无需登录）
+const pool = require('./config/db')
+app.get('/api/share/:token', async (req, res) => {
+  const { token } = req.params
+  const planRes = await pool.query(
+    `SELECT p.id, p.title, p.description, p.color, p.icon, p.status,
+            u.nickname AS author_name
+     FROM plans p
+     JOIN users u ON u.id = p.user_id
+     WHERE p.share_token = $1`,
+    [token]
+  )
+  if (planRes.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '分享链接无效或已失效' })
+  }
+
+  const plan = planRes.rows[0]
+  const stepsRes = await pool.query(
+    `SELECT id, title, description, status, badge, badge_color,
+            due_date, start_date, image_urls, location, sort_order
+     FROM plan_steps
+     WHERE plan_id = $1
+     ORDER BY sort_order ASC, created_at ASC`,
+    [plan.id]
+  )
+
+  res.json({ success: true, data: { ...plan, steps: stepsRes.rows } })
+})
+
 // 404 处理
 app.use((req, res) => {
   res.status(404).json({ success: false, message: '接口不存在' })

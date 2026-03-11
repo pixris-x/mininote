@@ -83,6 +83,7 @@
                             </div>
                         </div>
                         <button class="btn btn-primary btn-sm" @click="openStepModal()">＋ 添加步骤</button>
+                        <button class="btn btn-ghost btn-sm" @click="openShareModal()" title="分享计划">🔗 分享</button>
                     </div>
 
                     <!-- 加载中 -->
@@ -138,6 +139,28 @@
                                 <h3 class="timeline-card-title">{{ step.title }}</h3>
                                 <p v-if="step.description" class="timeline-card-desc">{{ step.description }}</p>
 
+                                <!-- 地图导航按钮 -->
+                                <div v-if="step.location" class="step-map-links">
+                                    <span class="step-map-label">📍 {{ step.location }}</span>
+                                    <div class="step-map-btns">
+                                        <a :href="`https://ditu.amap.com/search?query=${encodeURIComponent(step.location)}`"
+                                            target="_blank" class="map-btn map-btn--amap" title="高德地图导航">
+                                            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                                            高德
+                                        </a>
+                                        <a :href="`http://api.map.baidu.com/geocoder?address=${encodeURIComponent(step.location)}&output=html&src=minilist`"
+                                            target="_blank" class="map-btn map-btn--baidu" title="百度地图导航">
+                                            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                                            百度
+                                        </a>
+                                        <a :href="`https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(step.location)}&referer=minilist`"
+                                            target="_blank" class="map-btn map-btn--tencent" title="腾讯地图导航">
+                                            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                                            腾讯
+                                        </a>
+                                    </div>
+                                </div>
+
                                 <!-- 多图网格 -->
                                 <div v-if="stepImgList(step).length" class="step-img-grid"
                                     :class="`grid-${Math.min(3, stepImgList(step).length)}`">
@@ -151,6 +174,10 @@
                                 </div>
 
                                 <div class="timeline-card-footer">
+                                    <!-- 开始日期 -->
+                                    <span v-if="step.start_date" class="step-start">
+                                        🗓️ {{ formatDate(step.start_date) }}
+                                    </span>
                                     <!-- 截止日期 -->
                                     <span v-if="step.due_date" class="step-due" :class="{ overdue: isOverdue(step) }">
                                         📅 {{ formatDate(step.due_date) }}
@@ -269,7 +296,13 @@
                             <input v-model="stepForm.badge" class="form-input mt-8" placeholder="或输入自定义标识..."
                                 maxlength="20" />
                         </div>
+                    </div>
 
+                    <div class="form-row-dates">
+                        <div class="form-group">
+                            <label>开始日期</label>
+                            <AppDatePicker v-model="stepForm.start_date" placeholder="选择开始日期" />
+                        </div>
                         <div class="form-group">
                             <label>截止日期</label>
                             <AppDatePicker v-model="stepForm.due_date" placeholder="选择截止日期" />
@@ -284,6 +317,12 @@
                                     s.icon }}
                                 {{ s.label }}</button>
                         </div>
+                    </div>
+
+                    <!-- 多图上传（最多9张） -->
+                    <div class="form-group">
+                        <label>📍 地点地址 <span class="form-label-hint">支持条目名、地址、地标居民地址等</span></label>
+                        <input v-model="stepForm.location" class="form-input" placeholder="例：北京天安门、上海赛克巴孙大道100号..." maxlength="200" />
                     </div>
 
                     <!-- 多图上传（最多9张） -->
@@ -321,18 +360,58 @@
             </div>
         </div>
 
+        <!-- ── 分享弹窗 ── -->
+        <Teleport to="body">
+            <div v-if="showShareModal" class="share-modal-overlay" @click.self="showShareModal = false">
+                <div class="share-modal">
+                    <div class="share-modal-header">
+                        <h3>🔗 分享计划</h3>
+                        <button class="modal-close" @click="showShareModal = false">✕</button>
+                    </div>
+                    <div class="share-tabs">
+                        <button :class="['share-tab', { active: shareTab === 'link' }]" @click="shareTab = 'link'">🔗 分享链接</button>
+                        <button :class="['share-tab', { active: shareTab === 'image' }]" @click="shareTab = 'image'">🖼️ 生成图片</button>
+                    </div>
+
+                    <div v-if="shareTab === 'link'" class="share-panel">
+                        <p class="share-desc">生成一个公开链接，任何人通过此链接可以只读查看此计划。</p>
+                        <div v-if="shareToken" class="share-link-box">
+                            <span class="share-link-text">{{ shareUrl }}</span>
+                            <button class="btn btn-primary btn-sm" @click="copyShareLink">{{ copied ? '✅ 已复制' : '复制' }}</button>
+                        </div>
+                        <div class="share-link-actions">
+                            <button v-if="!shareToken" class="btn btn-primary" :disabled="shareLoading" @click="generateShareToken">
+                                {{ shareLoading ? '生成中...' : '生成分享链接' }}
+                            </button>
+                            <button v-if="shareToken" class="btn btn-ghost btn-sm share-revoke-btn" :disabled="shareLoading" @click="revokeShareToken">
+                                {{ shareLoading ? '撤销中...' : '撤销链接' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="shareTab === 'image'" class="share-panel">
+                        <p class="share-desc">将当前计划步骤列表截图保存为 PNG 图片。</p>
+                        <button class="btn btn-primary" :disabled="exportingImage" @click="exportAsImage">
+                            {{ exportingImage ? '生成中...' : '📸 生成并下载图片' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
     </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import { usePlanStore } from '@/stores/plans'
-import { uploadApi } from '@/api'
+import { uploadApi, planApi } from '@/api'
 import { toast } from '@/utils/toast'
 import { showConfirm } from '@/utils/alert'
 import dayjs from 'dayjs'
+import html2canvas from 'html2canvas'
 
 const planStore = usePlanStore()
 
@@ -371,6 +450,13 @@ const activeFilter = ref('')
 const currentPlanId = ref(null)
 const showPlanModal = ref(false)
 const showStepModal = ref(false)
+const showShareModal = ref(false)
+const shareTab = ref('link')
+const shareToken = ref('')
+const shareLoading = ref(false)
+const copied = ref(false)
+const exportingImage = ref(false)
+const shareUrl = computed(() => shareToken.value ? `${window.location.origin}/share/${shareToken.value}` : '')
 const editingPlan = ref(null)
 const editingStep = ref(null)
 const previewState = ref({ show: false, imgs: [], index: 0 })
@@ -378,7 +464,7 @@ const uploadingItems = ref([]) // [{ id, localUrl }]
 const uploading = computed(() => uploadingItems.value.length > 0)
 
 const planForm = ref({ title: '', description: '', color: '#FFFFFF', icon: '🎯', status: 'active' })
-const stepForm = ref({ title: '', description: '', status: 'pending', badge: '', badge_color: '', image_urls: [], due_date: '' })
+const stepForm = ref({ title: '', description: '', status: 'pending', badge: '', badge_color: '', image_urls: [], start_date: '', due_date: '', location: '' })
 
 // ── 计算 ────────────────────────────────────────────────────────
 const filteredPlans = computed(() =>
@@ -469,9 +555,11 @@ function openStepModal(step = null) {
             title: step.title, description: step.description, status: step.status,
             badge: step.badge, badge_color: step.badge_color,
             image_urls: imgs,
-            due_date: step.due_date ? formatDate(step.due_date) : ''
+            start_date: step.start_date ? formatDate(step.start_date) : '',
+            due_date: step.due_date ? formatDate(step.due_date) : '',
+            location: step.location || ''
         }
-        : { title: '', description: '', status: 'pending', badge: '', badge_color: '', image_urls: [], due_date: '' }
+        : { title: '', description: '', status: 'pending', badge: '', badge_color: '', image_urls: [], start_date: '', due_date: '', location: '' }
     showStepModal.value = true
 }
 
@@ -496,6 +584,224 @@ async function changeStepStatus(step, status) {
         await planStore.updateStep(step.id, { status })
     } catch (e) {
         toast.error(e.message)
+    }
+}
+
+// ── 分享功能 ────────────────────────────────────────────────────
+function openShareModal() {
+    shareTab.value = 'link'
+    copied.value = false
+    // 如果当前计划已有 token，直接展示
+    shareToken.value = planStore.currentPlan?.share_token || ''
+    showShareModal.value = true
+}
+
+async function generateShareToken() {
+    shareLoading.value = true
+    try {
+        const res = await planApi.share(currentPlanId.value)
+        shareToken.value = res.token
+        // 同步到 store
+        if (planStore.currentPlan) planStore.currentPlan.share_token = res.token
+    } catch (e) {
+        toast.error(e.message)
+    } finally {
+        shareLoading.value = false
+    }
+}
+
+async function revokeShareToken() {
+    const ok = await showConfirm('撤销后此链接将立即失效，确定吗？', { title: '撤销分享', confirmText: '撤销', variant: 'danger' })
+    if (!ok) return
+    shareLoading.value = true
+    try {
+        await planApi.unshare(currentPlanId.value)
+        shareToken.value = ''
+        if (planStore.currentPlan) planStore.currentPlan.share_token = null
+        toast.success('分享链接已撤销')
+    } catch (e) {
+        toast.error(e.message)
+    } finally {
+        shareLoading.value = false
+    }
+}
+
+async function copyShareLink() {
+    try {
+        await navigator.clipboard.writeText(shareUrl.value)
+        copied.value = true
+        setTimeout(() => { copied.value = false }, 2000)
+    } catch {
+        toast.error('复制失败，请手动复制')
+    }
+}
+
+async function exportAsImage() {
+    exportingImage.value = true
+    const plan = planStore.currentPlan
+    if (!plan) { exportingImage.value = false; return }
+
+    try {
+        const statusIcon = { pending: '⬜', in_progress: '🔄', completed: '✅', skipped: '⏭️' }
+        const doneCnt = plan.steps.filter(s => s.status === 'completed').length
+        const pct = plan.steps.length ? Math.round(doneCnt / plan.steps.length * 100) : 0
+
+        // ── 构建离屏容器，样式与 ShareView 保持一致 ──────────────
+        const root = document.createElement('div')
+        root.style.cssText = `
+            position:fixed; left:-9999px; top:0;
+            width:720px; background:#fafafa;
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+            padding:0 0 40px; box-sizing:border-box;
+        `
+
+        // Header
+        const header = document.createElement('div')
+        header.style.cssText = `
+            display:flex; align-items:center; justify-content:space-between;
+            padding:14px 28px; background:#fff;
+            border-bottom:1px solid #f0f0f0; margin-bottom:0;
+        `
+        header.innerHTML = `
+            <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:16px;">
+                <span style="font-size:18px;">🌸</span> MiniList
+            </div>
+            <span style="font-size:12px;color:#aaa;">${dayjs().format('YYYY-MM-DD')} 导出</span>
+        `
+
+        // Plan header block
+        const planHeader = document.createElement('div')
+        planHeader.style.cssText = `
+            display:flex; align-items:flex-start; gap:14px;
+            padding:24px 28px 20px; background:#fff;
+            border-bottom:1px solid #f0f0f0; flex-wrap:wrap;
+        `
+        planHeader.innerHTML = `
+            <span style="font-size:40px;line-height:1;">${plan.icon || '🎯'}</span>
+            <div style="flex:1;">
+                <div style="font-size:20px;font-weight:800;color:#222;margin-bottom:4px;">${plan.title}</div>
+                ${plan.description ? `<div style="font-size:13px;color:#888;">${plan.description}</div>` : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:130px;">
+                <div style="width:130px;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#f9a8d4,#ec4899);border-radius:3px;"></div>
+                </div>
+                <span style="font-size:12px;color:#aaa;">${doneCnt} / ${plan.steps.length} 完成</span>
+            </div>
+        `
+
+        // Steps
+        const timeline = document.createElement('div')
+        timeline.style.cssText = `padding:20px 28px 0; display:flex; flex-direction:column; gap:0;`
+
+        for (let i = 0; i < plan.steps.length; i++) {
+            const step = plan.steps[i]
+            const isCompleted = step.status === 'completed'
+
+            const row = document.createElement('div')
+            row.style.cssText = `display:flex; gap:12px; position:relative;`
+
+            // connecting line
+            if (i < plan.steps.length - 1) {
+                const line = document.createElement('div')
+                line.style.cssText = `
+                    position:absolute; left:15px; top:34px; bottom:-16px;
+                    width:2px; background:#f0f0f0; z-index:0;
+                `
+                row.appendChild(line)
+            }
+
+            // dot
+            const dot = document.createElement('div')
+            dot.style.cssText = `
+                width:30px; height:30px; border-radius:50%; flex-shrink:0;
+                background:${isCompleted ? '#d4f5e9' : '#fff'};
+                border:2px solid ${isCompleted ? '#27ae60' : '#e8e8e8'};
+                display:flex; align-items:center; justify-content:center;
+                font-size:12px; margin-top:4px; position:relative; z-index:1;
+            `
+            dot.textContent = statusIcon[step.status] || '⬜'
+
+            // card
+            const card = document.createElement('div')
+            card.style.cssText = `
+                flex:1; background:#fff; border:1px solid #f0f0f0;
+                border-radius:10px; padding:12px 14px; margin-bottom:16px;
+                opacity:${isCompleted ? '0.75' : '1'};
+            `
+
+            // card head
+            let headHtml = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <span style="font-weight:600;font-size:14px;color:#222;
+                        ${isCompleted ? 'text-decoration:line-through;color:#aaa;' : ''}">
+                        ${step.title}
+                    </span>
+            `
+            if (step.badge) {
+                const bc = step.badge_color || '#888'
+                headHtml += `
+                    <span style="font-size:11px;padding:2px 8px;border-radius:20px;
+                        background:${bc}22;color:${bc};border:1px solid ${bc}44;">
+                        ${step.badge}
+                    </span>`
+            }
+            headHtml += `</div>`
+
+            if (step.description) {
+                headHtml += `<p style="font-size:13px;color:#888;margin:4px 0 8px;line-height:1.6;">${step.description}</p>`
+            }
+
+            // dates
+            const dates = []
+            if (step.start_date) dates.push(`🗓️ 开始：${dayjs(step.start_date).format('YYYY-MM-DD')}`)
+            if (step.due_date) {
+                const overdue = step.status !== 'completed' && dayjs(step.due_date).isBefore(dayjs(), 'day')
+                dates.push(`<span style="color:${overdue ? '#e17055' : '#aaa'};">📅 截止：${dayjs(step.due_date).format('YYYY-MM-DD')}</span>`)
+            }
+            if (dates.length) {
+                headHtml += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:#aaa;">${dates.join('')}</div>`
+            }
+
+            // location
+            if (step.location) {
+                headHtml += `<div style="font-size:12px;color:#aaa;margin-bottom:8px;">📍 ${step.location}</div>`
+            }
+
+            card.innerHTML = headHtml
+
+            row.appendChild(dot)
+            row.appendChild(card)
+            timeline.appendChild(row)
+        }
+
+        root.appendChild(header)
+        root.appendChild(planHeader)
+        root.appendChild(timeline)
+        document.body.appendChild(root)
+
+        await new Promise(r => setTimeout(r, 200)) // 等待图片渲染
+
+        const canvas = await html2canvas(root, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#fafafa',
+            scale: 2,
+            width: 720,
+            windowWidth: 720
+        })
+
+        document.body.removeChild(root)
+
+        const link = document.createElement('a')
+        link.download = `${plan.title || '计划'}-${dayjs().format('YYYYMMDD')}.png`
+        link.href = canvas.toDataURL('image/png')
+        link.click()
+        toast.success('图片已生成并下载 🎉')
+    } catch (e) {
+        toast.error('生成图片失败: ' + e.message)
+    } finally {
+        exportingImage.value = false
     }
 }
 
@@ -1055,6 +1361,11 @@ async function handleImgUpload(e) {
     font-weight: 600;
 }
 
+.step-start {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+
 .step-completed-at {
     font-size: 0.75rem;
     color: #27ae60;
@@ -1195,6 +1506,13 @@ async function handleImgUpload(e) {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+}
+
+.form-row-dates {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
 .mt-8 {
@@ -1520,5 +1838,167 @@ async function handleImgUpload(e) {
     .plan-card-actions {
         opacity: 1;
     }
+}
+
+/* ── 地图导航 ── */
+.step-map-links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 6px 0 4px;
+    padding: 8px 10px;
+    background: var(--theme-primary-light);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--theme-primary);
+}
+
+.step-map-label {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+    word-break: break-all;
+}
+
+.step-map-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.map-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity 0.15s, transform 0.1s;
+    line-height: 1;
+}
+.map-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+.map-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.map-btn:active { transform: scale(0.97); }
+
+.map-btn--amap {
+    background: #1aad19;
+    color: #fff;
+}
+.map-btn--baidu {
+    background: #3385ff;
+    color: #fff;
+}
+.map-btn--tencent {
+    background: #07C160;
+    color: #fff;
+}
+
+/* ── 分享弹窗 ── */
+.share-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    backdrop-filter: blur(4px);
+}
+
+.share-modal {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    width: 420px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: modalSlideIn 0.2s ease;
+}
+
+.share-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.share-modal-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.share-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.share-tab {
+    flex: 1;
+    padding: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.share-tab.active {
+    color: var(--theme-primary-dark);
+    border-bottom-color: var(--theme-primary-dark);
+}
+
+.share-panel {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.share-desc {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.share-link-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+}
+
+.share-link-text {
+    flex: 1;
+    font-size: 0.78rem;
+    color: var(--color-text-secondary);
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.share-link-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.share-revoke-btn {
+    color: #e17055;
+    border-color: #e1705544;
+}
+
+.share-revoke-btn:hover {
+    background: #e1705522;
+    border-color: #e17055;
 }
 </style>

@@ -60,6 +60,12 @@ const routes = [
     meta: { requiresAuth: true, requiresAdmin: true, title: '管理面板 - Mini List' }
   },
   {
+    path: '/share/:token',
+    name: 'ShareView',
+    component: () => import('@/views/ShareView.vue'),
+    meta: { title: '计划分享 - MiniList' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/notes'
   }

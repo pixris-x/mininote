@@ -26,6 +26,7 @@
     "cropperjs": "^2.1.0",
     "dayjs": "^1.11.10",
     "echarts": "^6.0.0",
+    "html2canvas": "^1.4.1",
     "lucide-vue-next": "^0.577.0",
     "lunar-javascript": "^1.7.7",
     "md-editor-v3": "^6.4.0",

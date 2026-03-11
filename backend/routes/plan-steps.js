@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/plan-steps — 新增步骤
 router.post('/', async (req, res) => {
-  const { plan_id, title, description, badge, badge_color, due_date, sort_order, image_urls } = req.body
+  const { plan_id, title, description, badge, badge_color, due_date, start_date, sort_order, image_urls, location } = req.body
   if (!plan_id || !title?.trim()) {
     return res.status(400).json({ success: false, message: 'plan_id 和步骤标题不能为空' })
   }
@@ -58,8 +58,8 @@ router.post('/', async (req, res) => {
 
   const result = await pool.query(
     `INSERT INTO plan_steps
-       (plan_id, user_id, title, description, badge, badge_color, due_date, sort_order, image_urls)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+       (plan_id, user_id, title, description, badge, badge_color, due_date, sort_order, image_urls, location, start_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)
      RETURNING *`,
     [
       plan_id, req.user.id,
@@ -69,7 +69,9 @@ router.post('/', async (req, res) => {
       badge_color || '',
       due_date || null,
       nextOrder,
-      urlsJson
+      urlsJson,
+      location || '',
+      start_date || null
     ]
   )
   res.status(201).json({ success: true, data: result.rows[0] })
@@ -77,7 +79,7 @@ router.post('/', async (req, res) => {
 
 // PUT /api/plan-steps/:id — 更新步骤
 router.put('/:id', async (req, res) => {
-  const { title, description, status, badge, badge_color, image_url, image_urls, due_date, sort_order } = req.body
+  const { title, description, status, badge, badge_color, image_url, image_urls, due_date, start_date, sort_order, location } = req.body
 
   const check = await pool.query(
     'SELECT id FROM plan_steps WHERE id = $1 AND user_id = $2',
@@ -108,19 +110,23 @@ router.put('/:id', async (req, res) => {
          image_urls   = CASE WHEN $7::text IS NOT NULL THEN $7::jsonb ELSE image_urls END,
          due_date     = COALESCE($8, due_date),
          sort_order   = COALESCE($9, sort_order),
-         completed_at = CASE WHEN $10::boolean THEN $11::timestamp
-                             WHEN $12::boolean THEN NULL
-                             ELSE completed_at END
-     WHERE id = $13 AND user_id = $14
+         location     = COALESCE($10, location),
+         completed_at = CASE WHEN $11::boolean THEN $12::timestamp
+                             WHEN $13::boolean THEN NULL
+                             ELSE completed_at END,
+         start_date   = COALESCE($16, start_date)
+     WHERE id = $14 AND user_id = $15
      RETURNING *`,
     [
       title, description, status, badge, badge_color, image_url,
       urlsJson,
       due_date, sort_order,
+      location !== undefined ? location : null,
       status === 'completed',
       completedAt,
       status !== undefined && status !== 'completed',
-      req.params.id, req.user.id
+      req.params.id, req.user.id,
+      start_date !== undefined ? start_date : null
     ]
   )
   res.json({ success: true, data: result.rows[0] })
