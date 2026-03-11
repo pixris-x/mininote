@@ -86,4 +86,74 @@ async function sendResetPasswordEmail(to, code, username) {
   return data
 }
 
-module.exports = { sendResetPasswordEmail }
+/**
+ * 发送注册邮箱验证码
+ * @param {string} to - 收件人邮箱
+ * @param {string} code - 6位验证码
+ */
+async function sendRegisterVerifyEmail(to, code) {
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MiniList 邮箱验证</title>
+</head>
+<body style="margin:0;padding:0;background:#fdf6f9;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6f9;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(255,182,193,0.15);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#ffb3c6 0%,#c7ceea 100%);padding:36px 40px;text-align:center;">
+              <div style="font-size:40px;margin-bottom:8px;">🌸</div>
+              <div style="font-size:26px;font-weight:700;color:#fff;letter-spacing:1px;">Mini List</div>
+              <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:4px;">记录每一个美好瞬间 ✨</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px 24px;">
+              <p style="margin:0 0 16px;font-size:16px;color:#555;">你好 👋</p>
+              <p style="margin:0 0 28px;font-size:15px;color:#666;line-height:1.7;">
+                感谢注册 MiniList！请使用下方验证码完成邮箱验证：
+              </p>
+              <div style="background:linear-gradient(135deg,#fff0f5 0%,#f0f0ff 100%);border:2px dashed #ffb3c6;border-radius:16px;padding:28px;text-align:center;margin-bottom:28px;">
+                <div style="font-size:13px;color:#999;margin-bottom:10px;letter-spacing:1px;">注册验证码</div>
+                <div style="font-size:44px;font-weight:800;letter-spacing:12px;color:#e8698a;font-family:'Courier New',monospace;">${code}</div>
+                <div style="font-size:12px;color:#bbb;margin-top:12px;">⏰ 验证码 15 分钟内有效</div>
+              </div>
+              <p style="margin:0 0 12px;font-size:14px;color:#888;line-height:1.7;">
+                如果你没有进行此操作，请忽略此邮件。
+              </p>
+              <p style="margin:0;font-size:14px;color:#bbb;">请勿将验证码告知他人 🔒</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#fdf6f9;padding:20px 40px;text-align:center;border-top:1px solid #fce4ec;">
+              <p style="margin:0;font-size:12px;color:#ccc;">
+                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">MiniList</a> 自动发送，请勿直接回复
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || 'MiniList <noreply@minilist.pixris.online>',
+    to,
+    subject: '🌸 MiniList 注册验证码',
+    html
+  })
+
+  if (error) {
+    throw new Error(`邮件发送失败: ${error.message}`)
+  }
+
+  return data
+}
+
+module.exports = { sendResetPasswordEmail, sendRegisterVerifyEmail }

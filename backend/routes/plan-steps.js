@@ -57,6 +57,9 @@ router.post('/', async (req, res) => {
   const urlsJson = JSON.stringify(Array.isArray(image_urls) ? image_urls : [])
   const stepStatus = status || 'pending'
   const completedAt = stepStatus === 'completed' ? new Date() : null
+  // 空字符串日期转 null
+  const dueDateVal = due_date || null
+  const startDateVal = start_date || null
 
   const result = await pool.query(
     `INSERT INTO plan_steps
@@ -70,11 +73,11 @@ router.post('/', async (req, res) => {
       stepStatus,
       badge || '',
       badge_color || '',
-      due_date || null,
+      dueDateVal,
       nextOrder,
       urlsJson,
       location || '',
-      start_date || null,
+      startDateVal,
       completedAt
     ]
   )
@@ -84,6 +87,10 @@ router.post('/', async (req, res) => {
 // PUT /api/plan-steps/:id — 更新步骤
 router.put('/:id', async (req, res) => {
   const { title, description, status, badge, badge_color, image_url, image_urls, due_date, start_date, sort_order, location } = req.body
+
+  // 空字符串日期转 null，避免 PostgreSQL DATE 类型报错
+  const dueDateVal = due_date || null
+  const startDateVal = start_date || null
 
   const check = await pool.query(
     'SELECT id FROM plan_steps WHERE id = $1 AND user_id = $2',
@@ -124,13 +131,13 @@ router.put('/:id', async (req, res) => {
     [
       title, description, status, badge, badge_color, image_url,
       urlsJson,
-      due_date, sort_order,
+      dueDateVal, sort_order,
       location !== undefined ? location : null,
       status === 'completed',
       completedAt,
       status !== undefined && status !== 'completed',
       req.params.id, req.user.id,
-      start_date !== undefined ? start_date : null
+      start_date !== undefined ? startDateVal : null
     ]
   )
   res.json({ success: true, data: result.rows[0] })

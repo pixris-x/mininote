@@ -81,6 +81,38 @@ app.get('/api/share/:token', async (req, res) => {
   res.json({ success: true, data: { ...plan, steps: stepsRes.rows } })
 })
 
+// 公开分享：切换步骤完成状态（无需登录）
+app.patch('/api/share/:token/steps/:stepId/status', async (req, res) => {
+  const { token, stepId } = req.params
+  const { status } = req.body
+  const allowed = ['pending', 'in_progress', 'completed', 'skipped']
+  if (!allowed.includes(status)) {
+    return res.status(400).json({ success: false, message: '无效状态' })
+  }
+  // 验证 token 对应的计划
+  const planRes = await pool.query(
+    'SELECT id FROM plans WHERE share_token = $1', [token]
+  )
+  if (planRes.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '分享链接无效' })
+  }
+  const planId = planRes.rows[0].id
+  // 验证步骤属于该计划
+  const checkRes = await pool.query(
+    'SELECT id FROM plan_steps WHERE id = $1 AND plan_id = $2', [stepId, planId]
+  )
+  if (checkRes.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '步骤不存在' })
+  }
+  const completedAt = status === 'completed' ? new Date() : null
+  const upd = await pool.query(
+    `UPDATE plan_steps SET status = $1, completed_at = $2 WHERE id = $3
+     RETURNING id, status, completed_at`,
+    [status, completedAt, stepId]
+  )
+  res.json({ success: true, data: upd.rows[0] })
+})
+
 // 404 处理
 app.use((req, res) => {
   res.status(404).json({ success: false, message: '接口不存在' })

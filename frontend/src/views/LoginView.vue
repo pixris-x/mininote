@@ -66,6 +66,27 @@
             </button>
           </div>
         </div>
+        <!-- 图形验证码 -->
+        <div class="form-group">
+          <label class="form-label">验证码</label>
+          <div class="captcha-row">
+            <div class="captcha-box" @click="generateLoginCaptcha" title="点击刷新">
+              <span class="captcha-num">{{ captcha.a }}</span>
+              <span class="captcha-op">{{ captcha.op }}</span>
+              <span class="captcha-num">{{ captcha.b }}</span>
+              <span class="captcha-eq">=&nbsp;?</span>
+            </div>
+            <input
+              v-model="captchaInput"
+              type="text"
+              inputmode="numeric"
+              class="input captcha-input"
+              placeholder="计算结果"
+              autocomplete="off"
+              maxlength="4"
+            />
+          </div>
+        </div>
         <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading">
           <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
           <span v-else>🌸 登录</span>
@@ -101,16 +122,38 @@
         </div>
         <div class="form-group">
           <label class="form-label">邮箱 <span class="required">*</span></label>
-          <input
-            v-model="registerForm.email"
-            type="email"
-            :class="['input', { 'input-error': fieldErrors.email }]"
-            placeholder="your@email.com"
-            autocomplete="email"
-            required
-            @input="fieldErrors.email = ''"
-          />
+          <div class="email-code-row">
+            <input
+              v-model="registerForm.email"
+              type="email"
+              :class="['input', { 'input-error': fieldErrors.email }]"
+              placeholder="your@email.com"
+              autocomplete="email"
+              required
+              @input="fieldErrors.email = ''"
+            />
+            <button type="button" class="btn-send-code" :disabled="codeCountdown > 0 || codeSending"
+              @click="sendRegisterCode">
+              <span v-if="codeSending" class="loading-spinner" style="width:12px;height:12px;border-width:2px"></span>
+              <span v-else-if="codeCountdown > 0">重发 ({{ codeCountdown }}s)</span>
+              <span v-else>发送验证码</span>
+            </button>
+          </div>
           <p v-if="fieldErrors.email" class="field-error-msg">{{ fieldErrors.email }}</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">邮箱验证码 <span class="required">*</span></label>
+          <input
+            v-model="registerForm.code"
+            type="text"
+            inputmode="numeric"
+            :class="['input', { 'input-error': fieldErrors.code }]"
+            placeholder="请输入收到的6位验证码"
+            maxlength="6"
+            autocomplete="one-time-code"
+            @input="fieldErrors.code = ''"
+          />
+          <p v-if="fieldErrors.code" class="field-error-msg">{{ fieldErrors.code }}</p>
         </div>
         <div class="form-group">
           <label class="form-label">密码 <span class="required">*</span></label>
@@ -138,9 +181,10 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { authApi } from '@/api'
 import { toast } from '@/utils/toast'
 
 const router = useRouter()
@@ -152,18 +196,71 @@ const loading = ref(false)
 const errorMsg = ref('')
 const showPass = ref(false)
 
+// 登录验证码
+const captcha = ref({ a: 0, b: 0, op: '+', answer: 0 })
+const captchaInput = ref('')
+
+function generateLoginCaptcha() {
+  const a = Math.floor(Math.random() * 9) + 1
+  const b = Math.floor(Math.random() * 9) + 1
+  const ops = ['+', '-', '×']
+  const op = ops[Math.floor(Math.random() * ops.length)]
+  let answer
+  if (op === '+') answer = a + b
+  else if (op === '-') answer = Math.abs(a - b)
+  else answer = a * b
+  const displayA = op === '-' ? Math.max(a, b) : a
+  const displayB = op === '-' ? Math.min(a, b) : b
+  captcha.value = { a: displayA, b: displayB, op, answer }
+  captchaInput.value = ''
+}
+
+// 注册验证码
+const codeSending = ref(false)
+const codeCountdown = ref(0)
+let codeTimer = null
+
 const loginForm = reactive({ username: '', password: '' })
-const registerForm = reactive({ username: '', nickname: '', email: '', password: '' })
-const fieldErrors = reactive({ username: '', email: '' })
+const registerForm = reactive({ username: '', nickname: '', email: '', password: '', code: '' })
+const fieldErrors = reactive({ username: '', email: '', code: '' })
 
 function clearError() {
   errorMsg.value = ''
   fieldErrors.username = ''
   fieldErrors.email = ''
+  fieldErrors.code = ''
+}
+
+async function sendRegisterCode() {
+  if (!registerForm.email) {
+    fieldErrors.email = '请先输入邮筱'
+    return
+  }
+  codeSending.value = true
+  try {
+    await authApi.sendRegisterCode(registerForm.email)
+    toast.success('验证码已发送，请查收邮件 📧')
+    codeCountdown.value = 60
+    codeTimer = setInterval(() => {
+      codeCountdown.value--
+      if (codeCountdown.value <= 0) clearInterval(codeTimer)
+    }, 1000)
+  } catch (err) {
+    if (err.field === 'email') fieldErrors.email = err.message
+    else toast.error(err.message)
+  } finally {
+    codeSending.value = false
+  }
 }
 
 async function handleLogin() {
   clearError()
+  // 验证图形验证码
+  if (String(captcha.value.answer) !== captchaInput.value.trim()) {
+    errorMsg.value = '验证码错误，请重新计算'
+    generateLoginCaptcha()
+    return
+  }
   loading.value = true
   try {
     const res = await userStore.login(loginForm)
@@ -174,6 +271,7 @@ async function handleLogin() {
     }
   } catch (err) {
     errorMsg.value = err.message
+    generateLoginCaptcha()
   } finally {
     loading.value = false
   }
@@ -183,6 +281,10 @@ async function handleRegister() {
   clearError()
   if (registerForm.username.length < 3) {
     errorMsg.value = '用户名至少3位'
+    return
+  }
+  if (!registerForm.code) {
+    fieldErrors.code = '请输入邮筱验证码'
     return
   }
   loading.value = true
@@ -197,6 +299,8 @@ async function handleRegister() {
       fieldErrors.username = err.message
     } else if (err.field === 'email') {
       fieldErrors.email = err.message
+    } else if (err.field === 'code') {
+      fieldErrors.code = err.message
     } else {
       errorMsg.value = err.message
     }
@@ -204,6 +308,9 @@ async function handleRegister() {
     loading.value = false
   }
 }
+
+onMounted(() => generateLoginCaptcha())
+onUnmounted(() => clearInterval(codeTimer))
 </script>
 
 <style scoped>
@@ -386,5 +493,99 @@ async function handleRegister() {
 
 .forgot-link:hover {
   color: var(--color-pink) !important;
+}
+
+/* 图形验证码 */
+.captcha-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.captcha-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #fff0f5, #f0f0ff);
+  border: 1.5px dashed var(--theme-primary);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s;
+}
+
+.captcha-box:hover {
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.12);
+}
+
+.captcha-num {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #e8698a;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+
+.captcha-op {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #9b59b6;
+  padding: 0 3px;
+}
+
+.captcha-eq {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #888;
+}
+
+.captcha-input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* 邮箱 + 发送验证码按钮行 */
+.email-code-row {
+  display: flex;
+  gap: 8px;
+}
+
+.email-code-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-send-code {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 14px;
+  background: var(--theme-primary-light);
+  color: var(--theme-primary-dark);
+  border: 1.5px solid var(--theme-primary);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition);
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.btn-send-code:hover:not(:disabled) {
+  background: var(--theme-primary);
+  color: #fff;
+}
+
+.btn-send-code:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 </style>

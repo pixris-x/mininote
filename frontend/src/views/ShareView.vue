@@ -50,14 +50,16 @@
                 <div class="share-timeline">
                     <div v-for="step in plan.steps" :key="step.id"
                         :class="['share-step', `step-status-${step.status}`]">
-                        <div class="share-step-dot">
+                        <div class="share-step-dot dot-clickable"
+                            :title="step.status === 'completed' ? '点击取消完成' : '点击标记完成'"
+                            :class="{ toggling: togglingId === step.id }" @click="toggleStep(step)">
                             <span>{{ statusIcon[step.status] || '⬜' }}</span>
                         </div>
                         <div class="share-step-card">
                             <div class="share-step-head">
                                 <span class="share-step-title">{{ step.title }}</span>
-                                <span v-if="step.badge" class="share-step-badge"
-                                    :style="badgeStyle(step)">{{ step.badge }}</span>
+                                <span v-if="step.badge" class="share-step-badge" :style="badgeStyle(step)">{{ step.badge
+                                    }}</span>
                             </div>
                             <p v-if="step.description" class="share-step-desc">{{ step.description }}</p>
 
@@ -76,7 +78,7 @@
                             <div v-if="step.location" class="share-step-location">
                                 <span class="share-step-location-text">📍 {{ step.location }}</span>
                                 <div class="share-map-btns">
-                                    <a :href="`https://ditu.amap.com/search?query=${encodeURIComponent(step.location)}`"
+                                    <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=minilist&coordinate=gaode&callnative=1`"
                                         target="_blank" class="share-map-btn share-map-btn--amap">高德</a>
                                     <a :href="`http://api.map.baidu.com/geocoder?address=${encodeURIComponent(step.location)}&output=html`"
                                         target="_blank" class="share-map-btn share-map-btn--baidu">百度</a>
@@ -95,14 +97,18 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 全部完成庆祝横幅 -->
+                <div v-if="plan.steps?.length && doneCnt >= plan.steps.length" class="share-all-done-banner">
+                    🎉 所有步骤已完成！超棒！
+                </div>
             </main>
         </template>
 
         <!-- 图片预览 -->
         <div v-if="preview.show" class="img-preview-overlay" @click="preview.show = false">
             <img :src="preview.imgs[preview.index]" class="img-preview" @click.stop />
-            <button class="preview-nav prev" v-if="preview.index > 0"
-                @click.stop="preview.index--">‹</button>
+            <button class="preview-nav prev" v-if="preview.index > 0" @click.stop="preview.index--">‹</button>
             <button class="preview-nav next" v-if="preview.index < preview.imgs.length - 1"
                 @click.stop="preview.index++">›</button>
         </div>
@@ -120,6 +126,7 @@ const loading = ref(true)
 const error = ref(false)
 const plan = ref(null)
 const preview = ref({ show: false, imgs: [], index: 0 })
+const togglingId = ref(null)
 
 const statusIcon = { pending: '⬜', in_progress: '🔄', completed: '✅', skipped: '⏭️' }
 
@@ -156,6 +163,18 @@ function imgList(step) {
 
 function openPreview(imgs, index) {
     preview.value = { show: true, imgs, index }
+}
+
+async function toggleStep(step) {
+    if (togglingId.value) return
+    const newStatus = step.status === 'completed' ? 'pending' : 'completed'
+    togglingId.value = step.id
+    try {
+        await axios.patch(`/api/share/${route.params.token}/steps/${step.id}/status`, { status: newStatus })
+        step.status = newStatus
+    } finally {
+        togglingId.value = null
+    }
 }
 
 onMounted(async () => {
@@ -305,6 +324,19 @@ onMounted(async () => {
     margin-bottom: 8px;
 }
 
+/* All-done banner */
+.share-all-done-banner {
+    text-align: center;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #fff0f6, #ffe4f0);
+    border: 1.5px solid #ec4899;
+    border-radius: 12px;
+    color: #be185d;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-top: 16px;
+}
+
 /* Timeline */
 .share-timeline {
     display: flex;
@@ -342,6 +374,21 @@ onMounted(async () => {
     position: relative;
     z-index: 1;
     margin-top: 4px;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.dot-clickable {
+    cursor: pointer;
+}
+
+.dot-clickable:hover {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.18);
+}
+
+.dot-clickable.toggling {
+    opacity: 0.5;
+    pointer-events: none;
 }
 
 .step-status-completed .share-step-dot {
@@ -437,9 +484,17 @@ onMounted(async () => {
     color: #fff;
 }
 
-.share-map-btn--amap { background: #FF6B35; }
-.share-map-btn--baidu { background: #4A90D9; }
-.share-map-btn--tencent { background: #07C160; }
+.share-map-btn--amap {
+    background: #FF6B35;
+}
+
+.share-map-btn--baidu {
+    background: #4A90D9;
+}
+
+.share-map-btn--tencent {
+    background: #07C160;
+}
 
 .share-step-imgs {
     display: grid;
@@ -493,8 +548,13 @@ onMounted(async () => {
     cursor: pointer;
 }
 
-.preview-nav.prev { left: 16px; }
-.preview-nav.next { right: 16px; }
+.preview-nav.prev {
+    left: 16px;
+}
+
+.preview-nav.next {
+    right: 16px;
+}
 
 .loading-spinner {
     width: 36px;
@@ -506,6 +566,8 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 </style>

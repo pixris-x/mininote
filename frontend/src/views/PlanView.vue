@@ -100,12 +100,14 @@
                     </div>
 
                     <!-- 时间线 -->
-                    <div v-else class="timeline">
-                        <div v-for="(step, idx) in planStore.currentPlan.steps" :key="step.id" class="timeline-item"
-                            :class="`step-${step.status}`">
+                    <div v-else class="timeline" ref="timelineRef">
+                        <div v-for="(step, idx) in planStore.currentPlan.steps" :key="step.id"
+                            :data-step-id="step.id"
+                            class="timeline-item"
+                            :class="[`step-${step.status}`, { 'step-flash': flashStepId === step.id }]">
                             <!-- 时间线竖线 + 节点 -->
                             <div class="timeline-line">
-                                <div class="timeline-dot" :class="`dot-${step.status}`">
+                                <div class="timeline-dot" :class="[`dot-${step.status}`, 'dot-clickable']" :title="step.status === 'completed' ? '点击取消完成' : '点击标记完成'" @click="quickToggleStep(step)">
                                     {{ stepStatusIcon[step.status] }}
                                 </div>
                                 <div v-if="idx < planStore.currentPlan.steps.length - 1" class="timeline-connector">
@@ -151,8 +153,8 @@
                                 <div v-if="step.location" class="step-map-links">
                                     <span class="step-map-label">📍 {{ step.location }}</span>
                                     <div class="step-map-btns">
-                                        <a :href="`https://ditu.amap.com/search?query=${encodeURIComponent(step.location)}`"
-                                            target="_blank" class="map-btn map-btn--amap" title="高德地图导航">
+                                        <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=minilist&coordinate=gaode&callnative=1`"
+                                            target="_blank" class="map-btn map-btn--amap" title="高德地图">
                                             <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
                                             高德
                                         </a>
@@ -203,6 +205,17 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- 全部完成庆祝横幅 -->
+                    <div v-if="planStore.currentPlan?.steps?.length && planStore.currentPlan.done_steps >= planStore.currentPlan.total_steps" class="all-done-banner">
+                        🎉 所有步骤已完成！超棒！
+                    </div>
+
+                    <!-- 时间线末尾添加步骤行 -->
+                    <div class="timeline-add-row" @click="openStepModal()">
+                        <div class="timeline-add-dot">+</div>
+                        <div class="timeline-add-label">添加步骤</div>
                     </div>
                 </template>
             </main>
@@ -271,8 +284,8 @@
         </div>
 
         <!-- ── 步骤 Modal ── -->
-        <div v-if="showStepModal" class="modal-overlay">
-            <div class="modal modal-lg">
+        <div v-if="showStepModal" class="modal-overlay" @keydown.ctrl.enter="saveStep">
+            <div class="modal modal-lg" tabindex="-1">
                 <div class="modal-header">
                     <h3>{{ editingStep?.id ? '编辑步骤' : '添加步骤' }}</h3>
                     <button class="btn btn-ghost btn-icon" @click="showStepModal = false">✕</button>
@@ -468,6 +481,8 @@ const shareUrl = computed(() => shareToken.value ? `${window.location.origin}/sh
 const editingPlan = ref(null)
 const editingStep = ref(null)
 const previewState = ref({ show: false, imgs: [], index: 0 })
+const timelineRef = ref(null)
+const flashStepId = ref(null)
 const expandedDescs = ref(new Set())
 const DESC_LIMIT = 120
 function isDescLong(step) { return (step.description || '').length > DESC_LIMIT }
@@ -500,7 +515,9 @@ function progressPct(plan) {
 }
 
 function formatDate(d) {
-    return dayjs(d).format('YYYY-MM-DD')
+    if (!d) return ''
+    const parsed = dayjs(d)
+    return parsed.isValid() ? parsed.format('YYYY-MM-DD') : ''
 }
 
 function isOverdue(step) {
@@ -569,8 +586,11 @@ function openStepModal(step = null) {
         : (step.image_url ? [step.image_url] : [])) : []
     stepForm.value = step
         ? {
-            title: step.title, description: step.description, status: step.status,
-            badge: step.badge, badge_color: step.badge_color,
+            title: step.title || '',
+            description: step.description || '',
+            status: step.status || 'pending',
+            badge: step.badge || '',
+            badge_color: step.badge_color || '',
             image_urls: imgs,
             start_date: step.start_date ? formatDate(step.start_date) : '',
             due_date: step.due_date ? formatDate(step.due_date) : '',
@@ -587,8 +607,17 @@ async function saveStep() {
             await planStore.updateStep(editingStep.value.id, stepForm.value)
             toast.success('步骤已更新 ✨')
         } else {
-            await planStore.createStep({ plan_id: currentPlanId.value, ...stepForm.value })
+            const res = await planStore.createStep({ plan_id: currentPlanId.value, ...stepForm.value })
             toast.success('步骤已添加 🌸')
+            // 滚动到新步骤并高亮闪烁
+            await nextTick()
+            const newId = res?.data?.id
+            if (newId) {
+                const el = document.querySelector(`[data-step-id="${newId}"]`)
+                el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                flashStepId.value = newId
+                setTimeout(() => { flashStepId.value = null }, 1200)
+            }
         }
         showStepModal.value = false
     } catch (e) {
@@ -599,6 +628,15 @@ async function saveStep() {
 async function changeStepStatus(step, status) {
     try {
         await planStore.updateStep(step.id, { status })
+    } catch (e) {
+        toast.error(e.message)
+    }
+}
+
+async function quickToggleStep(step) {
+    const newStatus = step.status === 'completed' ? 'pending' : 'completed'
+    try {
+        await planStore.updateStep(step.id, { status: newStatus })
     } catch (e) {
         toast.error(e.message)
     }
@@ -1210,6 +1248,15 @@ async function handleImgUpload(e) {
     flex-shrink: 0;
     z-index: 1;
     transition: all var(--transition);
+}
+
+.dot-clickable {
+    cursor: pointer;
+}
+
+.dot-clickable:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 4px var(--theme-primary-light);
 }
 
 .dot-pending {
@@ -1945,6 +1992,70 @@ async function handleImgUpload(e) {
 .map-btn--tencent {
     background: #07C160;
     color: #fff;
+}
+
+/* ── 全部完成庆祝带 ── */
+.all-done-banner {
+    text-align: center;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #fff0f6, #ffe4f0);
+    border: 1.5px solid var(--theme-primary);
+    border-radius: var(--radius-lg);
+    color: var(--theme-primary-dark);
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+    animation: popIn 0.3s ease;
+}
+
+/* ── 新步骤闪烁高亮 ── */
+@keyframes stepFlash {
+    0%, 100% { box-shadow: none; }
+    30% { box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.35); background: #fff0f6; }
+    60% { box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2); }
+}
+
+.step-flash > .timeline-card {
+    animation: stepFlash 1.2s ease;
+}
+
+/* ── 时间线末尾添加行 ── */
+.timeline-add-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0 24px;
+    cursor: pointer;
+    opacity: 0.45;
+    transition: opacity 0.15s;
+}
+
+.timeline-add-row:hover {
+    opacity: 1;
+}
+
+.timeline-add-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px dashed var(--theme-primary-dark);
+    color: var(--theme-primary-dark);
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.timeline-add-row:hover .timeline-add-dot {
+    background: var(--theme-primary-light);
+}
+
+.timeline-add-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--theme-primary-dark);
 }
 
 /* ── 分享弹窗 ── */

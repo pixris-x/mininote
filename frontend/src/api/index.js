@@ -43,7 +43,8 @@ api.interceptors.response.use(
 // ====== 认证 API ======
 export const authApi = {
   login: (data) => api.post('/auth/login', data),
-  register: (data) => api.post('/auth/register', data)
+  register: (data) => api.post('/auth/register', data),
+  sendRegisterCode: (email) => api.post('/auth/send-register-code', { email })
 }
 
 // ====== 用户 API ======

@@ -3,16 +3,19 @@ const router = express.Router()
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const pool = require('../config/db')
-const { sendResetPasswordEmail } = require('../utils/email')
+const { sendResetPasswordEmail, sendRegisterVerifyEmail } = require('../utils/email')
 const { logger } = require('../utils/logger')
 require('dotenv').config()
 
 // 注册
 router.post('/register', async (req, res) => {
-  const { username, email, password, nickname } = req.body
+  const { username, email, password, nickname, code } = req.body
 
   if (!username || !email || !password) {
-    return res.status(400).json({ success: false, message: '用户名、邮箱和密码为必填项' })
+    return res.status(400).json({ success: false, message: '用户名、邮筱和密码为必填项' })
+  }
+  if (!code) {
+    return res.status(400).json({ success: false, message: '请先进行邮筱验证' })
   }
 
   if (password.length < 6) {
@@ -20,6 +23,15 @@ router.post('/register', async (req, res) => {
   }
 
   try {
+    // 验证邮筱验证码
+    const tokenResult = await pool.query(
+      `SELECT id FROM password_reset_tokens
+       WHERE email = $1 AND code = $2 AND used = FALSE AND expires_at > NOW()`,
+      [email, code]
+    )
+    if (tokenResult.rows.length === 0) {
+      return res.status(400).json({ success: false, message: '验证码无效或已过期', field: 'code' })
+    }
     const usernameCheck = await pool.query(
       'SELECT id FROM users WHERE username = $1',
       [username]
@@ -54,10 +66,64 @@ router.post('/register', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN }
     )
 
+    // 标记验证码已使用
+    await pool.query(
+      `UPDATE password_reset_tokens SET used = TRUE WHERE email = $1 AND used = FALSE`,
+      [email]
+    )
+
     res.status(201).json({ success: true, message: '注册成功', data: { user, token } })
   } catch (err) {
     console.error('注册错误:', err)
     res.status(500).json({ success: false, message: '服务器内部错误' })
+  }
+})
+
+// 发送注册邮筱验证码
+router.post('/send-register-code', async (req, res) => {
+  const { email } = req.body
+  if (!email) {
+    return res.status(400).json({ success: false, message: '请输入邮筱' })
+  }
+
+  try {
+    // 检查邮号是否已被注册
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email])
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, message: '该邮筱已被注册', field: 'email' })
+    }
+
+    // 限制频率：1 分钟内只能发一次
+    const recent = await pool.query(
+      `SELECT id FROM password_reset_tokens
+       WHERE email = $1 AND created_at > NOW() - INTERVAL '1 minute' AND used = FALSE`,
+      [email]
+    )
+    if (recent.rows.length > 0) {
+      return res.status(429).json({ success: false, message: '发送太频繁，请 1 分钟后再试' })
+    }
+
+    // 让旧验证码失效
+    await pool.query(
+      `UPDATE password_reset_tokens SET used = TRUE WHERE email = $1 AND used = FALSE`,
+      [email]
+    )
+
+    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
+
+    await pool.query(
+      `INSERT INTO password_reset_tokens (email, code, expires_at) VALUES ($1, $2, $3)`,
+      [email, code, expiresAt]
+    )
+
+    await sendRegisterVerifyEmail(email, code)
+
+    res.json({ success: true, message: '验证码已发送，请查收邮件（15分钟内有效）' })
+  } catch (err) {
+    const isEmailError = err.message?.includes('邮件发送失败') || err.message?.includes('resend')
+    logger.error('发送注册验证码失败', { detail: err.message, route: req.path, method: req.method, statusCode: 500, errorStack: err.stack })
+    res.status(500).json({ success: false, message: isEmailError ? '邮件发送失败，请稍后重试' : '服务器内部错误' })
   }
 })
 
