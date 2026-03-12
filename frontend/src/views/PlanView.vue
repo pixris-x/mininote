@@ -221,7 +221,7 @@
                     </div>
 
                     <!-- 全部完成庆祝横幅 -->
-                    <div v-if="planStore.currentPlan?.steps?.length && planStore.currentPlan.done_steps >= planStore.currentPlan.total_steps"
+                    <div v-if="planStore.currentPlan?.steps?.length > 0 && planStore.currentPlan.steps.filter(s => s.status !== 'skipped').length > 0 && planStore.currentPlan.steps.filter(s => s.status !== 'skipped').every(s => s.status === 'completed')"
                         class="all-done-banner">
                         🎉 所有步骤已完成！超棒！
                     </div>
