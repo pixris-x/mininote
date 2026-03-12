@@ -137,17 +137,36 @@
         </template>
 
         <!-- 图片预览 -->
-        <div v-if="preview.show" class="img-preview-overlay" @click="preview.show = false">
+        <div v-if="preview.show" class="img-preview-overlay"
+            @click="preview.show = false"
+            @touchstart.passive="onPreviewTouchStart"
+            @touchend.passive="onPreviewTouchEnd">
             <img :src="preview.imgs[preview.index]" class="img-preview" @click.stop />
-            <button class="preview-nav prev" v-if="preview.index > 0" @click.stop="preview.index--">‹</button>
-            <button class="preview-nav next" v-if="preview.index < preview.imgs.length - 1"
-                @click.stop="preview.index++">›</button>
+            <!-- 左翻页区 -->
+            <div v-if="preview.index > 0" class="preview-zone preview-zone--prev" @click.stop="preview.index--">
+                <span class="preview-zone-arrow">❮</span>
+            </div>
+            <!-- 右翻页区 -->
+            <div v-if="preview.index < preview.imgs.length - 1" class="preview-zone preview-zone--next" @click.stop="preview.index++">
+                <span class="preview-zone-arrow">❯</span>
+            </div>
+            <!-- 关闭按鈕 -->
+            <button class="preview-close" @click.stop="preview.show = false">✕</button>
+            <!-- 计数 -->
+            <div v-if="preview.imgs.length > 1" class="preview-counter">{{ preview.index + 1 }} / {{ preview.imgs.length }}</div>
         </div>
+
+        <!-- 返回顶部 -->
+        <Transition name="back-top-fade">
+            <button v-if="showBackToTop" class="share-back-to-top" @click="scrollToTop" title="返回顶部">
+                &#8679;
+            </button>
+        </Transition>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import dayjs from 'dayjs'
@@ -257,7 +276,22 @@ async function verifyPin() {
     }
 }
 
+const showBackToTop = ref(false)
+function handleShareScroll() { showBackToTop.value = window.scrollY > 300 }
+function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
+
+// 图片预览滑动
+let _touchX = 0
+function onPreviewTouchStart(e) { _touchX = e.touches[0].clientX }
+function onPreviewTouchEnd(e) {
+    const dx = e.changedTouches[0].clientX - _touchX
+    if (Math.abs(dx) < 50) return
+    if (dx < 0 && preview.value.index < preview.value.imgs.length - 1) preview.value.index++
+    if (dx > 0 && preview.value.index > 0) preview.value.index--
+}
+
 onMounted(async () => {
+    window.addEventListener('scroll', handleShareScroll, { passive: true })
     try {
         const res = await axios.get(`/api/share/${route.params.token}`)
         const data = res.data.data
@@ -278,6 +312,10 @@ onMounted(async () => {
         error.value = true
         loading.value = false
     }
+})
+
+onUnmounted(() => {
+    window.removeEventListener('scroll', handleShareScroll)
 })
 </script>
 
@@ -612,7 +650,7 @@ onMounted(async () => {
 .img-preview-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.92);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -620,32 +658,95 @@ onMounted(async () => {
 }
 
 .img-preview {
-    max-width: 90vw;
-    max-height: 90vh;
+    max-width: min(80vw, 900px);
+    max-height: 80vh;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    object-fit: contain;
+    user-select: none;
+    pointer-events: none;
 }
 
-.preview-nav {
-    position: fixed;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
-    border: none;
-    width: 40px;
-    height: 60px;
-    font-size: 1.6rem;
-    border-radius: 6px;
+/* 左右全高度点击区 -- 手指友好大面积 */
+.preview-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 22vw;
+    max-width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
+    transition: background 0.15s;
 }
 
-.preview-nav.prev {
-    left: 16px;
+.preview-zone--prev { left: 0; }
+.preview-zone--next { right: 0; }
+
+.preview-zone:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
-.preview-nav.next {
-    right: 16px;
+.preview-zone-arrow {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    transition: background 0.15s, transform 0.15s;
+}
+
+.preview-zone:hover .preview-zone-arrow {
+    background: rgba(0, 0, 0, 0.65);
+    transform: scale(1.1);
+}
+
+/* 关闭按鈕 */
+.preview-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    z-index: 10;
+}
+
+.preview-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* 计数器 */
+.preview-counter {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    font-size: 0.82rem;
+    padding: 5px 16px;
+    border-radius: 20px;
+    pointer-events: none;
+    letter-spacing: 0.05em;
 }
 
 .loading-spinner {
@@ -783,5 +884,42 @@ onMounted(async () => {
 
 .pin-submit-btn:not(:disabled):hover {
     opacity: 0.88;
+}
+
+/* 返回顶部 */
+.share-back-to-top {
+    position: fixed;
+    right: 28px;
+    bottom: 32px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f9a8d4, #ec4899);
+    color: #fff;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(236, 72, 153, 0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 900;
+}
+
+.share-back-to-top:hover {
+    transform: translateY(-3px) scale(1.08);
+    box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45);
+}
+
+.back-top-fade-enter-active,
+.back-top-fade-leave-active {
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.back-top-fade-enter-from,
+.back-top-fade-leave-to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.85);
 }
 </style>

@@ -243,13 +243,17 @@
         </div>
 
         <!-- ── 图片预览 ── -->
-        <div v-if="previewState.show" class="img-preview-overlay" @click="previewState.show = false">
+        <div v-if="previewState.show" class="img-preview-overlay" @click="previewState.show = false"
+            @touchstart.passive="onPreviewTouchStart"
+            @touchend.passive="onPreviewTouchEnd">
             <img :src="previewState.imgs[previewState.index]" class="img-preview" @click.stop />
-            <button v-if="previewState.index > 0" class="preview-nav preview-nav--prev"
-                @click.stop="previewState.index--">&#8249;</button>
-            <button v-if="previewState.index < previewState.imgs.length - 1" class="preview-nav preview-nav--next"
-                @click.stop="previewState.index++">&#8250;</button>
-            <div class="preview-counter">{{ previewState.index + 1 }} / {{ previewState.imgs.length }}</div>
+            <div v-if="previewState.index > 0" class="preview-zone preview-zone--prev" @click.stop="previewState.index--">
+                <span class="preview-zone-arrow">❮</span>
+            </div>
+            <div v-if="previewState.index < previewState.imgs.length - 1" class="preview-zone preview-zone--next" @click.stop="previewState.index++">
+                <span class="preview-zone-arrow">❯</span>
+            </div>
+            <div v-if="previewState.imgs.length > 1" class="preview-counter">{{ previewState.index + 1 }} / {{ previewState.imgs.length }}</div>
             <button class="preview-close" @click.stop="previewState.show = false">✕</button>
         </div>
 
@@ -1028,6 +1032,17 @@ function compressImage(file, quality = 0.5) {
 /** 打开图片预览轮播 */
 function openPreview(imgs, index = 0) {
     previewState.value = { show: true, imgs: [...imgs], index }
+}
+
+// 图片预览触摸滑动
+let _previewTouchX = 0
+function onPreviewTouchStart(e) { _previewTouchX = e.touches[0].clientX }
+function onPreviewTouchEnd(e) {
+    const dx = e.changedTouches[0].clientX - _previewTouchX
+    if (Math.abs(dx) < 50) return
+    const p = previewState.value
+    if (dx < 0 && p.index < p.imgs.length - 1) p.index++
+    if (dx > 0 && p.index > 0) p.index--
 }
 
 /** 删除已上传图片 */
@@ -1950,42 +1965,53 @@ async function handleImgUpload(e) {
 }
 
 .img-preview {
-    max-width: min(90vw, 900px);
-    max-height: 85vh;
+    max-width: min(80vw, 900px);
+    max-height: 80vh;
     object-fit: contain;
     border-radius: var(--radius-md);
     user-select: none;
+    pointer-events: none;
 }
 
-.preview-nav {
+/* 左右全高度点击区 -- 手指友好大面积 */
+.preview-zone {
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(255, 255, 255, 0.18);
-    border: none;
-    color: white;
-    font-size: 2.2rem;
-    width: 48px;
-    height: 72px;
-    cursor: pointer;
-    border-radius: var(--radius-sm);
+    top: 0;
+    bottom: 0;
+    width: 22vw;
+    max-width: 100px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background var(--transition);
-    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
 }
 
-.preview-nav:hover {
-    background: rgba(255, 255, 255, 0.32);
+.preview-zone--prev { left: 0; }
+.preview-zone--next { right: 0; }
+
+.preview-zone:hover {
+    background: rgba(255, 255, 255, 0.06);
 }
 
-.preview-nav--prev {
-    left: 12px;
+.preview-zone-arrow {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    transition: background 0.15s, transform 0.15s;
 }
 
-.preview-nav--next {
-    right: 12px;
+.preview-zone:hover .preview-zone-arrow {
+    background: rgba(0, 0, 0, 0.65);
+    transform: scale(1.1);
 }
 
 .preview-counter {
@@ -1994,29 +2020,37 @@ async function handleImgUpload(e) {
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
     color: white;
     font-size: 13px;
     padding: 4px 16px;
     border-radius: var(--radius-full);
     pointer-events: none;
+    letter-spacing: 0.05em;
 }
 
 .preview-close {
     position: absolute;
-    top: 12px;
-    right: 16px;
-    background: rgba(255, 255, 255, 0.18);
-    border: none;
+    top: 14px;
+    right: 14px;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    border: 1.5px solid rgba(255, 255, 255, 0.3);
     color: white;
     font-size: 1rem;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background var(--transition);
+    z-index: 10;
+}
+
+.preview-close:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .preview-close:hover {
