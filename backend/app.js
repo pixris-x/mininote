@@ -52,13 +52,13 @@ app.use('/api/upload', uploadRoutes)
 app.use('/api/plans', plansRoutes)
 app.use('/api/plan-steps', planStepsRoutes)
 
-// 公开分享只读接口（无需登录）
+// 公开分享：获取基本信息（无需 PIN，用于显示验证码输入页）
 const pool = require('./config/db')
 app.get('/api/share/:token', async (req, res) => {
   const { token } = req.params
   const planRes = await pool.query(
-    `SELECT p.id, p.title, p.description, p.color, p.icon, p.status,
-            u.nickname AS author_name
+    `SELECT p.id, p.title, p.icon, p.share_pin IS NOT NULL AS needs_pin,
+            p.share_expires_at, u.nickname AS author_name
      FROM plans p
      JOIN users u ON u.id = p.user_id
      WHERE p.share_token = $1`,
@@ -67,8 +67,44 @@ app.get('/api/share/:token', async (req, res) => {
   if (planRes.rows.length === 0) {
     return res.status(404).json({ success: false, message: '分享链接无效或已失效' })
   }
-
   const plan = planRes.rows[0]
+  if (plan.share_expires_at && new Date(plan.share_expires_at) < new Date()) {
+    return res.status(410).json({ success: false, message: '分享链接已过期', expired: true })
+  }
+  res.json({
+    success: true,
+    data: {
+      title: plan.title,
+      icon: plan.icon,
+      authorName: plan.author_name,
+      needsPin: plan.needs_pin,
+      expiresAt: plan.share_expires_at
+    }
+  })
+})
+
+// 公开分享：验证 PIN 并返回完整计划内容
+app.post('/api/share/:token/verify', async (req, res) => {
+  const { token } = req.params
+  const { pin } = req.body
+  const planRes = await pool.query(
+    `SELECT p.id, p.title, p.description, p.color, p.icon, p.status,
+            p.share_pin, p.share_expires_at, u.nickname AS author_name
+     FROM plans p
+     JOIN users u ON u.id = p.user_id
+     WHERE p.share_token = $1`,
+    [token]
+  )
+  if (planRes.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '分享链接无效或已失效' })
+  }
+  const plan = planRes.rows[0]
+  if (plan.share_expires_at && new Date(plan.share_expires_at) < new Date()) {
+    return res.status(410).json({ success: false, message: '分享链接已过期', expired: true })
+  }
+  if (plan.share_pin && plan.share_pin !== String(pin)) {
+    return res.status(401).json({ success: false, message: '访问码错误，请重新输入' })
+  }
   const stepsRes = await pool.query(
     `SELECT id, title, description, status, badge, badge_color,
             due_date, start_date, image_urls, location, sort_order
@@ -77,8 +113,8 @@ app.get('/api/share/:token', async (req, res) => {
      ORDER BY sort_order ASC, created_at ASC`,
     [plan.id]
   )
-
-  res.json({ success: true, data: { ...plan, steps: stepsRes.rows } })
+  const { share_pin, share_expires_at, ...planData } = plan
+  res.json({ success: true, data: { ...planData, steps: stepsRes.rows } })
 })
 
 // 公开分享：切换步骤完成状态（无需登录）
@@ -91,12 +127,15 @@ app.patch('/api/share/:token/steps/:stepId/status', async (req, res) => {
   }
   // 验证 token 对应的计划
   const planRes = await pool.query(
-    'SELECT id FROM plans WHERE share_token = $1', [token]
+    'SELECT id, share_expires_at FROM plans WHERE share_token = $1', [token]
   )
   if (planRes.rows.length === 0) {
     return res.status(404).json({ success: false, message: '分享链接无效' })
   }
-  const planId = planRes.rows[0].id
+  const { id: planId, share_expires_at } = planRes.rows[0]
+  if (share_expires_at && new Date(share_expires_at) < new Date()) {
+    return res.status(410).json({ success: false, message: '分享链接已过期' })
+  }
   // 验证步骤属于该计划
   const checkRes = await pool.query(
     'SELECT id FROM plan_steps WHERE id = $1 AND plan_id = $2', [stepId, planId]

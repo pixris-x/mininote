@@ -62,7 +62,7 @@
             </aside>
 
             <!-- ── 右侧面板：时间线 ── -->
-            <main class="plans-main">
+            <main class="plans-main" ref="mainRef">
                 <!-- 未选择计划 -->
                 <div v-if="!currentPlanId" class="timeline-empty">
                     <span class="timeline-empty-icon">🎯</span>
@@ -101,13 +101,14 @@
 
                     <!-- 时间线 -->
                     <div v-else class="timeline" ref="timelineRef">
-                        <div v-for="(step, idx) in planStore.currentPlan.steps" :key="step.id"
-                            :data-step-id="step.id"
+                        <div v-for="(step, idx) in planStore.currentPlan.steps" :key="step.id" :data-step-id="step.id"
                             class="timeline-item"
                             :class="[`step-${step.status}`, { 'step-flash': flashStepId === step.id }]">
                             <!-- 时间线竖线 + 节点 -->
                             <div class="timeline-line">
-                                <div class="timeline-dot" :class="[`dot-${step.status}`, 'dot-clickable']" :title="step.status === 'completed' ? '点击取消完成' : '点击标记完成'" @click="quickToggleStep(step)">
+                                <div class="timeline-dot" :class="[`dot-${step.status}`, 'dot-clickable']"
+                                    :title="step.status === 'completed' ? '点击取消完成' : '点击标记完成'"
+                                    @click="quickToggleStep(step)">
                                     {{ stepStatusIcon[step.status] }}
                                 </div>
                                 <div v-if="idx < planStore.currentPlan.steps.length - 1" class="timeline-connector">
@@ -141,8 +142,8 @@
                                 <h3 class="timeline-card-title">{{ step.title }}</h3>
                                 <div v-if="step.description" class="timeline-card-desc-wrap">
                                     <p class="timeline-card-desc"
-                                        :class="{ 'is-clamped': isDescLong(step) && !isDescExpanded(step) }"
-                                    >{{ step.description }}</p>
+                                        :class="{ 'is-clamped': isDescLong(step) && !isDescExpanded(step) }">{{
+                                        step.description }}</p>
                                     <button v-if="isDescLong(step)" class="desc-toggle-btn"
                                         @click.stop="toggleDesc(step)">
                                         {{ isDescExpanded(step) ? '▲ 收起' : '▼ 展开' }}
@@ -155,17 +156,29 @@
                                     <div class="step-map-btns">
                                         <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=minilist&coordinate=gaode&callnative=1`"
                                             target="_blank" class="map-btn map-btn--amap" title="高德地图">
-                                            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                                            <svg viewBox="0 0 24 24" fill="none">
+                                                <path
+                                                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                                                    fill="currentColor" />
+                                            </svg>
                                             高德
                                         </a>
                                         <a :href="`http://api.map.baidu.com/geocoder?address=${encodeURIComponent(step.location)}&output=html&src=minilist`"
                                             target="_blank" class="map-btn map-btn--baidu" title="百度地图导航">
-                                            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                                            <svg viewBox="0 0 24 24" fill="none">
+                                                <path
+                                                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                                                    fill="currentColor" />
+                                            </svg>
                                             百度
                                         </a>
                                         <a :href="`https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(step.location)}&referer=minilist`"
                                             target="_blank" class="map-btn map-btn--tencent" title="腾讯地图导航">
-                                            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                                            <svg viewBox="0 0 24 24" fill="none">
+                                                <path
+                                                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                                                    fill="currentColor" />
+                                            </svg>
                                             腾讯
                                         </a>
                                     </div>
@@ -208,7 +221,8 @@
                     </div>
 
                     <!-- 全部完成庆祝横幅 -->
-                    <div v-if="planStore.currentPlan?.steps?.length && planStore.currentPlan.done_steps >= planStore.currentPlan.total_steps" class="all-done-banner">
+                    <div v-if="planStore.currentPlan?.steps?.length && planStore.currentPlan.done_steps >= planStore.currentPlan.total_steps"
+                        class="all-done-banner">
                         🎉 所有步骤已完成！超棒！
                     </div>
 
@@ -219,6 +233,13 @@
                     </div>
                 </template>
             </main>
+
+            <!-- 返回顶部按钟 -->
+            <Transition name="back-top-fade">
+                <button v-if="showBackToTop" class="back-to-top-btn" @click="scrollToTop" title="返回顶部">
+                    &#8679;
+                </button>
+            </Transition>
         </div>
 
         <!-- ── 图片预览 ── -->
@@ -343,7 +364,8 @@
                     <!-- 多图上传（最多9张） -->
                     <div class="form-group">
                         <label>📍 地点地址 <span class="form-label-hint">支持条目名、地址、地标居民地址等</span></label>
-                        <input v-model="stepForm.location" class="form-input" placeholder="例：北京天安门、上海赛克巴孙大道100号..." maxlength="200" />
+                        <input v-model="stepForm.location" class="form-input" placeholder="例：北京天安门、上海赛克巴孙大道100号..."
+                            maxlength="200" />
                     </div>
 
                     <!-- 多图上传（最多9张） -->
@@ -390,21 +412,53 @@
                         <button class="modal-close" @click="showShareModal = false">✕</button>
                     </div>
                     <div class="share-tabs">
-                        <button :class="['share-tab', { active: shareTab === 'link' }]" @click="shareTab = 'link'">🔗 分享链接</button>
-                        <button :class="['share-tab', { active: shareTab === 'image' }]" @click="shareTab = 'image'">🖼️ 生成图片</button>
+                        <button :class="['share-tab', { active: shareTab === 'link' }]" @click="shareTab = 'link'">🔗
+                            分享链接</button>
+                        <button :class="['share-tab', { active: shareTab === 'image' }]" @click="shareTab = 'image'">🖼️
+                            生成图片</button>
                     </div>
 
                     <div v-if="shareTab === 'link'" class="share-panel">
-                        <p class="share-desc">生成一个公开链接，任何人通过此链接可以只读查看此计划。</p>
-                        <div v-if="shareToken" class="share-link-box">
-                            <span class="share-link-text">{{ shareUrl }}</span>
-                            <button class="btn btn-primary btn-sm" @click="copyShareLink">{{ copied ? '✅ 已复制' : '复制' }}</button>
+                        <p class="share-desc">生成一个带访问码的分享链接，访问者需要输入正确的4位访问码才能查看。</p>
+
+                        <!-- 已有链接：显示链接 + 访问码 -->
+                        <template v-if="shareToken">
+                            <div class="share-link-box">
+                                <span class="share-link-text">{{ shareUrl }}</span>
+                                <button class="btn btn-primary btn-sm" @click="copyShareLink">{{ copied ? '✅ 已复制' : '复制' }}</button>
+                            </div>
+                            <div v-if="sharePin" class="share-pin-box">
+                                <span class="share-pin-label">🔑 访问码</span>
+                                <span class="share-pin-value">{{ sharePin }}</span>
+                                <button class="btn btn-ghost btn-sm" @click="copySharePin">{{ copiedPin ? '✅' : '复制' }}</button>
+                            </div>
+                            <div v-if="shareExpiresAt" class="share-expires-tip">
+                                ⏰ 过期时间：{{ formatExpiresAt(shareExpiresAt) }}
+                            </div>
+                            <div v-else class="share-expires-tip">⏰ 永久有效</div>
+                        </template>
+
+                        <!-- 未生成：过期时间选择器 -->
+                        <div v-if="!shareToken" class="share-expires-row">
+                            <label class="share-expires-label">过期时间</label>
+                            <div class="share-expires-btns">
+                                <button v-for="opt in expiresOptions" :key="opt.value"
+                                    :class="['share-expires-btn', { active: shareExpiresIn === opt.value }]"
+                                    @click="shareExpiresIn = opt.value">{{ opt.label }}</button>
+                            </div>
                         </div>
+
                         <div class="share-link-actions">
-                            <button v-if="!shareToken" class="btn btn-primary" :disabled="shareLoading" @click="generateShareToken">
+                            <button v-if="!shareToken" class="btn btn-primary" :disabled="shareLoading"
+                                @click="generateShareToken">
                                 {{ shareLoading ? '生成中...' : '生成分享链接' }}
                             </button>
-                            <button v-if="shareToken" class="btn btn-ghost btn-sm share-revoke-btn" :disabled="shareLoading" @click="revokeShareToken">
+                            <button v-if="shareToken" class="btn btn-ghost btn-sm" :disabled="shareLoading"
+                                @click="regenerateShareToken">
+                                {{ shareLoading ? '重新生成中...' : '🔄 重新生成' }}
+                            </button>
+                            <button v-if="shareToken" class="btn btn-ghost btn-sm share-revoke-btn"
+                                :disabled="shareLoading" @click="revokeShareToken">
                                 {{ shareLoading ? '撤销中...' : '撤销链接' }}
                             </button>
                         </div>
@@ -424,7 +478,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import { usePlanStore } from '@/stores/plans'
@@ -474,8 +528,12 @@ const showStepModal = ref(false)
 const showShareModal = ref(false)
 const shareTab = ref('link')
 const shareToken = ref('')
+const sharePin = ref('')
+const shareExpiresAt = ref(null)
+const shareExpiresIn = ref(7) // 天数，0 = 永久
 const shareLoading = ref(false)
 const copied = ref(false)
+const copiedPin = ref(false)
 const exportingImage = ref(false)
 const shareUrl = computed(() => shareToken.value ? `${window.location.origin}/share/${shareToken.value}` : '')
 const editingPlan = ref(null)
@@ -483,6 +541,16 @@ const editingStep = ref(null)
 const previewState = ref({ show: false, imgs: [], index: 0 })
 const timelineRef = ref(null)
 const flashStepId = ref(null)
+const mainRef = ref(null)
+const showBackToTop = ref(false)
+
+function handleMainScroll() {
+    showBackToTop.value = window.scrollY > 300
+}
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 const expandedDescs = ref(new Set())
 const DESC_LIMIT = 120
 function isDescLong(step) { return (step.description || '').length > DESC_LIMIT }
@@ -506,7 +574,14 @@ const filteredPlans = computed(() =>
 )
 
 // ── 生命周期 ────────────────────────────────────────────────────
-onMounted(() => planStore.fetchPlans())
+onMounted(() => {
+    planStore.fetchPlans()
+    window.addEventListener('scroll', handleMainScroll, { passive: true })
+})
+
+onUnmounted(() => {
+    window.removeEventListener('scroll', handleMainScroll)
+})
 
 // ── 方法 ────────────────────────────────────────────────────────
 function progressPct(plan) {
@@ -646,23 +721,44 @@ async function quickToggleStep(step) {
 function openShareModal() {
     shareTab.value = 'link'
     copied.value = false
-    // 如果当前计划已有 token，直接展示
+    copiedPin.value = false
+    sharePin.value = ''
+    shareExpiresAt.value = null
+    shareExpiresIn.value = 7
+    // 如果当前计划已有 token，直接展示链接（但不显示 PIN，因为 PIN 只在生成时返回一次）
     shareToken.value = planStore.currentPlan?.share_token || ''
+    if (shareToken.value) {
+        shareExpiresAt.value = planStore.currentPlan?.share_expires_at ?? null
+        sharePin.value = planStore.currentPlan?.share_pin || ''
+    }
     showShareModal.value = true
 }
 
 async function generateShareToken() {
     shareLoading.value = true
     try {
-        const res = await planApi.share(currentPlanId.value)
+        const res = await planApi.share(currentPlanId.value, { expiresIn: shareExpiresIn.value })
         shareToken.value = res.token
-        // 同步到 store
-        if (planStore.currentPlan) planStore.currentPlan.share_token = res.token
+        sharePin.value = res.pin
+        shareExpiresAt.value = res.expiresAt
+        if (planStore.currentPlan) {
+            planStore.currentPlan.share_token = res.token
+            planStore.currentPlan.share_expires_at = res.expiresAt
+            planStore.currentPlan.share_pin = res.pin
+        }
     } catch (e) {
         toast.error(e.message)
     } finally {
         shareLoading.value = false
     }
+}
+
+async function regenerateShareToken() {
+    const ok = await showConfirm('重新生成将产生新的链接和访问码，原链接立即失效，确定吗？', { title: '重新生成', confirmText: '重新生成', variant: 'danger' })
+    if (!ok) return
+    shareToken.value = ''
+    sharePin.value = ''
+    shareExpiresIn.value = 7
 }
 
 async function revokeShareToken() {
@@ -672,7 +768,11 @@ async function revokeShareToken() {
     try {
         await planApi.unshare(currentPlanId.value)
         shareToken.value = ''
+        sharePin.value = ''
+        shareExpiresAt.value = null
         if (planStore.currentPlan) planStore.currentPlan.share_token = null
+        if (planStore.currentPlan) planStore.currentPlan.share_expires_at = null
+        if (planStore.currentPlan) planStore.currentPlan.share_pin = null
         toast.success('分享链接已撤销')
     } catch (e) {
         toast.error(e.message)
@@ -689,6 +789,28 @@ async function copyShareLink() {
     } catch {
         toast.error('复制失败，请手动复制')
     }
+}
+
+async function copySharePin() {
+    try {
+        await navigator.clipboard.writeText(sharePin.value)
+        copiedPin.value = true
+        setTimeout(() => { copiedPin.value = false }, 2000)
+    } catch {
+        toast.error('复制失败，请手动复制')
+    }
+}
+
+const expiresOptions = [
+    { label: '1天', value: 1 },
+    { label: '7天', value: 7 },
+    { label: '30天', value: 30 },
+    { label: '永久', value: 0 },
+]
+
+function formatExpiresAt(dateStr) {
+    if (!dateStr) return '永久'
+    return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
 }
 
 async function exportAsImage() {
@@ -1390,7 +1512,10 @@ async function handleImgUpload(e) {
     font-weight: 600;
     transition: opacity 0.15s;
 }
-.desc-toggle-btn:hover { opacity: 0.7; }
+
+.desc-toggle-btn:hover {
+    opacity: 0.7;
+}
 
 /* ── 时间线卡片多图网格 ── */
 .step-img-grid {
@@ -1977,18 +2102,32 @@ async function handleImgUpload(e) {
     transition: opacity 0.15s, transform 0.1s;
     line-height: 1;
 }
-.map-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
-.map-btn:hover { opacity: 0.85; transform: translateY(-1px); }
-.map-btn:active { transform: scale(0.97); }
+
+.map-btn svg {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+}
+
+.map-btn:hover {
+    opacity: 0.85;
+    transform: translateY(-1px);
+}
+
+.map-btn:active {
+    transform: scale(0.97);
+}
 
 .map-btn--amap {
     background: #1aad19;
     color: #fff;
 }
+
 .map-btn--baidu {
     background: #3385ff;
     color: #fff;
 }
+
 .map-btn--tencent {
     background: #07C160;
     color: #fff;
@@ -2010,12 +2149,23 @@ async function handleImgUpload(e) {
 
 /* ── 新步骤闪烁高亮 ── */
 @keyframes stepFlash {
-    0%, 100% { box-shadow: none; }
-    30% { box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.35); background: #fff0f6; }
-    60% { box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2); }
+
+    0%,
+    100% {
+        box-shadow: none;
+    }
+
+    30% {
+        box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.35);
+        background: #fff0f6;
+    }
+
+    60% {
+        box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.2);
+    }
 }
 
-.step-flash > .timeline-card {
+.step-flash>.timeline-card {
     animation: stepFlash 1.2s ease;
 }
 
@@ -2164,5 +2314,118 @@ async function handleImgUpload(e) {
 .share-revoke-btn:hover {
     background: #e1705522;
     border-color: #e17055;
+}
+
+/* PIN 访问码展示 */
+.share-pin-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #fff0f5, #f0f0ff);
+    border: 1.5px dashed var(--theme-primary);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+}
+
+.share-pin-label {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+.share-pin-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 8px;
+    color: var(--theme-primary-dark);
+    font-family: 'Courier New', monospace;
+    flex: 1;
+}
+
+/* 过期时间提示 */
+.share-expires-tip {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+/* 过期时间选择器 */
+.share-expires-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.share-expires-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.share-expires-btns {
+    display: flex;
+    gap: 6px;
+}
+
+.share-expires-btn {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+}
+
+.share-expires-btn.active {
+    border-color: var(--theme-primary);
+    background: var(--theme-primary-light);
+    color: var(--theme-primary-dark);
+}
+
+.share-expires-btn:hover:not(.active) {
+    border-color: var(--theme-primary);
+    color: var(--theme-primary-dark);
+}
+
+/* ── 返回顶部按钮 ── */
+.back-to-top-btn {
+    position: fixed;
+    right: 28px;
+    bottom: 32px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--theme-primary);
+    color: #fff;
+    border: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(236, 72, 153, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    z-index: 900;
+}
+
+.back-to-top-btn:hover {
+    transform: translateY(-3px) scale(1.08);
+    box-shadow: 0 6px 20px rgba(236, 72, 153, 0.45);
+}
+
+.back-top-fade-enter-active,
+.back-top-fade-leave-active {
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.back-top-fade-enter-from,
+.back-top-fade-leave-to {
+    opacity: 0;
+    transform: translateY(12px) scale(0.85);
 }
 </style>

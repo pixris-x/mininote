@@ -9,8 +9,39 @@
         <!-- 错误 -->
         <div v-else-if="error" class="share-error">
             <span class="share-error-icon">😕</span>
-            <h2>链接无效或已失效</h2>
-            <p>此分享链接可能已被撤销或不存在。</p>
+            <h2>{{ errorMsg || '链接无效或已失效' }}</h2>
+            <p>此分享链接可能已被撤销、已过期或不存在。</p>
+        </div>
+
+        <!-- PIN 验证屏 -->
+        <div v-else-if="needsPin && !pinVerified" class="share-pin-screen">
+            <div class="share-pin-card">
+                <span class="share-pin-screen-icon">🔒</span>
+                <h2>需要访问码</h2>
+                <p class="share-pin-meta" v-if="meta">{{ meta.icon }} {{ meta.title }} · 由 {{ meta.authorName }} 分享</p>
+                <div class="pin-boxes">
+                    <input
+                        v-for="i in 4" :key="i"
+                        :ref="el => { if (el) pinRefs[i-1] = el }"
+                        type="text"
+                        inputmode="numeric"
+                        maxlength="1"
+                        v-model="pinDigits[i-1]"
+                        :class="{ 'pin-box-error': pinError }"
+                        @input="onPinInput(i-1, $event)"
+                        @keydown="onPinKeydown($event, i-1)"
+                        @paste.prevent="onPinPaste($event)"
+                    />
+                </div>
+                <p v-if="pinError" class="pin-error">{{ pinError }}</p>
+                <button
+                    class="pin-submit-btn"
+                    :disabled="pinLoading || pinInput.length !== 4"
+                    @click="verifyPin"
+                >
+                    {{ pinLoading ? '验证中...' : '确认访问' }}
+                </button>
+            </div>
         </div>
 
         <!-- 计划内容 -->
@@ -59,7 +90,7 @@
                             <div class="share-step-head">
                                 <span class="share-step-title">{{ step.title }}</span>
                                 <span v-if="step.badge" class="share-step-badge" :style="badgeStyle(step)">{{ step.badge
-                                    }}</span>
+                                }}</span>
                             </div>
                             <p v-if="step.description" class="share-step-desc">{{ step.description }}</p>
 
@@ -124,9 +155,40 @@ import dayjs from 'dayjs'
 const route = useRoute()
 const loading = ref(true)
 const error = ref(false)
+const errorMsg = ref('')
 const plan = ref(null)
 const preview = ref({ show: false, imgs: [], index: 0 })
 const togglingId = ref(null)
+
+// PIN 验证
+const meta = ref(null)
+const needsPin = ref(false)
+const pinVerified = ref(false)
+const pinDigits = ref(['', '', '', ''])
+const pinRefs = []
+const pinInput = computed(() => pinDigits.value.join(''))
+const pinError = ref('')
+const pinLoading = ref(false)
+
+function onPinInput(index, e) {
+    const val = e.target.value.replace(/\D/g, '')
+    pinDigits.value[index] = val.slice(-1)
+    if (val && index < 3) pinRefs[index + 1]?.focus()
+}
+
+function onPinKeydown(e, index) {
+    if (e.key === 'Backspace' && !pinDigits.value[index] && index > 0) {
+        pinDigits.value[index - 1] = ''
+        pinRefs[index - 1]?.focus()
+    }
+    if (e.key === 'Enter') verifyPin()
+}
+
+function onPinPaste(e) {
+    const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 4)
+    text.split('').forEach((ch, i) => { pinDigits.value[i] = ch })
+    pinRefs[Math.min(text.length, 3)]?.focus()
+}
 
 const statusIcon = { pending: '⬜', in_progress: '🔄', completed: '✅', skipped: '⏭️' }
 
@@ -177,13 +239,43 @@ async function toggleStep(step) {
     }
 }
 
+async function verifyPin() {
+    if (pinInput.value.length !== 4 || pinLoading.value) return
+    pinError.value = ''
+    pinLoading.value = true
+    try {
+        const res = await axios.post(`/api/share/${route.params.token}/verify`, { pin: pinInput.value })
+        plan.value = res.data.data
+        pinVerified.value = true
+    } catch (e) {
+        const msg = e.response?.data?.message
+        pinError.value = msg === 'EXPIRED' ? '分享链接已过期' : '访问码错误，请重试'
+        pinDigits.value = ['', '', '', '']
+        pinRefs[0]?.focus()
+    } finally {
+        pinLoading.value = false
+    }
+}
+
 onMounted(async () => {
     try {
         const res = await axios.get(`/api/share/${route.params.token}`)
-        plan.value = res.data.data
-    } catch {
+        const data = res.data.data
+        meta.value = data
+        if (data.needsPin) {
+            needsPin.value = true
+            loading.value = false
+        } else {
+            // 无需 PIN，直接 verify
+            const vRes = await axios.post(`/api/share/${route.params.token}/verify`, { pin: '' })
+            plan.value = vRes.data.data
+            pinVerified.value = true
+            loading.value = false
+        }
+    } catch (e) {
+        const msg = e.response?.data?.message
+        if (msg === 'EXPIRED') errorMsg.value = '分享链接已过期'
         error.value = true
-    } finally {
         loading.value = false
     }
 })
@@ -569,5 +661,127 @@ onMounted(async () => {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* PIN 验证屏 */
+.share-pin-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg, #fafafa);
+    padding: 24px;
+}
+
+.share-pin-card {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #eee);
+    border-radius: 20px;
+    padding: 40px 32px 36px;
+    max-width: 360px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.share-pin-screen-icon {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.share-pin-card h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--color-text, #222);
+}
+
+.share-pin-meta {
+    font-size: 0.85rem;
+    color: #888;
+    margin: 0;
+    text-align: center;
+}
+
+.pin-boxes {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.pin-boxes input {
+    flex: 1;
+    aspect-ratio: 1;
+    font-size: 1.8rem;
+    font-weight: 800;
+    text-align: center;
+    border: 2px solid var(--color-border, #eee);
+    border-radius: 16px;
+    outline: none;
+    background: var(--color-bg, #fafafa);
+    color: var(--color-text, #222);
+    font-family: 'Courier New', monospace;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, transform 0.1s;
+    caret-color: #ec4899;
+    min-width: 0;
+}
+
+.pin-boxes input:focus {
+    border-color: #ec4899;
+    background: #fff5f8;
+    box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.12);
+    transform: scale(1.06);
+}
+
+.pin-boxes input:not(:placeholder-shown) {
+    border-color: #ec489966;
+    background: #fff5f8;
+}
+
+.pin-boxes input.pin-box-error {
+    border-color: #e17055;
+    background: #fff5f5;
+    animation: pinShake 0.35s ease;
+}
+
+@keyframes pinShake {
+    0%, 100% { transform: translateX(0); }
+    20%       { transform: translateX(-5px); }
+    60%       { transform: translateX(5px); }
+}
+
+.pin-error {
+    font-size: 0.82rem;
+    color: #e17055;
+    margin: 0;
+    font-weight: 600;
+}
+
+.pin-submit-btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, #f9a8d4, #ec4899);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    font-family: inherit;
+    margin-top: 4px;
+}
+
+.pin-submit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.pin-submit-btn:not(:disabled):hover {
+    opacity: 0.88;
 }
 </style>

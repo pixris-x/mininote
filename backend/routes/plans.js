@@ -120,27 +120,32 @@ router.delete('/:id', async (req, res) => {
   res.json({ success: true, message: '计划已删除' })
 })
 
-// POST /api/plans/:id/share — 生成或获取分享 token
+// POST /api/plans/:id/share — 生成分享 token（每次调用都重新生成 PIN 和过期时间）
 const crypto = require('crypto')
 router.post('/:id/share', async (req, res) => {
+  const { expiresIn = 7 } = req.body // 天数，0 表示永久
   const check = await pool.query(
-    'SELECT id, share_token FROM plans WHERE id = $1 AND user_id = $2',
+    'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
     [req.params.id, req.user.id]
   )
   if (check.rows.length === 0) {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
 
-  let token = check.rows[0].share_token
-  if (!token) {
-    token = crypto.randomBytes(32).toString('hex')
-    await pool.query(
-      'UPDATE plans SET share_token = $1 WHERE id = $2 AND user_id = $3',
-      [token, req.params.id, req.user.id]
-    )
-  }
+  const token = crypto.randomBytes(32).toString('hex')
+  const pin = String(Math.floor(1000 + Math.random() * 9000)) // 4位随机数字
+  const expiresAt = Number(expiresIn) > 0
+    ? new Date(Date.now() + Number(expiresIn) * 24 * 60 * 60 * 1000)
+    : null
 
-  res.json({ success: true, token })
+  await pool.query(
+    `UPDATE plans
+     SET share_token = $1, share_pin = $2, share_expires_at = $3
+     WHERE id = $4 AND user_id = $5`,
+    [token, pin, expiresAt, req.params.id, req.user.id]
+  )
+
+  res.json({ success: true, token, pin, expiresAt })
 })
 
 // DELETE /api/plans/:id/share — 撤销分享 token
@@ -153,7 +158,7 @@ router.delete('/:id/share', async (req, res) => {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
   await pool.query(
-    'UPDATE plans SET share_token = NULL WHERE id = $1 AND user_id = $2',
+    'UPDATE plans SET share_token = NULL, share_pin = NULL, share_expires_at = NULL WHERE id = $1 AND user_id = $2',
     [req.params.id, req.user.id]
   )
   res.json({ success: true, message: '分享已撤销' })

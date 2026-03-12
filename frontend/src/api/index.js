@@ -103,7 +103,7 @@ export const planApi = {
   create:   (data)   => api.post('/plans', data),
   update:   (id, data) => api.put(`/plans/${id}`, data),
   delete:   (id)     => api.delete(`/plans/${id}`),
-  share:    (id)     => api.post(`/plans/${id}/share`),
+  share:    (id, data) => api.post(`/plans/${id}/share`, data),
   unshare:  (id)     => api.delete(`/plans/${id}/share`)
 }
 

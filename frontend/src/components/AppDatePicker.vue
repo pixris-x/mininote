@@ -1,21 +1,21 @@
 <template>
   <div class="adp-wrap" ref="wrapRef">
     <!-- 触发输入框 -->
-    <div
-      class="adp-input"
+    <div class="adp-input"
       :class="{ 'adp-input--open': open, 'adp-input--filled': modelValue, 'adp-input--disabled': disabled }"
-      @click="toggle"
-    >
+      @click="toggle">
       <svg class="adp-icon" viewBox="0 0 20 20" fill="none">
-        <rect x="3" y="4" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.5"/>
-        <path d="M3 8h14" stroke="currentColor" stroke-width="1.5"/>
-        <path d="M7 2v3M13 2v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <rect x="3" y="4" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.5" />
+        <path d="M3 8h14" stroke="currentColor" stroke-width="1.5" />
+        <path d="M7 2v3M13 2v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
       </svg>
       <span class="adp-input-text" :class="{ placeholder: !modelValue }">
         {{ modelValue ? displayValue : placeholder }}
       </span>
       <button v-if="modelValue && clearable && !disabled" class="adp-clear" @click.stop="clear">
-        <svg viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 16 16" fill="none">
+          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
       </button>
     </div>
 
@@ -37,19 +37,12 @@
           </div>
           <!-- 日期格 -->
           <div class="adp-days">
-            <button
-              v-for="cell in cells"
-              :key="cell.key"
-              class="adp-day"
-              :class="{
-                'adp-day--other': cell.other,
-                'adp-day--today': cell.isToday,
-                'adp-day--selected': cell.isSelected,
-                'adp-day--disabled': cell.disabled,
-              }"
-              :disabled="cell.disabled"
-              @click="selectDay(cell)"
-            >{{ cell.d }}</button>
+            <button v-for="cell in cells" :key="cell.key" class="adp-day" :class="{
+              'adp-day--other': cell.other,
+              'adp-day--today': cell.isToday,
+              'adp-day--selected': cell.isSelected,
+              'adp-day--disabled': cell.disabled,
+            }" :disabled="cell.disabled" @click="selectDay(cell)">{{ cell.d }}</button>
           </div>
           <!-- 底部快捷 -->
           <div class="adp-footer">
@@ -163,8 +156,8 @@ function clear() { emit('update:modelValue', ''); close() }
 
 function prevMonth() { cursor.value = cursor.value.subtract(1, 'month') }
 function nextMonth() { cursor.value = cursor.value.add(1, 'month') }
-function prevYear()  { cursor.value = cursor.value.subtract(1, 'year') }
-function nextYear()  { cursor.value = cursor.value.add(1, 'year') }
+function prevYear() { cursor.value = cursor.value.subtract(1, 'year') }
+function nextYear() { cursor.value = cursor.value.add(1, 'year') }
 function gotoToday() { cursor.value = today.startOf('month') }
 
 function onOutsideClick(e) {
@@ -180,7 +173,10 @@ watch(open, v => { if (v) nextTick(positionPanel) })
 </script>
 
 <style scoped>
-.adp-wrap { position: relative; display: block; }
+.adp-wrap {
+  position: relative;
+  display: block;
+}
 
 .adp-input {
   display: flex;
@@ -195,30 +191,63 @@ watch(open, v => { if (v) nextTick(positionPanel) })
   min-height: 38px;
   user-select: none;
 }
-.adp-input:hover { border-color: var(--theme-primary-dark); }
+
+.adp-input:hover {
+  border-color: var(--theme-primary-dark);
+}
+
 .adp-input--open {
   border-color: var(--theme-primary-dark);
   box-shadow: 0 0 0 3px rgba(255, 133, 161, 0.18);
 }
-.adp-input--disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+.adp-input--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
 .adp-icon {
-  width: 16px; height: 16px; flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
   color: var(--theme-primary-dark);
 }
+
 .adp-input-text {
-  flex: 1; font-size: 14px; color: var(--color-text); line-height: 1;
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text);
+  line-height: 1;
 }
-.adp-input-text.placeholder { color: var(--color-text-light); }
+
+.adp-input-text.placeholder {
+  color: var(--color-text-light);
+}
 
 .adp-clear {
-  width: 18px; height: 18px; border: none; background: none; padding: 0;
-  cursor: pointer; color: var(--color-text-secondary);
-  display: flex; align-items: center; border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  border-radius: 50%;
   transition: color 0.15s, background 0.15s;
 }
-.adp-clear:hover { color: var(--theme-primary-dark); background: var(--theme-primary-light); }
-.adp-clear svg { width: 14px; height: 14px; }
+
+.adp-clear:hover {
+  color: var(--theme-primary-dark);
+  background: var(--theme-primary-light);
+}
+
+.adp-clear svg {
+  width: 14px;
+  height: 14px;
+}
 
 /* ── 面板 ── */
 .adp-panel {
@@ -228,71 +257,157 @@ watch(open, v => { if (v) nextTick(positionPanel) })
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(255, 133, 161, 0.2), 0 2px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 8px 32px rgba(255, 133, 161, 0.2), 0 2px 10px rgba(0, 0, 0, 0.08);
   padding: 12px;
   box-sizing: border-box;
 }
 
 .adp-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 10px;
 }
+
 .adp-nav {
-  width: 28px; height: 28px; border: none; background: none; cursor: pointer;
-  border-radius: 8px; font-size: 15px; color: var(--color-text-secondary);
-  display: flex; align-items: center; justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.15s, color 0.15s;
 }
-.adp-nav:hover { background: var(--theme-primary-light); color: var(--theme-primary-dark); }
+
+.adp-nav:hover {
+  background: var(--theme-primary-light);
+  color: var(--theme-primary-dark);
+}
+
 .adp-title {
-  font-size: 14px; font-weight: 700; color: var(--color-text);
-  cursor: pointer; padding: 2px 6px; border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
   transition: background 0.15s;
 }
-.adp-title:hover { background: var(--theme-primary-light); }
+
+.adp-title:hover {
+  background: var(--theme-primary-light);
+}
 
 .adp-weekdays {
-  display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
 }
+
 .adp-weekdays span {
-  text-align: center; font-size: 11px; font-weight: 600;
-  color: var(--color-text-secondary); padding: 4px 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 4px 0;
 }
 
 .adp-days {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
 }
+
 .adp-day {
-  aspect-ratio: 1; border: none; background: none; border-radius: 8px;
-  font-size: 13px; color: var(--color-text); cursor: pointer;
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
   transition: background 0.13s, color 0.13s;
-  display: flex; align-items: center; justify-content: center; padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
-.adp-day:hover:not(:disabled) { background: var(--theme-primary-light); color: var(--theme-primary-dark); }
-.adp-day--other { color: var(--color-text-light); }
+
+.adp-day:hover:not(:disabled) {
+  background: var(--theme-primary-light);
+  color: var(--theme-primary-dark);
+}
+
+.adp-day--other {
+  color: var(--color-text-light);
+}
+
 .adp-day--today {
-  font-weight: 700; color: var(--theme-primary-dark);
+  font-weight: 700;
+  color: var(--theme-primary-dark);
   box-shadow: inset 0 0 0 1.5px var(--theme-primary);
 }
+
 .adp-day--selected {
   background: var(--theme-primary-dark) !important;
-  color: #fff !important; font-weight: 700;
+  color: #fff !important;
+  font-weight: 700;
 }
-.adp-day--disabled { opacity: 0.3; cursor: not-allowed; }
+
+.adp-day--disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
 
 .adp-footer {
-  display: flex; justify-content: space-between; margin-top: 10px;
-  padding-top: 8px; border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
 }
-.adp-today-btn, .adp-clear-btn {
-  border: none; background: none; cursor: pointer; font-size: 12px;
-  padding: 4px 8px; border-radius: 6px; transition: background 0.15s, color 0.15s;
-}
-.adp-today-btn { color: var(--theme-primary-dark); font-weight: 600; }
-.adp-today-btn:hover { background: var(--theme-primary-light); }
-.adp-clear-btn { color: var(--color-text-secondary); }
-.adp-clear-btn:hover { background: var(--color-border); }
 
-.adp-fade-enter-active, .adp-fade-leave-active { transition: opacity 0.15s, transform 0.15s; }
-.adp-fade-enter-from, .adp-fade-leave-to { opacity: 0; transform: translateY(6px) scale(0.98); }
+.adp-today-btn,
+.adp-clear-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.adp-today-btn {
+  color: var(--theme-primary-dark);
+  font-weight: 600;
+}
+
+.adp-today-btn:hover {
+  background: var(--theme-primary-light);
+}
+
+.adp-clear-btn {
+  color: var(--color-text-secondary);
+}
+
+.adp-clear-btn:hover {
+  background: var(--color-border);
+}
+
+.adp-fade-enter-active,
+.adp-fade-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.adp-fade-enter-from,
+.adp-fade-leave-to {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+}
 </style>
