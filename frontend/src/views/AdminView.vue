@@ -4,7 +4,7 @@
     <header class="admin-header">
       <div class="header-left">
         <span class="logo-icon">🌸</span>
-        <span class="logo-text">Mini List</span>
+        <span class="logo-text">Mini Note</span>
         <span class="admin-badge">👑 管理面板</span>
       </div>
       <div class="header-right">

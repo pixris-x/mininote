@@ -15,7 +15,7 @@ async function sendResetPasswordEmail(to, code, username) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MiniList 密码重置</title>
+  <title>Mini Note 密码重置</title>
 </head>
 <body style="margin:0;padding:0;background:#fdf6f9;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6f9;padding:40px 0;">
@@ -27,7 +27,7 @@ async function sendResetPasswordEmail(to, code, username) {
           <tr>
             <td style="background:linear-gradient(135deg,#ffb3c6 0%,#c7ceea 100%);padding:36px 40px;text-align:center;">
               <div style="font-size:40px;margin-bottom:8px;">🌸</div>
-              <div style="font-size:26px;font-weight:700;color:#fff;letter-spacing:1px;">Mini List</div>
+              <div style="font-size:26px;font-weight:700;color:#fff;letter-spacing:1px;">Mini Note</div>
               <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:4px;">记录每一个美好瞬间 ✨</div>
             </td>
           </tr>
@@ -60,7 +60,7 @@ async function sendResetPasswordEmail(to, code, username) {
           <tr>
             <td style="background:#fdf6f9;padding:20px 40px;text-align:center;border-top:1px solid #fce4ec;">
               <p style="margin:0;font-size:12px;color:#ccc;">
-                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">MiniList</a> 自动发送，请勿直接回复
+                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
               </p>
             </td>
           </tr>
@@ -73,9 +73,9 @@ async function sendResetPasswordEmail(to, code, username) {
 </html>`
 
   const { data, error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || 'MiniList <noreply@minilist.pixris.online>',
+    from: process.env.EMAIL_FROM || 'Mini Note <noreply@minilist.pixris.online>',
     to,
-    subject: '🌸 MiniList 密码重置验证码',
+    subject: '🌸 Mini Note 密码重置验证码',
     html
   })
 
@@ -97,7 +97,7 @@ async function sendRegisterVerifyEmail(to, code) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MiniList 邮箱验证</title>
+  <title>Mini Note 邮箱验证</title>
 </head>
 <body style="margin:0;padding:0;background:#fdf6f9;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6f9;padding:40px 0;">
@@ -107,7 +107,7 @@ async function sendRegisterVerifyEmail(to, code) {
           <tr>
             <td style="background:linear-gradient(135deg,#ffb3c6 0%,#c7ceea 100%);padding:36px 40px;text-align:center;">
               <div style="font-size:40px;margin-bottom:8px;">🌸</div>
-              <div style="font-size:26px;font-weight:700;color:#fff;letter-spacing:1px;">Mini List</div>
+              <div style="font-size:26px;font-weight:700;color:#fff;letter-spacing:1px;">Mini Note</div>
               <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:4px;">记录每一个美好瞬间 ✨</div>
             </td>
           </tr>
@@ -115,7 +115,7 @@ async function sendRegisterVerifyEmail(to, code) {
             <td style="padding:40px 40px 24px;">
               <p style="margin:0 0 16px;font-size:16px;color:#555;">你好 👋</p>
               <p style="margin:0 0 28px;font-size:15px;color:#666;line-height:1.7;">
-                感谢注册 MiniList！请使用下方验证码完成邮箱验证：
+                感谢注册 Mini Note！请使用下方验证码完成邮箱验证：
               </p>
               <div style="background:linear-gradient(135deg,#fff0f5 0%,#f0f0ff 100%);border:2px dashed #ffb3c6;border-radius:16px;padding:28px;text-align:center;margin-bottom:28px;">
                 <div style="font-size:13px;color:#999;margin-bottom:10px;letter-spacing:1px;">注册验证码</div>
@@ -131,7 +131,7 @@ async function sendRegisterVerifyEmail(to, code) {
           <tr>
             <td style="background:#fdf6f9;padding:20px 40px;text-align:center;border-top:1px solid #fce4ec;">
               <p style="margin:0;font-size:12px;color:#ccc;">
-                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">MiniList</a> 自动发送，请勿直接回复
+                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
               </p>
             </td>
           </tr>

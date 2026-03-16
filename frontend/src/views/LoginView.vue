@@ -10,7 +10,7 @@
       <!-- Logo -->
       <div class="login-logo">
         <span class="logo-big">🌸</span>
-        <h1 class="logo-title">Mini List</h1>
+        <h1 class="logo-title">Mini Note</h1>
         <p class="logo-sub">记录每一个美好瞬间 ✨</p>
       </div>
 

@@ -205,7 +205,7 @@ async function sendDueDateReminders() {
         <tr>
           <td style="background:linear-gradient(135deg,#ffb3c6,#c7ceea);padding:32px 40px;text-align:center;">
             <div style="font-size:38px;margin-bottom:6px;">🌸</div>
-            <div style="font-size:22px;font-weight:700;color:#fff;">Mini List</div>
+            <div style="font-size:22px;font-weight:700;color:#fff;">Mini Note</div>
             <div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:4px;">计划步骤到期提醒</div>
           </td>
         </tr>
@@ -235,7 +235,7 @@ async function sendDueDateReminders() {
           <td style="background:#fdf6f9;padding:16px 40px;text-align:center;border-top:1px solid #fce4ec;">
             <p style="margin:0;font-size:12px;color:#ccc;">
               此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}"
-                style="color:#ffb3c6;text-decoration:none;">MiniList</a> 自动发送，请勿直接回复
+                style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
             </p>
           </td>
         </tr>
@@ -246,9 +246,9 @@ async function sendDueDateReminders() {
 </html>`
 
       await getResend().emails.send({
-        from: process.env.EMAIL_FROM || 'MiniList <noreply@minilist.pixris.online>',
+        from: process.env.EMAIL_FROM || 'Mini Note <noreply@minilist.pixris.online>',
         to: email,
-        subject: `📅 MiniList · ${steps.length} 个步骤明天到期`,
+        subject: `📅 Mini Note · ${steps.length} 个步骤明天到期`,
         html
       })
       sent++

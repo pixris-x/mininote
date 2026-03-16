@@ -38,7 +38,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 // 健康检查
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'MiniList API 运行中 🎉', time: new Date().toISOString() })
+  res.json({ status: 'ok', message: 'Mini Note API 运行中 🎉', time: new Date().toISOString() })
 })
 
 // API 路由
@@ -164,7 +164,7 @@ app.use(errorLoggerMiddleware)
 app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════╗
-║   🌸 MiniList API 已启动       ║
+║   🌸 Mini Note API 已启动      ║
 ║   端口: ${PORT}                    ║
 ║   环境: ${process.env.NODE_ENV || 'development'}              ║
 ╚════════════════════════════════╝

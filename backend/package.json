@@ -1,5 +1,5 @@
 {
-  "name": "minilist-backend",
+  "name": "mini-note-backend",
   "version": "1.0.0",
   "description": "Mini Note Backend API",
   "main": "app.js",

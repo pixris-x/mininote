@@ -4,7 +4,7 @@
     <aside class="sidebar" :class="{ collapsed }">
       <div class="sidebar-logo">
         <span class="logo-icon">🌸</span>
-        <span class="logo-text">Mini List</span>
+        <span class="logo-text">Mini Note</span>
       </div>
 
       <nav class="sidebar-nav">
