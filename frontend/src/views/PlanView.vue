@@ -6,7 +6,10 @@
             <aside class="plans-sidebar">
                 <div class="plans-sidebar-header">
                     <h2 class="sidebar-title">🎯 我的计划</h2>
-                    <button class="btn btn-primary btn-sm" @click="openPlanModal()">＋ 新建</button>
+                    <div class="sidebar-header-actions">
+                        <button class="btn btn-ghost btn-sm" @click="openShareLookup" title="查看分享行程">🔗</button>
+                        <button class="btn btn-primary btn-sm" @click="openPlanModal()">＋ 新建</button>
+                    </div>
                 </div>
 
                 <!-- 过滤 -->
@@ -154,33 +157,36 @@
                                 <div v-if="step.location" class="step-map-links">
                                     <span class="step-map-label">📍 {{ step.location }}</span>
                                     <div class="step-map-btns">
-                                        <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=minilist&coordinate=gaode&callnative=1`"
-                                            target="_blank" class="map-btn map-btn--amap" title="高德地图">
+                                        <button @click="openMapNav(step, 'amap')"
+                                            class="map-btn map-btn--amap" title="高德地图导航"
+                                            :disabled="mapNavLoading === `${step.id}-amap`">
                                             <svg viewBox="0 0 24 24" fill="none">
                                                 <path
                                                     d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
                                                     fill="currentColor" />
                                             </svg>
-                                            高德
-                                        </a>
-                                        <a :href="`http://api.map.baidu.com/geocoder?address=${encodeURIComponent(step.location)}&output=html&src=minilist`"
-                                            target="_blank" class="map-btn map-btn--baidu" title="百度地图导航">
+                                            {{ mapNavLoading === `${step.id}-amap` ? '定位中…' : '高德' }}
+                                        </button>
+                                        <button @click="openMapNav(step, 'baidu')"
+                                            class="map-btn map-btn--baidu" title="百度地图导航"
+                                            :disabled="mapNavLoading === `${step.id}-baidu`">
                                             <svg viewBox="0 0 24 24" fill="none">
                                                 <path
                                                     d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
                                                     fill="currentColor" />
                                             </svg>
-                                            百度
-                                        </a>
-                                        <a :href="`https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(step.location)}&referer=minilist`"
-                                            target="_blank" class="map-btn map-btn--tencent" title="腾讯地图导航">
+                                            {{ mapNavLoading === `${step.id}-baidu` ? '定位中…' : '百度' }}
+                                        </button>
+                                        <button @click="openMapNav(step, 'tencent')"
+                                            class="map-btn map-btn--tencent" title="腾讯地图导航"
+                                            :disabled="mapNavLoading === `${step.id}-tencent`">
                                             <svg viewBox="0 0 24 24" fill="none">
                                                 <path
                                                     d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
                                                     fill="currentColor" />
                                             </svg>
-                                            腾讯
-                                        </a>
+                                            {{ mapNavLoading === `${step.id}-tencent` ? '定位中…' : '腾讯' }}
+                                        </button>
                                     </div>
                                 </div>
 
@@ -478,11 +484,47 @@
             </div>
         </Teleport>
 
+        <!-- ── 查看分享行程弹窗 ── -->
+        <Teleport to="body">
+            <div v-if="showShareLookup" class="share-lookup-overlay" @click.self="showShareLookup = false">
+                <div class="share-lookup-modal">
+                    <div class="share-lookup-header">
+                        <h3>🔗 查看分享行程</h3>
+                        <button class="modal-close" @click="showShareLookup = false">✕</button>
+                    </div>
+                    <div class="share-lookup-body">
+                        <p class="share-lookup-hint">粘贴好友发给你的分享链接，即可查看行程内容</p>
+                        <div class="share-lookup-input-row">
+                            <input
+                                v-model="shareLookupUrl"
+                                class="form-input"
+                                placeholder="https://…/share/…"
+                                @keydown.enter="goToShare"
+                                @input="shareLookupError = ''"
+                            />
+                            <button
+                                class="btn btn-ghost btn-sm share-lookup-clip-btn"
+                                :disabled="clipReading"
+                                title="从剪贴板读取"
+                                @click="readFromClipboard"
+                            >{{ clipReading ? '读取中…' : '📋' }}</button>
+                        </div>
+                        <p v-if="shareLookupError" class="share-lookup-error">{{ shareLookupError }}</p>
+                    </div>
+                    <div class="share-lookup-footer">
+                        <button class="btn btn-ghost" @click="showShareLookup = false">取消</button>
+                        <button class="btn btn-primary" :disabled="!shareLookupUrl.trim()" @click="goToShare">前往查看</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
     </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import { usePlanStore } from '@/stores/plans'
@@ -493,6 +535,7 @@ import dayjs from 'dayjs'
 import html2canvas from 'html2canvas'
 
 const planStore = usePlanStore()
+const router = useRouter()
 
 // ── 常量 ────────────────────────────────────────────────────────
 const planFilters = [
@@ -548,12 +591,131 @@ const flashStepId = ref(null)
 const mainRef = ref(null)
 const showBackToTop = ref(false)
 
+// \u2500\u2500 \u67e5\u770b\u5206\u4eab\u884c\u7a0b \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+const showShareLookup = ref(false)
+const shareLookupUrl = ref('')
+const shareLookupError = ref('')
+const clipReading = ref(false)
+
 function handleMainScroll() {
     showBackToTop.value = window.scrollY > 300
 }
 
 function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+// \u2500\u2500 \u67e5\u770b\u5206\u4eab\u884c\u7a0b \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+function openShareLookup() {
+    shareLookupUrl.value = ''
+    shareLookupError.value = ''
+    showShareLookup.value = true
+    // \u5c1d\u8bd5\u81ea\u52a8\u8bfb\u53d6\u526a\u8d34\u677f
+    tryAutoReadClipboard()
+}
+
+async function tryAutoReadClipboard() {
+    if (!navigator.clipboard?.readText) return
+    try {
+        const text = await navigator.clipboard.readText()
+        const trimmed = (text || '').trim()
+        if (trimmed && (trimmed.includes('/share/') || /^[a-f0-9]{60,}$/.test(trimmed))) {
+            shareLookupUrl.value = trimmed
+        }
+    } catch (_) { /* \u6743\u9650\u88ab\u62d2\uff0c\u9759\u9ed8\u5931\u8d25 */ }
+}
+
+async function readFromClipboard() {
+    if (!navigator.clipboard?.readText) {
+        shareLookupError.value = '\u6d4f\u89c8\u5668\u4e0d\u652f\u6301\u8bfb\u53d6\u526a\u8d34\u677f'
+        return
+    }
+    clipReading.value = true
+    try {
+        const text = await navigator.clipboard.readText()
+        if (text?.trim()) {
+            shareLookupUrl.value = text.trim()
+            shareLookupError.value = ''
+        }
+    } catch (_) {
+        shareLookupError.value = '\u526a\u8d34\u677f\u8bfb\u53d6\u88ab\u62d2\u7edd\uff0c\u8bf7\u624b\u52a8\u7c98\u8d34'
+    } finally {
+        clipReading.value = false
+    }
+}
+
+function parseShareToken(url) {
+    if (!url) return null
+    const trimmed = url.trim()
+    // \u5b8c\u6574 URL \u6216\u8def\u5f84\uff1a https://xxx.com/share/TOKEN \u6216 /share/TOKEN
+    const match = trimmed.match(/\/share\/([a-f0-9]{60,})/)
+    if (match) return match[1]
+    // \u88f8 token\uff08\u81f3\u5c11 60 \u4f4d\u5341\u516d\u8fdb\u5236\uff09
+    if (/^[a-f0-9]{60,}$/.test(trimmed)) return trimmed
+    return null
+}
+
+function goToShare() {
+    const token = parseShareToken(shareLookupUrl.value)
+    if (!token) {
+        shareLookupError.value = '\u94fe\u63a5\u683c\u5f0f\u4e0d\u6b63\u786e\uff0c\u8bf7\u68c0\u67e5\u540e\u91cd\u8bd5'
+        return
+    }
+    showShareLookup.value = false
+    router.push(`/share/${token}`)
+}
+
+// ── 地图导航（带当前位置） ──────────────────────────────────────────────────
+const cachedLocation = ref(null)   // 缓存本次会话的位置，避免重复弹授权
+const mapNavLoading = ref(null)    // 当前正在定位的 stepId+map 组合
+
+async function getLocation() {
+    if (cachedLocation.value) return cachedLocation.value
+    if (!navigator.geolocation) return null
+    return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                cachedLocation.value = loc
+                resolve(loc)
+            },
+            () => resolve(null),
+            { timeout: 5000, maximumAge: 60000 }
+        )
+    })
+}
+
+async function openMapNav(step, mapType) {
+    const key = `${step.id}-${mapType}`
+    mapNavLoading.value = key
+    const dest = step.location
+    const loc = await getLocation()
+    mapNavLoading.value = null
+
+    let url
+    if (loc) {
+        const { lat, lng } = loc
+        if (mapType === 'amap') {
+            // 高德：from=WGS84坐标，to=关键词，coordinate=wgs84 让高德自动转换
+            url = `https://uri.amap.com/navigation?from=${lng},${lat},我的位置&to=${encodeURIComponent(dest)}&mode=car&src=mini-note&coordinate=wgs84&callnative=1`
+        } else if (mapType === 'baidu') {
+            // 百度：origin=GPS坐标，destination=地名
+            url = `http://api.map.baidu.com/direction?origin=latlng:${lat},${lng}|name:我的位置&destination=name:${encodeURIComponent(dest)}&mode=driving&output=html&src=mini-note`
+        } else {
+            // 腾讯：fromcoord=WGS84，to=地名
+            url = `https://apis.map.qq.com/uri/v1/routeplan?type=drive&from=我的位置&fromcoord=${lat},${lng}&to=${encodeURIComponent(dest)}&referer=mini-note`
+        }
+    } else {
+        // 无位置权限，降级到搜索
+        if (mapType === 'amap') {
+            url = `https://uri.amap.com/search?keyword=${encodeURIComponent(dest)}&src=mini-note&callnative=1`
+        } else if (mapType === 'baidu') {
+            url = `http://api.map.baidu.com/geocoder?address=${encodeURIComponent(dest)}&output=html&src=mini-note`
+        } else {
+            url = `https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(dest)}&referer=mini-note`
+        }
+    }
+    window.open(url, '_blank')
 }
 const expandedDescs = ref(new Set())
 const DESC_LIMIT = 120
@@ -2135,6 +2297,16 @@ async function handleImgUpload(e) {
     text-decoration: none;
     transition: opacity 0.15s, transform 0.1s;
     line-height: 1;
+    /* button reset */
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.map-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .map-btn svg {
@@ -2467,5 +2639,92 @@ async function handleImgUpload(e) {
 .back-top-fade-leave-to {
     opacity: 0;
     transform: translateY(12px) scale(0.85);
+}
+
+/* ── 侧边栏标题操作区 ── */
+.sidebar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ── 查看分享行程弹窗 ── */
+.share-lookup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    backdrop-filter: blur(4px);
+}
+
+.share-lookup-modal {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    width: 400px;
+    max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: modalSlideIn 0.2s ease;
+}
+
+.share-lookup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.share-lookup-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.share-lookup-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.share-lookup-hint {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+    line-height: 1.6;
+}
+
+.share-lookup-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.share-lookup-input-row .form-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.share-lookup-clip-btn {
+    flex-shrink: 0;
+    font-size: 1rem;
+}
+
+.share-lookup-error {
+    font-size: 0.82rem;
+    color: #e17055;
+    margin: 0;
+}
+
+.share-lookup-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--color-border);
 }
 </style>

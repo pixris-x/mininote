@@ -54,6 +54,14 @@
                 <div class="share-plan-meta">
                     <span class="share-author">由 {{ plan.author_name }} 分享</span>
                 </div>
+                <button
+                    v-if="userStore.isLoggedIn"
+                    class="share-import-btn"
+                    :disabled="importing || importDone"
+                    @click="importPlan"
+                >
+                    {{ importDone ? '✅ 已导入' : importing ? '导入中…' : '📥 导入到我的行程' }}
+                </button>
             </header>
 
             <main class="share-main">
@@ -109,12 +117,21 @@
                             <div v-if="step.location" class="share-step-location">
                                 <span class="share-step-location-text">📍 {{ step.location }}</span>
                                 <div class="share-map-btns">
-                                    <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=minilist&coordinate=gaode&callnative=1`"
-                                        target="_blank" class="share-map-btn share-map-btn--amap">高德</a>
-                                    <a :href="`http://api.map.baidu.com/geocoder?address=${encodeURIComponent(step.location)}&output=html`"
-                                        target="_blank" class="share-map-btn share-map-btn--baidu">百度</a>
-                                    <a :href="`https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(step.location)}&region=中国`"
-                                        target="_blank" class="share-map-btn share-map-btn--tencent">腾讯</a>
+                                    <button @click="openMapNav(step, 'amap')"
+                                        class="share-map-btn share-map-btn--amap"
+                                        :disabled="mapNavLoading === `${step.id}-amap`">
+                                        {{ mapNavLoading === `${step.id}-amap` ? '定位中…' : '高德' }}
+                                    </button>
+                                    <button @click="openMapNav(step, 'baidu')"
+                                        class="share-map-btn share-map-btn--baidu"
+                                        :disabled="mapNavLoading === `${step.id}-baidu`">
+                                        {{ mapNavLoading === `${step.id}-baidu` ? '定位中…' : '百度' }}
+                                    </button>
+                                    <button @click="openMapNav(step, 'tencent')"
+                                        class="share-map-btn share-map-btn--tencent"
+                                        :disabled="mapNavLoading === `${step.id}-tencent`">
+                                        {{ mapNavLoading === `${step.id}-tencent` ? '定位中…' : '腾讯' }}
+                                    </button>
                                 </div>
                             </div>
 
@@ -167,17 +184,27 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import dayjs from 'dayjs'
+import { planApi } from '@/api'
+import { useUserStore } from '@/stores/user'
+import { toast } from '@/utils/toast'
 
 const route = useRoute()
+const router = useRouter()
+const userStore = useUserStore()
 const loading = ref(true)
 const error = ref(false)
 const errorMsg = ref('')
 const plan = ref(null)
 const preview = ref({ show: false, imgs: [], index: 0 })
 const togglingId = ref(null)
+
+// 导入状态
+const importing = ref(false)
+const importDone = ref(false)
+const verifiedPin = ref('')
 
 // PIN 验证
 const meta = ref(null)
@@ -266,6 +293,7 @@ async function verifyPin() {
         const res = await axios.post(`/api/share/${route.params.token}/verify`, { pin: pinInput.value })
         plan.value = res.data.data
         pinVerified.value = true
+        verifiedPin.value = pinInput.value
     } catch (e) {
         const msg = e.response?.data?.message
         pinError.value = msg === 'EXPIRED' ? '分享链接已过期' : '访问码错误，请重试'
@@ -279,6 +307,78 @@ async function verifyPin() {
 const showBackToTop = ref(false)
 function handleShareScroll() { showBackToTop.value = window.scrollY > 300 }
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
+
+// ── 导入分享行程 ──────────────────────────────────────────────────────────
+async function importPlan() {
+    if (!userStore.isLoggedIn) {
+        router.push('/login')
+        return
+    }
+    if (importing.value || importDone.value) return
+    importing.value = true
+    try {
+        const res = await planApi.importShare({
+            token: route.params.token,
+            pin: verifiedPin.value
+        })
+        importDone.value = true
+        toast.success(`已成功导入「${res.data.title}」到我的行程 🎉`)
+        setTimeout(() => router.push('/plans'), 1200)
+    } catch (e) {
+        toast.error(e.message || '导入失败，请重试')
+    } finally {
+        importing.value = false
+    }
+}
+
+// ── 地图导航（带当前位置） ──────────────────────────────────────────────────
+const cachedLocation = ref(null)
+const mapNavLoading = ref(null)
+
+async function getLocation() {
+    if (cachedLocation.value) return cachedLocation.value
+    if (!navigator.geolocation) return null
+    return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                cachedLocation.value = loc
+                resolve(loc)
+            },
+            () => resolve(null),
+            { timeout: 5000, maximumAge: 60000 }
+        )
+    })
+}
+
+async function openMapNav(step, mapType) {
+    const key = `${step.id}-${mapType}`
+    mapNavLoading.value = key
+    const dest = step.location
+    const loc = await getLocation()
+    mapNavLoading.value = null
+
+    let url
+    if (loc) {
+        const { lat, lng } = loc
+        if (mapType === 'amap') {
+            url = `https://uri.amap.com/navigation?from=${lng},${lat},我的位置&to=${encodeURIComponent(dest)}&mode=car&src=mini-note&coordinate=wgs84&callnative=1`
+        } else if (mapType === 'baidu') {
+            url = `http://api.map.baidu.com/direction?origin=latlng:${lat},${lng}|name:我的位置&destination=name:${encodeURIComponent(dest)}&mode=driving&output=html&src=mini-note`
+        } else {
+            url = `https://apis.map.qq.com/uri/v1/routeplan?type=drive&from=我的位置&fromcoord=${lat},${lng}&to=${encodeURIComponent(dest)}&referer=mini-note`
+        }
+    } else {
+        if (mapType === 'amap') {
+            url = `https://uri.amap.com/search?keyword=${encodeURIComponent(dest)}&src=mini-note&callnative=1`
+        } else if (mapType === 'baidu') {
+            url = `http://api.map.baidu.com/geocoder?address=${encodeURIComponent(dest)}&output=html&src=mini-note`
+        } else {
+            url = `https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(dest)}&referer=mini-note`
+        }
+    }
+    window.open(url, '_blank')
+}
 
 // 图片预览滑动
 let _touchX = 0
@@ -304,6 +404,7 @@ onMounted(async () => {
             const vRes = await axios.post(`/api/share/${route.params.token}/verify`, { pin: '' })
             plan.value = vRes.data.data
             pinVerified.value = true
+            verifiedPin.value = ''
             loading.value = false
         }
     } catch (e) {
@@ -612,6 +713,14 @@ onUnmounted(() => {
     text-decoration: none;
     font-weight: 600;
     color: #fff;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.share-map-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .share-map-btn--amap {
@@ -921,5 +1030,30 @@ onUnmounted(() => {
 .back-top-fade-leave-to {
     opacity: 0;
     transform: translateY(12px) scale(0.85);
+}
+
+/* 导入按钮 */
+.share-import-btn {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #f9a8d4, #ec4899);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    white-space: nowrap;
+}
+
+.share-import-btn:hover:not(:disabled) {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
+.share-import-btn:disabled {
+    opacity: 0.65;
+    cursor: default;
 }
 </style>

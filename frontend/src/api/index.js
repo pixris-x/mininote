@@ -107,13 +107,14 @@ export const expenseCategoryApi = {
 
 // ====== 计划 API ======
 export const planApi = {
-  getAll:   (params) => api.get('/plans', { params }),
-  getById:  (id)     => api.get(`/plans/${id}`),
-  create:   (data)   => api.post('/plans', data),
-  update:   (id, data) => api.put(`/plans/${id}`, data),
-  delete:   (id)     => api.delete(`/plans/${id}`),
-  share:    (id, data) => api.post(`/plans/${id}/share`, data),
-  unshare:  (id)     => api.delete(`/plans/${id}/share`)
+  getAll:      (params) => api.get('/plans', { params }),
+  getById:     (id)     => api.get(`/plans/${id}`),
+  create:      (data)   => api.post('/plans', data),
+  update:      (id, data) => api.put(`/plans/${id}`, data),
+  delete:      (id)     => api.delete(`/plans/${id}`),
+  share:       (id, data) => api.post(`/plans/${id}/share`, data),
+  unshare:     (id)     => api.delete(`/plans/${id}/share`),
+  importShare: (data)   => api.post('/plans/import-share', data)
 }
 
 // ====== 计划步骤 API ======

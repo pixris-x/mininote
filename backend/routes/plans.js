@@ -164,4 +164,74 @@ router.delete('/:id/share', async (req, res) => {
   res.json({ success: true, message: '分享已撤销' })
 })
 
+// POST /api/plans/import-share — 从分享链接导入计划（需要登录）
+router.post('/import-share', async (req, res) => {
+  const { token, pin } = req.body
+  if (!token) {
+    return res.status(400).json({ success: false, message: '缺少分享令牌' })
+  }
+
+  const planRes = await pool.query(
+    `SELECT p.id, p.title, p.description, p.color, p.icon,
+            p.share_pin, p.share_expires_at
+     FROM plans p
+     WHERE p.share_token = $1`,
+    [token]
+  )
+
+  if (planRes.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '分享链接无效或已失效' })
+  }
+
+  const src = planRes.rows[0]
+
+  if (src.share_expires_at && new Date(src.share_expires_at) < new Date()) {
+    return res.status(410).json({ success: false, message: '分享链接已过期' })
+  }
+
+  if (src.share_pin && src.share_pin !== String(pin || '')) {
+    return res.status(401).json({ success: false, message: '访问码错误' })
+  }
+
+  const stepsRes = await pool.query(
+    `SELECT title, description, badge, badge_color, due_date, start_date, image_urls, location, sort_order
+     FROM plan_steps
+     WHERE plan_id = $1
+     ORDER BY sort_order ASC, created_at ASC`,
+    [src.id]
+  )
+
+  const newPlanRes = await pool.query(
+    `INSERT INTO plans (user_id, title, description, color, icon, status)
+     VALUES ($1, $2, $3, $4, $5, 'active')
+     RETURNING *`,
+    [req.user.id, src.title, src.description || '', src.color, src.icon]
+  )
+  const newPlan = newPlanRes.rows[0]
+
+  for (let i = 0; i < stepsRes.rows.length; i++) {
+    const s = stepsRes.rows[i]
+    await pool.query(
+      `INSERT INTO plan_steps
+         (plan_id, user_id, title, description, status, badge, badge_color,
+          due_date, start_date, sort_order, image_urls, location)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10::jsonb, $11)`,
+      [
+        newPlan.id, req.user.id,
+        s.title, s.description || '',
+        s.badge || '', s.badge_color || '',
+        s.due_date || null, s.start_date || null,
+        s.sort_order || (i + 1),
+        JSON.stringify(Array.isArray(s.image_urls) ? s.image_urls : []),
+        s.location || ''
+      ]
+    )
+  }
+
+  res.json({
+    success: true,
+    data: { ...newPlan, total_steps: stepsRes.rows.length, done_steps: 0, steps: [] }
+  })
+})
+
 module.exports = router
