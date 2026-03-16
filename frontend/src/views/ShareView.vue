@@ -49,7 +49,7 @@
             <header class="share-header">
                 <div class="share-brand">
                     <span class="share-brand-logo">🌸</span>
-                    <span class="share-brand-name">MiniList</span>
+                    <span class="share-brand-name">Mini Note</span>
                 </div>
                 <div class="share-plan-meta">
                     <span class="share-author">由 {{ plan.author_name }} 分享</span>

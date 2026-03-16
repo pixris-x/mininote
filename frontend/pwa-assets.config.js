@@ -5,7 +5,7 @@ export default defineConfig({
     ...minimalPreset,
     appleTouchIcon: {
       sizes: [180],
-      padding: 0.2,
+      padding: 0,
       resizeOptions: { background: '#FFB3C6' }
     },
     maskable: {

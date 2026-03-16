@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'MiniList',
-        short_name: 'MiniList',
+        name: 'Mini Note',
+        short_name: 'Mini Note',
         description: '可爱扁平化记事应用',
         theme_color: '#FFB3C6',
         background_color: '#ffffff',

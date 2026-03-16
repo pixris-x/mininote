@@ -9,13 +9,13 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { guest: true, title: '登录 - MiniList' }
+    meta: { guest: true, title: '登录 - Mini Note' }
   },
   {
     path: '/forgot-password',
     name: 'ForgotPassword',
     component: () => import('@/views/ForgotPasswordView.vue'),
-    meta: { guest: true, title: '找回密码 - MiniList' }
+    meta: { guest: true, title: '找回密码 - Mini Note' }
   },
   {
     path: '/notes',
@@ -51,19 +51,19 @@ const routes = [
     path: '/plans',
     name: 'Plans',
     component: () => import('@/views/PlanView.vue'),
-    meta: { requiresAuth: true, title: '我的计划 - MiniList' }
+    meta: { requiresAuth: true, title: '我的计划 - Mini Note' }
   },
   {
     path: '/admin',
     name: 'Admin',
     component: () => import('@/views/AdminView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: '管理面板 - Mini List' }
+    meta: { requiresAuth: true, requiresAdmin: true, title: '管理面板 - Mini Note' }
   },
   {
     path: '/share/:token',
     name: 'ShareView',
     component: () => import('@/views/ShareView.vue'),
-    meta: { title: '计划分享 - MiniList' }
+    meta: { title: '计划分享 - Mini Note' }
   },
   {
     path: '/:pathMatch(.*)*',
@@ -86,7 +86,7 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = !!token
 
   // 更新页面标题
-  document.title = to.meta.title || 'MiniList 🌸'
+  document.title = to.meta.title || 'Mini Note 🌸'
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'Login', query: { redirect: to.fullPath } })

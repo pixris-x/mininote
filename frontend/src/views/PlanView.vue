@@ -845,7 +845,7 @@ async function exportAsImage() {
         `
         header.innerHTML = `
             <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:16px;">
-                <span style="font-size:18px;">🌸</span> MiniList
+                <span style="font-size:18px;">🌸</span> Mini Note
             </div>
             <span style="font-size:12px;color:#aaa;">${dayjs().format('YYYY-MM-DD')} 导出</span>
         `
@@ -2445,6 +2445,12 @@ async function handleImgUpload(e) {
     justify-content: center;
     transition: transform 0.15s, box-shadow 0.15s;
     z-index: 900;
+}
+
+@media (max-width: 767px) {
+    .back-to-top-btn {
+        bottom: 80px;
+    }
 }
 
 .back-to-top-btn:hover {

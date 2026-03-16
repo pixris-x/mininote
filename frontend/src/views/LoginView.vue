@@ -291,7 +291,7 @@ async function handleRegister() {
   try {
     const res = await userStore.register(registerForm)
     if (res.success) {
-      toast.success('注册成功！欢迎加入 MiniList ✨')
+      toast.success('注册成功！欢迎加入 Mini Note ✨')
       router.push('/notes')
     }
   } catch (err) {

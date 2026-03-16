@@ -1,7 +1,7 @@
 {
   "name": "minilist-backend",
   "version": "1.0.0",
-  "description": "MiniList Backend API",
+  "description": "Mini Note Backend API",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",

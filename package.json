@@ -1,7 +1,7 @@
 {
   "name": "minilist",
   "version": "1.0.0",
-  "description": "MiniList - 可爱扁平化记事应用",
+  "description": "Mini Note - 可爱扁平化记事应用",
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"

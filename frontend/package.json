@@ -2,7 +2,7 @@
   "name": "minilist-frontend",
   "version": "1.0.0",
   "type": "module",
-  "description": "MiniList 前端应用",
+  "description": "Mini Note 前端应用",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
