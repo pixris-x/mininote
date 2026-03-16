@@ -58,6 +58,29 @@
                 </button>
             </div>
 
+            <!-- 消息通知 -->
+            <div class="section card">
+                <h3 class="section-title">🔔 消息通知</h3>
+                <div v-if="!pushSupported" class="push-unsupported">
+                    当前浏览器不支持推送通知（需要 iOS 16.4+ 且从主屏幕打开）
+                </div>
+                <div v-else class="push-row">
+                    <div class="push-info">
+                        <span class="push-label">计划步骤到期提醒</span>
+                        <span class="push-desc">提前一天通过系统通知提醒你</span>
+                    </div>
+                    <button class="push-toggle" :class="{ active: pushSubscribed }"
+                        :disabled="pushLoading" @click="togglePush">
+                        <span class="toggle-thumb"></span>
+                    </button>
+                </div>
+                <div v-if="pushSubscribed" class="push-test-row">
+                    <button class="btn btn-outline btn-sm" :disabled="testSending" @click="sendTestPush">
+                        {{ testSending ? '发送中...' : '📨 发送测试通知' }}
+                    </button>
+                </div>
+            </div>
+
             <!-- 退出按钮 -->
             <div class="logout-section">
                 <button class="btn btn-logout" @click="handleLogout">
@@ -135,8 +158,14 @@ import { useRouter } from 'vue-router'
 import AppLayout from '@/components/AppLayout.vue'
 import { useUserStore } from '@/stores/user'
 import { useNotesStore } from '@/stores/notes'
-import { userApi } from '@/api'
+import { userApi, pushApi } from '@/api'
 import { toast } from '@/utils/toast'
+import {
+    isPushSupported,
+    subscribePush,
+    unsubscribePush,
+    checkPushSubscribed
+} from '@/utils/push'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -148,6 +177,47 @@ const editSaving = ref(false)
 const passSaving = ref(false)
 const editError = ref('')
 const passError = ref('')
+
+// Push 通知
+const pushSupported = isPushSupported()
+const pushSubscribed = ref(false)
+const pushLoading = ref(false)
+const testSending = ref(false)
+
+async function togglePush() {
+    pushLoading.value = true
+    try {
+        if (pushSubscribed.value) {
+            await unsubscribePush()
+            pushSubscribed.value = false
+            toast.success('已关闭推送通知')
+        } else {
+            const result = await subscribePush()
+            if (result === 'granted') {
+                pushSubscribed.value = true
+                toast.success('已开启推送通知 🔔')
+            } else if (result === 'denied') {
+                toast.error('通知权限被拒绝，请在系统设置中允许')
+            } else {
+                toast.error('订阅失败，请稍后再试')
+            }
+        }
+    } finally {
+        pushLoading.value = false
+    }
+}
+
+async function sendTestPush() {
+    testSending.value = true
+    try {
+        await pushApi.sendTest()
+        toast.success('测试通知已发送，请注意查收 📨')
+    } catch (err) {
+        toast.error(err.message || '发送失败')
+    } finally {
+        testSending.value = false
+    }
+}
 
 const themes = [
     { value: 'pink', label: '樱花粉', color: '#FFB3C6' },
@@ -244,6 +314,9 @@ function handleLogout() {
 onMounted(() => {
     userStore.fetchProfile()
     notesStore.fetchNotes()
+    if (pushSupported) {
+        checkPushSubscribed().then(v => { pushSubscribed.value = v })
+    }
 })
 </script>
 
@@ -454,6 +527,79 @@ onMounted(() => {
 .btn-logout:hover {
     background: #FFE0E0;
     border-color: #E74C3C;
+}
+
+/* Push 通知设置 */
+.push-unsupported {
+    font-size: 13px;
+    color: var(--color-text-light);
+    line-height: 1.6;
+}
+
+.push-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.push-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.push-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.push-desc {
+    font-size: 12px;
+    color: var(--color-text-light);
+}
+
+.push-toggle {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    border-radius: 14px;
+    border: none;
+    background: var(--color-border);
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.push-toggle.active {
+    background: var(--theme-primary);
+}
+
+.push-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    transition: transform 0.2s;
+}
+
+.push-toggle.active .toggle-thumb {
+    transform: translateX(20px);
+}
+
+.push-test-row {
+    margin-top: 12px;
 }
 
 /* 弹窗 */

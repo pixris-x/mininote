@@ -127,4 +127,13 @@ export const uploadApi = {
   }
 }
 
+// ====== Push 通知 API ======
+export const pushApi = {
+  getVapidPublicKey: ()           => api.get('/push/vapid-public-key'),
+  subscribe:         (sub)        => api.post('/push/subscribe', sub),
+  unsubscribe:       (endpoint)   => api.delete('/push/unsubscribe', { data: { endpoint } }),
+  getStatus:         ()           => api.get('/push/status'),
+  sendTest:          ()           => api.post('/push/test')
+}
+
 export default api

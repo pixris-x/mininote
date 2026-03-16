@@ -12,6 +12,7 @@ const expenseCategoriesRoutes = require('./routes/expense-categories')
 const uploadRoutes = require('./routes/upload')
 const plansRoutes = require('./routes/plans')
 const planStepsRoutes = require('./routes/plan-steps')
+const pushRoutes = require('./routes/push')
 const { errorLoggerMiddleware, requestLoggerMiddleware } = require('./utils/logger')
 const { startScheduler } = require('./scheduler')
 
@@ -52,6 +53,7 @@ app.use('/api/expense-categories', expenseCategoriesRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/plans', plansRoutes)
 app.use('/api/plan-steps', planStepsRoutes)
+app.use('/api/push', pushRoutes)
 
 // 公开分享：获取基本信息（无需 PIN，用于显示验证码输入页）
 const pool = require('./config/db')

@@ -10,6 +10,7 @@
 const cron = require('node-cron')
 const fs = require('fs')
 const path = require('path')
+const webpush = require('web-push')
 // 确保无论从哪个目录运行，都能找到 backend/.env
 require('dotenv').config({ path: path.join(__dirname, '.env') })
 const pool = require('./config/db')
@@ -263,6 +264,101 @@ async function sendDueDateReminders() {
   }
 }
 
+// ─── 任务 4：Web Push 到期提醒 ────────────────────────────────────────────────
+
+async function sendPushReminders() {
+  const t0 = Date.now()
+  const publicKey = process.env.VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const subject = process.env.VAPID_SUBJECT || `mailto:${process.env.EMAIL_FROM || 'noreply@example.com'}`
+
+  if (!publicKey || !privateKey) {
+    log('PUSH', 'VAPID 密钥未配置，跳过 Push 提醒')
+    return
+  }
+
+  webpush.setVapidDetails(subject, publicKey, privateKey)
+
+  try {
+    // 查出明天到期且有 push 订阅的用户步骤
+    const res = await pool.query(`
+      SELECT
+        ps.title        AS step_title,
+        ps.due_date,
+        p.title         AS plan_title,
+        p.icon          AS plan_icon,
+        sub.endpoint,
+        sub.p256dh,
+        sub.auth
+      FROM plan_steps ps
+      JOIN plans             p   ON p.id    = ps.plan_id
+      JOIN push_subscriptions sub ON sub.user_id = ps.user_id
+      WHERE ps.status NOT IN ('completed', 'skipped')
+        AND ps.due_date::date = (CURRENT_DATE + INTERVAL '1 day')::date
+      ORDER BY ps.user_id, sub.endpoint
+    `)
+
+    if (res.rowCount === 0) {
+      log('PUSH', '今日无 Push 到期提醒需要发送')
+      return
+    }
+
+    // 按端点合并步骤（同一订阅只推一条汇总消息）
+    const byEndpoint = new Map()
+    for (const row of res.rows) {
+      if (!byEndpoint.has(row.endpoint)) {
+        byEndpoint.set(row.endpoint, { sub: { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } }, steps: [] })
+      }
+      byEndpoint.get(row.endpoint).steps.push(row)
+    }
+
+    let sent = 0
+    const expiredEndpoints = []
+
+    for (const [endpoint, { sub, steps }] of byEndpoint) {
+      const body = steps.length === 1
+        ? `${steps[0].plan_icon || '🎯'} ${steps[0].plan_title} · ${steps[0].step_title}`
+        : `共 ${steps.length} 个步骤明天到期`
+
+      const payload = JSON.stringify({
+        title: '📅 Mini Note 到期提醒',
+        body,
+        icon: '/pwa-192x192.png',
+        badge: '/pwa-64x64.png',
+        url: '/plans'
+      })
+
+      try {
+        await webpush.sendNotification(sub, payload)
+        sent++
+      } catch (err) {
+        // 410 Gone / 404 = 订阅已失效，清理掉
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          expiredEndpoints.push(endpoint)
+        } else {
+          log('PUSH', `发送失败 (${err.statusCode}): ${err.message}`)
+        }
+      }
+    }
+
+    // 清理失效订阅
+    if (expiredEndpoints.length > 0) {
+      await pool.query(
+        'DELETE FROM push_subscriptions WHERE endpoint = ANY($1)',
+        [expiredEndpoints]
+      )
+      log('PUSH', `已清理 ${expiredEndpoints.length} 条失效订阅`)
+    }
+
+    const msg = `Push 提醒已发送 ${sent} 条，共 ${res.rowCount} 个步骤`
+    log('PUSH', msg)
+    await writeLog('push_reminder', 'success', msg, sent, Date.now() - t0)
+  } catch (err) {
+    log('PUSH', `错误: ${err.message}`)
+    await writeLog('push_reminder', 'error', err.message, 0, Date.now() - t0)
+  }
+}
+
 // ─── 注册定时任务 ────────────────────────────────────────────────────────────
 
 function startScheduler() {
@@ -272,13 +368,14 @@ function startScheduler() {
   // 每周日 04:00  清理孤儿图片
   cron.schedule('0 4 * * 0', cleanOrphanUploads, { timezone: 'Asia/Shanghai' })
 
-  // 每天 08:00  发到期提醒
+  // 每天 08:00  发到期提醒（邮件 + Push）
   cron.schedule('0 8 * * *', sendDueDateReminders, { timezone: 'Asia/Shanghai' })
+  cron.schedule('0 8 * * *', sendPushReminders,    { timezone: 'Asia/Shanghai' })
 
   log('INIT', '定时任务已启动 ✅')
   log('INIT', '  - 过期分享清理   : 每天 03:00')
   log('INIT', '  - 孤儿图片清理   : 每周日 04:00')
-  log('INIT', '  - 步骤到期提醒   : 每天 08:00')
+  log('INIT', '  - 步骤到期提醒   : 每天 08:00（邮件 + Push）')
 }
 
-module.exports = { startScheduler, cleanExpiredShares, cleanOrphanUploads, sendDueDateReminders }
+module.exports = { startScheduler, cleanExpiredShares, cleanOrphanUploads, sendDueDateReminders, sendPushReminders }
