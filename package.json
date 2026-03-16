@@ -21,6 +21,7 @@
     "task:orphan-clean": "node -e \"require('./backend/scheduler').cleanOrphanUploads()\"",
     "task:reminders": "node -e \"require('./backend/scheduler').sendDueDateReminders()\"",
     "task:push": "node -e \"require('./backend/scheduler').sendPushReminders()\"",
+    "task:push-test": "node backend/scripts/test-push.js",
     "clean": "rimraf frontend/dist backend/logs/*.log",
     "clean:all": "rimraf frontend/dist frontend/node_modules backend/node_modules"
   },

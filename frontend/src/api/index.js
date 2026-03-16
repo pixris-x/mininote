@@ -27,9 +27,18 @@ api.interceptors.response.use(
       const url = error.config?.url || ''
       const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/reset-password')
       if (!isAuthEndpoint) {
+        const code = error.response?.data?.code
+        const msg = code === 'SESSION_REPLACED'
+          ? '你的账号已在其他设备登录，请重新登录'
+          : null
         localStorage.removeItem('minilist_token')
         localStorage.removeItem('minilist_user')
-        window.location.href = '/login'
+        if (msg) {
+          // 跳转时携带提示信息
+          window.location.href = `/login?reason=replaced`
+        } else {
+          window.location.href = '/login'
+        }
       }
     }
     const data = error.response?.data || {}

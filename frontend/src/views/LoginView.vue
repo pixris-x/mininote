@@ -182,6 +182,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
@@ -309,7 +310,13 @@ async function handleRegister() {
   }
 }
 
-onMounted(() => generateLoginCaptcha())
+onMounted(() => {
+  generateLoginCaptcha()
+  const route = useRoute()
+  if (route.query.reason === 'replaced') {
+    toast.error('你的账号已在其他设备登录，当前会话已失效 📱')
+  }
+})
 onUnmounted(() => clearInterval(codeTimer))
 </script>
 

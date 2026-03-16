@@ -152,8 +152,15 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: '密码错误，请重新输入' })
     }
 
+    // 递增 token_version，使旧设备上的 token 立即失效
+    const updated = await pool.query(
+      'UPDATE users SET token_version = token_version + 1 WHERE id = $1 RETURNING token_version',
+      [user.id]
+    )
+    const tokenVersion = updated.rows[0].token_version
+
     const token = jwt.sign(
-      { id: user.id, username: user.username },
+      { id: user.id, username: user.username, tv: tokenVersion },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     )

@@ -59,6 +59,24 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('minilist_token')
     localStorage.removeItem('minilist_user')
     document.documentElement.removeAttribute('data-theme')
+    // 退出登录时取消 Push 订阅，防止通知发到别人手上
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready.then(async reg => {
+        const sub = await reg.pushManager.getSubscription()
+        if (sub) {
+          try {
+            const token = localStorage.getItem('minilist_token')
+            // 通知后端删除
+            await fetch('/api/push/unsubscribe', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ endpoint: sub.endpoint })
+            })
+          } catch {}
+          await sub.unsubscribe()
+        }
+      }).catch(() => {})
+    }
   }
 
   async function fetchProfile() {

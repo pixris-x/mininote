@@ -29,6 +29,11 @@ router.post('/subscribe', authMiddleware, async (req, res) => {
   }
 
   try {
+    // 先清除其他用户对同一 endpoint 的订阅，确保一个设备只属于一个用户
+    await pool.query(
+      'DELETE FROM push_subscriptions WHERE endpoint=$1 AND user_id!=$2',
+      [endpoint, req.user.id]
+    )
     await pool.query(
       `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
        VALUES ($1, $2, $3, $4)
