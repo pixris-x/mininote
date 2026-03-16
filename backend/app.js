@@ -13,6 +13,7 @@ const uploadRoutes = require('./routes/upload')
 const plansRoutes = require('./routes/plans')
 const planStepsRoutes = require('./routes/plan-steps')
 const { errorLoggerMiddleware, requestLoggerMiddleware } = require('./utils/logger')
+const { startScheduler } = require('./scheduler')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -168,6 +169,7 @@ app.listen(PORT, () => {
 ║   环境: ${process.env.NODE_ENV || 'development'}              ║
 ╚════════════════════════════════╝
   `)
+  startScheduler()
 })
 
 module.exports = app

@@ -89,8 +89,9 @@ router.put('/:id', async (req, res) => {
   const { title, description, status, badge, badge_color, image_url, image_urls, due_date, start_date, sort_order, location } = req.body
 
   // 空字符串日期转 null，避免 PostgreSQL DATE 类型报错
-  const dueDateVal = due_date || null
-  const startDateVal = start_date || null
+  // 注意：null / 空字符串 均视为"清除日期"，只有 undefined 才保留原值
+  const dueDateVal = due_date === undefined ? undefined : (due_date || null)
+  const startDateVal = start_date === undefined ? undefined : (start_date || null)
 
   const check = await pool.query(
     'SELECT id FROM plan_steps WHERE id = $1 AND user_id = $2',
@@ -110,6 +111,10 @@ router.put('/:id', async (req, res) => {
 
   const urlsJson = image_urls !== undefined ? JSON.stringify(Array.isArray(image_urls) ? image_urls : []) : null
 
+  // 是否显式传了这两个日期字段（undefined = 没传 = 保留原值，否则无论空还是有值都更新）
+  const hasDueDate   = due_date   !== undefined
+  const hasStartDate = start_date !== undefined
+
   const result = await pool.query(
     `UPDATE plan_steps
      SET title        = COALESCE($1, title),
@@ -119,25 +124,26 @@ router.put('/:id', async (req, res) => {
          badge_color  = COALESCE($5, badge_color),
          image_url    = COALESCE($6, image_url),
          image_urls   = CASE WHEN $7::text IS NOT NULL THEN $7::jsonb ELSE image_urls END,
-         due_date     = COALESCE($8, due_date),
-         sort_order   = COALESCE($9, sort_order),
-         location     = COALESCE($10, location),
-         completed_at = CASE WHEN $11::boolean THEN $12::timestamp
-                             WHEN $13::boolean THEN NULL
-                             ELSE completed_at END,
-         start_date   = COALESCE($16, start_date)
-     WHERE id = $14 AND user_id = $15
+         due_date     = CASE WHEN $8  THEN $9::date  ELSE due_date   END,
+         start_date   = CASE WHEN $10 THEN $11::date ELSE start_date END,
+         sort_order   = COALESCE($12, sort_order),
+         location     = COALESCE($13, location),
+         completed_at = CASE WHEN $14::boolean THEN $15::timestamp
+                             WHEN $16::boolean THEN NULL
+                             ELSE completed_at END
+     WHERE id = $17 AND user_id = $18
      RETURNING *`,
     [
       title, description, status, badge, badge_color, image_url,
       urlsJson,
-      dueDateVal, sort_order,
-      location !== undefined ? location : null,
-      status === 'completed',
-      completedAt,
-      status !== undefined && status !== 'completed',
-      req.params.id, req.user.id,
-      start_date !== undefined ? startDateVal : null
+      hasDueDate,   dueDateVal,    // $8, $9
+      hasStartDate, startDateVal,  // $10, $11
+      sort_order,                  // $12
+      location !== undefined ? location : null,  // $13
+      status === 'completed',      // $14
+      completedAt,                 // $15
+      status !== undefined && status !== 'completed',  // $16
+      req.params.id, req.user.id   // $17, $18
     ]
   )
   res.json({ success: true, data: result.rows[0] })
