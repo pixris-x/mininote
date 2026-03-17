@@ -1410,8 +1410,8 @@ async function handleImgUpload(e) {
 
 /* ── 左侧 Sidebar ── */
 .plans-sidebar {
-    width: 300px;
-    min-width: 260px;
+    width: 340px;
+    min-width: 300px;
     border-right: 1px solid var(--color-border);
     background: var(--color-surface);
     display: flex;
