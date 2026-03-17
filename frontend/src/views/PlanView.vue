@@ -7,7 +7,8 @@
                 <div class="plans-sidebar-header">
                     <h2 class="sidebar-title">🎯 我的计划</h2>
                     <div class="sidebar-header-actions">
-                        <button class="btn btn-ghost btn-sm invite-bell" @click="showInvitesPanel = !showInvitesPanel" title="待处理邀请">
+                        <button class="btn btn-ghost btn-sm invite-bell" @click="showInvitesPanel = !showInvitesPanel"
+                            title="待处理邀请">
                             🔔
                             <span v-if="pendingInvites.length" class="invite-badge">{{ pendingInvites.length }}</span>
                         </button>
@@ -54,8 +55,7 @@
 
                 <!-- 计划卡片列表 -->
                 <div v-else class="plan-list">
-                    <div v-for="plan in filteredPlans" :key="plan.id" class="plan-card"
-                        :data-plan-id="plan.id"
+                    <div v-for="plan in filteredPlans" :key="plan.id" class="plan-card" :data-plan-id="plan.id"
                         :class="{ active: currentPlanId === plan.id }"
                         :style="{ borderLeftColor: plan.color === '#FFFFFF' ? 'var(--theme-primary)' : plan.color }"
                         @click="selectPlan(plan.id)">
@@ -66,15 +66,16 @@
                                     {{ plan.title }}
                                     <span v-if="plan.role === 'collaborator'" class="plan-role-badge">🤝 协作</span>
                                 </div>
-                                <div class="plan-card-desc">{{ plan.role === 'collaborator' ? `来自 ${plan.owner_name}` : (plan.description || '暂无描述') }}</div>
+                                <div class="plan-card-desc">{{ plan.role === 'collaborator' ? `来自 ${plan.owner_name}` :
+                                    (plan.description || '暂无描述') }}</div>
                             </div>
                             <div class="plan-card-actions">
                                 <button class="btn btn-ghost btn-icon-sm" @click.stop="openPlanModal(plan)"
                                     title="编辑">✏️</button>
-                                <button v-if="plan.role !== 'collaborator'" class="btn btn-ghost btn-icon-sm" @click.stop="confirmDeletePlan(plan)"
-                                    title="删除">🗑️</button>
-                                <button v-if="plan.role === 'collaborator'" class="btn btn-ghost btn-icon-sm" @click.stop="leavePlan(plan)"
-                                    title="退出协作">🚪</button>
+                                <button v-if="plan.role !== 'collaborator'" class="btn btn-ghost btn-icon-sm"
+                                    @click.stop="confirmDeletePlan(plan)" title="删除">🗑️</button>
+                                <button v-if="plan.role === 'collaborator'" class="btn btn-ghost btn-icon-sm"
+                                    @click.stop="leavePlan(plan)" title="退出协作">🚪</button>
                             </div>
                         </div>
                         <div class="plan-card-bottom">
@@ -118,8 +119,10 @@
                         </div>
                         <div class="timeline-header-actions">
                             <button class="btn btn-primary btn-sm" @click="openStepModal()">＋ 添加步骤</button>
-                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm" @click="openCollabModal()" title="管理协作者">🤝 协作</button>
-                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm" @click="openShareModal()" title="分享计划">🔗 分享</button>
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm"
+                                @click="openCollabModal()" title="管理协作者">🤝 协作</button>
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm"
+                                @click="openShareModal()" title="分享计划">🔗 分享</button>
                         </div>
                     </div>
 
@@ -472,13 +475,13 @@
                             <div class="share-link-box">
                                 <span class="share-link-text">{{ shareUrl }}</span>
                                 <button class="btn btn-primary btn-sm" @click="copyShareLink">{{ copied ? '✅ 已复制' : '复制'
-                                    }}</button>
+                                }}</button>
                             </div>
                             <div v-if="sharePin" class="share-pin-box">
                                 <span class="share-pin-label">🔑 访问码</span>
                                 <span class="share-pin-value">{{ sharePin }}</span>
                                 <button class="btn btn-ghost btn-sm" @click="copySharePin">{{ copiedPin ? '✅' : '复制'
-                                    }}</button>
+                                }}</button>
                             </div>
                             <div v-if="shareExpiresAt" class="share-expires-tip">
                                 ⏰ 过期时间：{{ formatExpiresAt(shareExpiresAt) }}
@@ -559,17 +562,10 @@
                     </div>
                     <div class="collab-body">
                         <div class="collab-invite-row">
-                            <input
-                                v-model="collabUsername"
-                                class="form-input"
-                                placeholder="输入用户名邀请…"
-                                @keydown.enter="inviteCollaborator"
-                            />
-                            <button
-                                class="btn btn-primary btn-sm"
-                                :disabled="!collabUsername.trim() || collabLoading"
-                                @click="inviteCollaborator"
-                            >{{ collabLoading ? '邀请中…' : '邀请' }}</button>
+                            <input v-model="collabUsername" class="form-input" placeholder="输入用户名邀请…"
+                                @keydown.enter="inviteCollaborator" />
+                            <button class="btn btn-primary btn-sm" :disabled="!collabUsername.trim() || collabLoading"
+                                @click="inviteCollaborator">{{ collabLoading ? '邀请中…' : '邀请' }}</button>
                         </div>
                         <p v-if="collabError" class="collab-error">{{ collabError }}</p>
 
@@ -582,7 +578,8 @@
                                     <span class="collab-name">{{ c.nickname || c.username }}</span>
                                     <span class="collab-sub">@{{ c.username }}</span>
                                 </div>
-                                <button class="btn btn-ghost btn-icon-sm" @click="removeCollaborator(c)" title="移除">✕</button>
+                                <button class="btn btn-ghost btn-icon-sm" @click="removeCollaborator(c)"
+                                    title="移除">✕</button>
                             </div>
                         </div>
                         <div v-else class="collab-empty">
@@ -687,7 +684,7 @@ async function fetchInvites() {
     try {
         const res = await planApi.getInvites()
         if (res.success) pendingInvites.value = res.data
-    } catch (_) {}
+    } catch (_) { }
 }
 
 async function acceptInvite(invite) {
