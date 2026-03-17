@@ -7,8 +7,30 @@
                 <div class="plans-sidebar-header">
                     <h2 class="sidebar-title">🎯 我的计划</h2>
                     <div class="sidebar-header-actions">
+                        <button class="btn btn-ghost btn-sm invite-bell" @click="showInvitesPanel = !showInvitesPanel" title="待处理邀请">
+                            🔔
+                            <span v-if="pendingInvites.length" class="invite-badge">{{ pendingInvites.length }}</span>
+                        </button>
                         <button class="btn btn-ghost btn-sm" @click="openShareLookup" title="查看分享行程">🔗</button>
                         <button class="btn btn-primary btn-sm" @click="openPlanModal()">＋ 新建</button>
+                    </div>
+                </div>
+
+                <!-- 待处理邀请 -->
+                <div v-if="showInvitesPanel && pendingInvites.length" class="invites-panel">
+                    <h4 class="invites-panel-title">🔔 待处理邀请</h4>
+                    <div v-for="invite in pendingInvites" :key="invite.id" class="invite-card">
+                        <div class="invite-card-info">
+                            <span class="invite-plan-icon">{{ invite.plan_icon }}</span>
+                            <div>
+                                <div class="invite-plan-title">{{ invite.plan_title }}</div>
+                                <div class="invite-from">来自 {{ invite.owner_name }}</div>
+                            </div>
+                        </div>
+                        <div class="invite-card-actions">
+                            <button class="btn btn-primary btn-sm" @click="acceptInvite(invite)">✓ 接受</button>
+                            <button class="btn btn-ghost btn-sm" @click="rejectInvite(invite)">✗ 拒绝</button>
+                        </div>
                     </div>
                 </div>
 
@@ -250,14 +272,14 @@
                         <div class="timeline-add-label">添加步骤</div>
                     </div>
                 </template>
-            </main>
 
-            <!-- 返回顶部按钟 -->
-            <Transition name="back-top-fade">
-                <button v-if="showBackToTop" class="back-to-top-btn" @click="scrollToTop" title="返回顶部">
-                    &#8679;
-                </button>
-            </Transition>
+                <!-- 返回顶部按钮（放在 plans-main 内部，移动端可见） -->
+                <Transition name="back-top-fade">
+                    <button v-if="showBackToTop" class="back-to-top-btn" @click="scrollToTop" title="返回顶部">
+                        &#8679;
+                    </button>
+                </Transition>
+            </main>
         </div>
 
         <!-- ── 图片预览 ── -->
@@ -657,12 +679,49 @@ const collabUsername = ref('')
 const collabError = ref('')
 const collabLoading = ref(false)
 
+// ── 待处理邀请 ───────────────────────────
+const pendingInvites = ref([])
+const showInvitesPanel = ref(false)
+
+async function fetchInvites() {
+    try {
+        const res = await planApi.getInvites()
+        if (res.success) pendingInvites.value = res.data
+    } catch (_) {}
+}
+
+async function acceptInvite(invite) {
+    try {
+        await planApi.acceptInvite(invite.plan_id)
+        pendingInvites.value = pendingInvites.value.filter(i => i.id !== invite.id)
+        toast.success(`已加入「${invite.plan_title}」协作`)
+        await planStore.fetchPlans()
+    } catch (e) {
+        toast.error(e.message || '操作失败')
+    }
+}
+
+async function rejectInvite(invite) {
+    try {
+        await planApi.rejectInvite(invite.plan_id)
+        pendingInvites.value = pendingInvites.value.filter(i => i.id !== invite.id)
+        toast.success('已拒绝邀请')
+    } catch (e) {
+        toast.error(e.message || '操作失败')
+    }
+}
+
 function handleMainScroll() {
-    showBackToTop.value = window.scrollY > 300
+    const scrollY = mainRef.value ? mainRef.value.scrollTop : window.scrollY
+    showBackToTop.value = scrollY > 300
 }
 
 function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (mainRef.value) {
+        mainRef.value.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
 }
 
 // \u2500\u2500 \u67e5\u770b\u5206\u4eab\u884c\u7a0b \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -749,7 +808,7 @@ const filteredPlans = computed(() =>
 
 // ── 生命周期 ────────────────────────────────────────────────────
 onMounted(async () => {
-    await planStore.fetchPlans()
+    await Promise.all([planStore.fetchPlans(), fetchInvites()])
     const qPlan = route.query.plan
     const qStep = route.query.step
     if (qPlan) {
@@ -767,10 +826,16 @@ onMounted(async () => {
         }
     }
     window.addEventListener('scroll', handleMainScroll, { passive: true })
+    if (mainRef.value) {
+        mainRef.value.addEventListener('scroll', handleMainScroll, { passive: true })
+    }
 })
 
 onUnmounted(() => {
     window.removeEventListener('scroll', handleMainScroll)
+    if (mainRef.value) {
+        mainRef.value.removeEventListener('scroll', handleMainScroll)
+    }
 })
 
 // ── 方法 ────────────────────────────────────────────────────────
@@ -2756,7 +2821,10 @@ async function handleImgUpload(e) {
 
 @media (max-width: 767px) {
     .back-to-top-btn {
-        bottom: 80px;
+        position: sticky;
+        bottom: 20px;
+        float: right;
+        margin-right: 8px;
     }
 }
 
@@ -2781,6 +2849,88 @@ async function handleImgUpload(e) {
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+/* ── 邀请按钮 + 面板 ── */
+.invite-bell {
+    position: relative;
+}
+
+.invite-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ff4757;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.invites-panel {
+    padding: 12px;
+    background: var(--theme-primary-light);
+    border-radius: var(--radius-md);
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.invites-panel-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.invite-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+}
+
+.invite-card-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.invite-plan-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.invite-plan-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.invite-from {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.invite-card-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
 }
 
 /* ── 查看分享行程弹窗 ── */

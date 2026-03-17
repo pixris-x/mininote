@@ -9,7 +9,7 @@ router.use(authMiddleware)
 async function canAccessPlan(planId, userId) {
   const res = await pool.query(
     `SELECT p.id FROM plans p
-     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2 AND c.status = 'accepted'
      WHERE p.id = $1 AND (p.user_id = $2 OR c.user_id = $2)`,
     [planId, userId]
   )
@@ -21,7 +21,7 @@ async function canAccessStep(stepId, userId) {
   const res = await pool.query(
     `SELECT ps.id FROM plan_steps ps
      JOIN plans p ON p.id = ps.plan_id
-     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2 AND c.status = 'accepted'
      WHERE ps.id = $1 AND (p.user_id = $2 OR c.user_id = $2)`,
     [stepId, userId]
   )
@@ -174,7 +174,7 @@ router.patch('/reorder', async (req, res) => {
       const accessCheck = await client.query(
         `SELECT ps.id FROM plan_steps ps
          JOIN plans p ON p.id = ps.plan_id
-         LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+         LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2 AND c.status = 'accepted'
          WHERE ps.id = $1 AND (p.user_id = $2 OR c.user_id = $2)`,
         [item.id, req.user.id]
       )

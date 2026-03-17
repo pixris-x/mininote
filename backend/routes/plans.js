@@ -42,7 +42,7 @@ async function getPlanRole(planId, userId) {
             ELSE NULL
        END AS role
      FROM plans p
-     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2 AND c.status = 'accepted'
      WHERE p.id = $1`,
     [planId, userId]
   )
@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
       ou.nickname AS owner_name
     FROM plans p
     LEFT JOIN plan_steps ps ON ps.plan_id = p.id
-    LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $1
+    LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $1 AND c.status = 'accepted'
     LEFT JOIN users ou ON ou.id = p.user_id
     WHERE (p.user_id = $1 OR c.user_id = $1)
   `
@@ -73,6 +73,22 @@ router.get('/', async (req, res) => {
   query += ` GROUP BY p.id, ou.nickname ORDER BY p.sort_order ASC, p.created_at DESC`
 
   const result = await pool.query(query, params)
+  res.json({ success: true, data: result.rows })
+})
+
+// GET /api/plans/invites — 获取当前用户的待处理邀请
+router.get('/invites', async (req, res) => {
+  const result = await pool.query(
+    `SELECT c.id, c.plan_id, c.added_at,
+            p.title AS plan_title, p.icon AS plan_icon, p.color AS plan_color,
+            ou.nickname AS owner_name, ou.avatar_color AS owner_avatar_color
+     FROM plan_collaborators c
+     JOIN plans p ON p.id = c.plan_id
+     JOIN users ou ON ou.id = p.user_id
+     WHERE c.user_id = $1 AND c.status = 'pending'
+     ORDER BY c.added_at DESC`,
+    [req.user.id]
+  )
   res.json({ success: true, data: result.rows })
 })
 
@@ -272,6 +288,54 @@ router.delete('/:id/leave', async (req, res) => {
     return res.status(404).json({ success: false, message: '你不是该计划的协作者' })
   }
   res.json({ success: true, message: '已退出协作' })
+})
+
+
+// POST /api/plans/:id/collaborators/accept — 接受邀请
+router.post('/:id/collaborators/accept', async (req, res) => {
+  const result = await pool.query(
+    `UPDATE plan_collaborators SET status = 'accepted'
+     WHERE plan_id = $1 AND user_id = $2 AND status = 'pending'
+     RETURNING id`,
+    [req.params.id, req.user.id]
+  )
+  if (result.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '邀请不存在或已处理' })
+  }
+
+  // 通知计划创建者
+  const planRes = await pool.query(
+    `SELECT p.title, p.user_id, u.nickname AS accepter_name
+     FROM plans p, users u
+     WHERE p.id = $1 AND u.id = $2`,
+    [req.params.id, req.user.id]
+  )
+  if (planRes.rows[0]) {
+    const { title, user_id, accepter_name } = planRes.rows[0]
+    sendPushToUser(user_id, {
+      title: '✅ 协作邀请已接受',
+      body: `${accepter_name} 接受了计划「${title}」的协作邀请`,
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-64x64.png',
+      url: '/plans'
+    })
+  }
+
+  res.json({ success: true, message: '已接受邀请' })
+})
+
+// POST /api/plans/:id/collaborators/reject — 拒绝邀请
+router.post('/:id/collaborators/reject', async (req, res) => {
+  const result = await pool.query(
+    `DELETE FROM plan_collaborators
+     WHERE plan_id = $1 AND user_id = $2 AND status = 'pending'
+     RETURNING id`,
+    [req.params.id, req.user.id]
+  )
+  if (result.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '邀请不存在或已处理' })
+  }
+  res.json({ success: true, message: '已拒绝邀请' })
 })
 
 // POST /api/plans/:id/share — 生成分享 token（每次调用都重新生成 PIN 和过期时间）

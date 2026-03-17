@@ -119,7 +119,11 @@ export const planApi = {
   // 协作者
   addCollaborator:    (id, username) => api.post(`/plans/${id}/collaborators`, { username }),
   removeCollaborator: (id, userId)  => api.delete(`/plans/${id}/collaborators/${userId}`),
-  leave:              (id)          => api.delete(`/plans/${id}/leave`)
+  leave:              (id)          => api.delete(`/plans/${id}/leave`),
+  // 邀请
+  getInvites:         ()            => api.get('/plans/invites'),
+  acceptInvite:       (id)          => api.post(`/plans/${id}/collaborators/accept`),
+  rejectInvite:       (id)          => api.post(`/plans/${id}/collaborators/reject`)
 }
 
 // ====== 计划步骤 API ======
