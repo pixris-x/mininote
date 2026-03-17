@@ -156,4 +156,51 @@ async function sendRegisterVerifyEmail(to, code) {
   return data
 }
 
-module.exports = { sendResetPasswordEmail, sendRegisterVerifyEmail }
+module.exports = { sendResetPasswordEmail, sendRegisterVerifyEmail, sendNotificationEmail }
+
+/**
+ * 发送通知邮件（协作邀请、移除、接受等）
+ * @param {string} to - 收件人邮箱
+ * @param {string} title - 通知标题（如 🤝 协作邀请）
+ * @param {string} body - 通知正文
+ */
+async function sendNotificationEmail(to, title, body) {
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
+<body style="margin:0;padding:0;background:#fdf6f9;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6f9;padding:40px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(255,182,193,0.15);">
+        <tr><td style="background:linear-gradient(135deg,#ffb3c6 0%,#c7ceea 100%);padding:36px 40px;text-align:center;">
+          <div style="font-size:40px;margin-bottom:8px;">🌸</div>
+          <div style="font-size:26px;font-weight:700;color:#fff;letter-spacing:1px;">Mini Note</div>
+        </td></tr>
+        <tr><td style="padding:40px;">
+          <div style="font-size:20px;font-weight:700;color:#333;margin-bottom:16px;">${title}</div>
+          <p style="font-size:15px;color:#555;line-height:1.8;margin:0 0 24px;">${body}</p>
+          <a href="https://${process.env.FRONTEND_URL || 'mininote.pixris.online'}/plans"
+             style="display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#ffb3c6,#e8698a);color:#fff;text-decoration:none;border-radius:24px;font-weight:600;font-size:14px;">
+            前往查看 →
+          </a>
+        </td></tr>
+        <tr><td style="background:#fdf6f9;padding:20px 40px;text-align:center;border-top:1px solid #fce4ec;">
+          <p style="margin:0;font-size:12px;color:#ccc;">
+            此邮件由 <a href="https://${process.env.FRONTEND_URL || 'mininote.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  try {
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'Mini Note <noreply@mininote.pixris.online>',
+      to,
+      subject: \`🌸 Mini Note - \${title}\`,
+      html
+    })
+  } catch (_) { /* 静默失败 */ }
+}

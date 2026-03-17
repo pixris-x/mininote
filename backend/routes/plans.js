@@ -3,31 +3,42 @@ const router = express.Router()
 const pool = require('../config/db')
 const authMiddleware = require('../middleware/auth')
 const webpush = require('web-push')
+const { sendNotificationEmail } = require('../utils/email')
 
-// 发送推送通知给指定用户
-async function sendPushToUser(userId, payload) {
+// 发送推送通知 + 邮件给指定用户
+async function notifyUser(userId, payload) {
+  // Push 通知
   const publicKey = process.env.VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
   const subject = process.env.VAPID_SUBJECT || `mailto:${process.env.EMAIL_FROM || 'noreply@example.com'}`
-  if (!publicKey || !privateKey) return
-
-  try {
-    const subs = await pool.query(
-      'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1',
-      [userId]
-    )
-    if (subs.rowCount === 0) return
-
-    webpush.setVapidDetails(subject, publicKey, privateKey)
-    await Promise.allSettled(
-      subs.rows.map(sub =>
-        webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          JSON.stringify(payload)
-        ).catch(() => {})
+  if (publicKey && privateKey) {
+    try {
+      const subs = await pool.query(
+        'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1',
+        [userId]
       )
-    )
-  } catch (_) { /* 静默失败，不影响主流程 */ }
+      if (subs.rowCount > 0) {
+        webpush.setVapidDetails(subject, publicKey, privateKey)
+        await Promise.allSettled(
+          subs.rows.map(sub =>
+            webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              JSON.stringify(payload)
+            ).catch(() => {})
+          )
+        )
+      }
+    } catch (_) {}
+  }
+
+  // 邮件通知
+  try {
+    const userRes = await pool.query('SELECT email FROM users WHERE id=$1', [userId])
+    const email = userRes.rows[0]?.email
+    if (email) {
+      sendNotificationEmail(email, payload.title, payload.body)
+    }
+  } catch (_) {}
 }
 
 // 所有接口需要登录
@@ -244,7 +255,7 @@ router.post('/:id/collaborators', async (req, res) => {
   )
 
   // 发送推送通知给被邀请用户
-  sendPushToUser(targetUser.id, {
+  notifyUser(targetUser.id, {
     title: '🤝 你有新的协作邀请',
     body: `${plan.owner_name} 邀请你协作计划「${plan.title}」`,
     icon: '/pwa-192x192.png',
@@ -261,7 +272,7 @@ router.post('/:id/collaborators', async (req, res) => {
 // DELETE /api/plans/:id/collaborators/:userId — 移除协作者（仅 owner）
 router.delete('/:id/collaborators/:userId', async (req, res) => {
   const ownerCheck = await pool.query(
-    'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
+    'SELECT p.id, p.title FROM plans p WHERE p.id = $1 AND p.user_id = $2',
     [req.params.id, req.user.id]
   )
   if (ownerCheck.rows.length === 0) {
@@ -275,6 +286,17 @@ router.delete('/:id/collaborators/:userId', async (req, res) => {
   if (result.rows.length === 0) {
     return res.status(404).json({ success: false, message: '协作者不存在' })
   }
+
+  // 通知被移除的用户
+  const planTitle = ownerCheck.rows[0].title
+  notifyUser(parseInt(req.params.userId), {
+    title: '📋 协作变更通知',
+    body: `你已被移出计划「${planTitle}」的协作`,
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-64x64.png',
+    url: '/plans'
+  })
+
   res.json({ success: true, message: '已移除协作者' })
 })
 
@@ -312,7 +334,7 @@ router.post('/:id/collaborators/accept', async (req, res) => {
   )
   if (planRes.rows[0]) {
     const { title, user_id, accepter_name } = planRes.rows[0]
-    sendPushToUser(user_id, {
+    notifyUser(user_id, {
       title: '✅ 协作邀请已接受',
       body: `${accepter_name} 接受了计划「${title}」的协作邀请`,
       icon: '/pwa-192x192.png',
