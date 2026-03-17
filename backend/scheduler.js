@@ -1,5 +1,5 @@
 /**
- * MiniList 后台定时任务调度器
+ * Mini Note 后台定时任务调度器
  *
  * 任务列表：
  *  1. 清理过期分享链接        每天 03:00
@@ -235,7 +235,7 @@ async function sendDueDateReminders() {
         <tr>
           <td style="background:#fdf6f9;padding:16px 40px;text-align:center;border-top:1px solid #fce4ec;">
             <p style="margin:0;font-size:12px;color:#ccc;">
-              此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}"
+              此邮件由 <a href="https://${process.env.FRONTEND_URL || 'mininote.pixris.online'}"
                 style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
             </p>
           </td>
@@ -247,7 +247,7 @@ async function sendDueDateReminders() {
 </html>`
 
       await getResend().emails.send({
-        from: process.env.EMAIL_FROM || 'Mini Note <noreply@minilist.pixris.online>',
+        from: process.env.EMAIL_FROM || 'Mini Note <noreply@mininote.pixris.online>',
         to: email,
         subject: `📅 Mini Note · ${steps.length} 个步骤明天到期`,
         html

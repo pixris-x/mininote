@@ -1,4 +1,4 @@
-# 🌸 MiniList
+# 🌸 Mini Note
 
 > 可爱扁平化风格的多端个人管理应用，支持富文本记事、日历关联、记账统计与管理面板。
 
@@ -58,7 +58,7 @@ JWT_SECRET=your_jwt_secret
 JWT_EXPIRES_IN=7d
 CORS_ORIGINS=http://localhost:5173
 RESEND_API_KEY=your_resend_api_key
-EMAIL_FROM=MiniList <hi@example.com>
+EMAIL_FROM=Mini Note <hi@example.com>
 FRONTEND_URL=http://localhost:5173
 ```
 

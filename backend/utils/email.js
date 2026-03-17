@@ -60,7 +60,7 @@ async function sendResetPasswordEmail(to, code, username) {
           <tr>
             <td style="background:#fdf6f9;padding:20px 40px;text-align:center;border-top:1px solid #fce4ec;">
               <p style="margin:0;font-size:12px;color:#ccc;">
-                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
+                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'mininote.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
               </p>
             </td>
           </tr>
@@ -73,7 +73,7 @@ async function sendResetPasswordEmail(to, code, username) {
 </html>`
 
   const { data, error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || 'Mini Note <noreply@minilist.pixris.online>',
+    from: process.env.EMAIL_FROM || 'Mini Note <noreply@mininote.pixris.online>',
     to,
     subject: '🌸 Mini Note 密码重置验证码',
     html
@@ -131,7 +131,7 @@ async function sendRegisterVerifyEmail(to, code) {
           <tr>
             <td style="background:#fdf6f9;padding:20px 40px;text-align:center;border-top:1px solid #fce4ec;">
               <p style="margin:0;font-size:12px;color:#ccc;">
-                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'minilist.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
+                此邮件由 <a href="https://${process.env.FRONTEND_URL || 'mininote.pixris.online'}" style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
               </p>
             </td>
           </tr>
@@ -143,9 +143,9 @@ async function sendRegisterVerifyEmail(to, code) {
 </html>`
 
   const { data, error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM || 'MiniList <noreply@minilist.pixris.online>',
+    from: process.env.EMAIL_FROM || 'Mini Note <noreply@mininote.pixris.online>',
     to,
-    subject: '🌸 MiniList 注册验证码',
+    subject: '🌸 Mini Note 注册验证码',
     html
   })
 

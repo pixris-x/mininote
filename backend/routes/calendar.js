@@ -106,4 +106,37 @@ router.delete('/link', authMiddleware, async (req, res) => {
   }
 })
 
+// 获取某月有日期的计划步骤（用于日历上显示计划标记）
+router.get('/plan-steps', authMiddleware, async (req, res) => {
+  const { year, month } = req.query
+  if (!year || !month) {
+    return res.status(400).json({ success: false, message: '请提供年份和月份' })
+  }
+
+  try {
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0]
+
+    const result = await pool.query(
+      `SELECT ps.id, ps.plan_id, ps.title, ps.status, ps.start_date, ps.due_date,
+              p.title AS plan_title, p.icon AS plan_icon, p.color AS plan_color
+       FROM plan_steps ps
+       JOIN plans p ON p.id = ps.plan_id
+       LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $1
+       WHERE (p.user_id = $1 OR c.user_id = $1)
+         AND (
+           (ps.start_date IS NOT NULL AND ps.start_date BETWEEN $2 AND $3) OR
+           (ps.due_date IS NOT NULL AND ps.due_date BETWEEN $2 AND $3)
+         )
+       ORDER BY COALESCE(ps.start_date, ps.due_date) ASC`,
+      [req.user.id, startDate, endDate]
+    )
+
+    res.json({ success: true, data: result.rows })
+  } catch (err) {
+    console.error('获取日历计划步骤错误:', err)
+    res.status(500).json({ success: false, message: '服务器内部错误' })
+  }
+})
+
 module.exports = router

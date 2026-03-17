@@ -117,21 +117,15 @@
                             <div v-if="step.location" class="share-step-location">
                                 <span class="share-step-location-text">📍 {{ step.location }}</span>
                                 <div class="share-map-btns">
-                                    <button @click="openMapNav(step, 'amap')"
-                                        class="share-map-btn share-map-btn--amap"
-                                        :disabled="mapNavLoading === `${step.id}-amap`">
-                                        {{ mapNavLoading === `${step.id}-amap` ? '定位中…' : '高德' }}
-                                    </button>
-                                    <button @click="openMapNav(step, 'baidu')"
-                                        class="share-map-btn share-map-btn--baidu"
-                                        :disabled="mapNavLoading === `${step.id}-baidu`">
-                                        {{ mapNavLoading === `${step.id}-baidu` ? '定位中…' : '百度' }}
-                                    </button>
-                                    <button @click="openMapNav(step, 'tencent')"
-                                        class="share-map-btn share-map-btn--tencent"
-                                        :disabled="mapNavLoading === `${step.id}-tencent`">
-                                        {{ mapNavLoading === `${step.id}-tencent` ? '定位中…' : '腾讯' }}
-                                    </button>
+                                    <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=mini-note&callnative=1`"
+                                        target="_blank" rel="noopener noreferrer"
+                                        class="share-map-btn share-map-btn--amap">高德</a>
+                                    <a :href="`http://api.map.baidu.com/geocoder?address=${encodeURIComponent(step.location)}&output=html&src=mini-note`"
+                                        target="_blank" rel="noopener noreferrer"
+                                        class="share-map-btn share-map-btn--baidu">百度</a>
+                                    <a :href="`https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(step.location)}&referer=mini-note`"
+                                        target="_blank" rel="noopener noreferrer"
+                                        class="share-map-btn share-map-btn--tencent">腾讯</a>
                                 </div>
                             </div>
 
@@ -329,55 +323,6 @@ async function importPlan() {
     } finally {
         importing.value = false
     }
-}
-
-// ── 地图导航（带当前位置） ──────────────────────────────────────────────────
-const cachedLocation = ref(null)
-const mapNavLoading = ref(null)
-
-async function getLocation() {
-    if (cachedLocation.value) return cachedLocation.value
-    if (!navigator.geolocation) return null
-    return new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-                cachedLocation.value = loc
-                resolve(loc)
-            },
-            () => resolve(null),
-            { timeout: 5000, maximumAge: 60000 }
-        )
-    })
-}
-
-async function openMapNav(step, mapType) {
-    const key = `${step.id}-${mapType}`
-    mapNavLoading.value = key
-    const dest = step.location
-    const loc = await getLocation()
-    mapNavLoading.value = null
-
-    let url
-    if (loc) {
-        const { lat, lng } = loc
-        if (mapType === 'amap') {
-            url = `https://uri.amap.com/navigation?from=${lng},${lat},我的位置&to=${encodeURIComponent(dest)}&mode=car&src=mini-note&coordinate=wgs84&callnative=1`
-        } else if (mapType === 'baidu') {
-            url = `http://api.map.baidu.com/direction?origin=latlng:${lat},${lng}|name:我的位置&destination=name:${encodeURIComponent(dest)}&mode=driving&output=html&src=mini-note`
-        } else {
-            url = `https://apis.map.qq.com/uri/v1/routeplan?type=drive&from=我的位置&fromcoord=${lat},${lng}&to=${encodeURIComponent(dest)}&referer=mini-note`
-        }
-    } else {
-        if (mapType === 'amap') {
-            url = `https://uri.amap.com/search?keyword=${encodeURIComponent(dest)}&src=mini-note&callnative=1`
-        } else if (mapType === 'baidu') {
-            url = `http://api.map.baidu.com/geocoder?address=${encodeURIComponent(dest)}&output=html&src=mini-note`
-        } else {
-            url = `https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(dest)}&referer=mini-note`
-        }
-    }
-    window.open(url, '_blank')
 }
 
 // 图片预览滑动

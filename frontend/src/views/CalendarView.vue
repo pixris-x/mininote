@@ -46,7 +46,7 @@
             :class="{
               today: isToday(day),
               selected: selectedDay === day,
-              'has-notes': getDayNotes(day).length > 0,
+              'has-notes': getDayNotes(day).length > 0 || getDayPlanSteps(day).length > 0,
               'is-weekend': isWeekend(day),
               [`holiday-${getDayHoliday(day)?.type}`]: !!getDayHoliday(day)
             }"
@@ -58,9 +58,15 @@
             <div class="day-dots">
               <span
                 v-for="(note, i) in getDayNotes(day).slice(0, 3)"
-                :key="i"
+                :key="'n'+i"
                 class="day-dot"
                 :style="{ background: note.color === '#FFFFFF' ? 'var(--theme-primary)' : note.color }"
+              ></span>
+              <span
+                v-for="(step, i) in getDayPlanSteps(day).slice(0, 2)"
+                :key="'s'+i"
+                class="day-dot day-dot--plan"
+                :style="{ background: step.plan_color === '#FFFFFF' ? '#6c5ce7' : step.plan_color }"
               ></span>
             </div>
           </div>
@@ -114,16 +120,40 @@
           <div class="loading-spinner"></div>
         </div>
 
-        <div v-else-if="selectedDayNotes.length === 0" class="empty-state" style="padding: 24px">
+        <div v-else-if="selectedDayNotes.length === 0 && selectedDaySteps.length === 0" class="empty-state" style="padding: 24px">
           <span class="empty-icon" style="font-size:40px">📋</span>
           <p>这一天还没有记事</p>
-          <div style="display:flex;gap:8px;margin-top:4px">
-            <button class="btn btn-primary btn-sm" @click="openQuickNote">✏️ 新建记事</button>
-            <button class="btn btn-outline btn-sm" @click="showLinkModal = true">🔗 关联记事</button>
+        </div>
+
+        <template v-else>
+        <!-- 计划步骤列表 -->
+        <div v-if="selectedDaySteps.length" class="day-plan-steps">
+          <h4 class="day-section-title">🎯 计划步骤</h4>
+          <div
+            v-for="step in selectedDaySteps"
+            :key="step.id"
+            class="day-plan-step-item"
+            :style="{ borderLeftColor: step.plan_color === '#FFFFFF' ? '#6c5ce7' : step.plan_color }"
+            @click="router.push(`/plans?plan=${step.plan_id}&step=${step.id}`)"
+          >
+            <div class="day-plan-step-head">
+              <span class="day-plan-step-icon">{{ step.plan_icon }}</span>
+              <span class="day-plan-step-plan">{{ step.plan_title }}</span>
+              <span class="day-plan-step-status" :class="`step-st-${step.status}`">
+                {{ stepStatusLabel[step.status] || step.status }}
+              </span>
+            </div>
+            <div class="day-plan-step-title">{{ step.title }}</div>
+            <div class="day-plan-step-dates">
+              <span v-if="step.start_date">🗓️ 开始：{{ dayjs(step.start_date).format('YYYY-MM-DD') }}</span>
+              <span v-if="step.due_date">📅 截止：{{ dayjs(step.due_date).format('YYYY-MM-DD') }}</span>
+            </div>
           </div>
         </div>
 
-        <div v-else class="day-notes-list">
+        <!-- 记事列表 -->
+        <div v-if="selectedDayNotes.length" class="day-notes-list">
+          <h4 v-if="selectedDaySteps.length" class="day-section-title">📝 记事</h4>
           <div
             v-for="note in selectedDayNotes"
             :key="note.id"
@@ -140,6 +170,7 @@
             >✕</button>
           </div>
         </div>
+        </template>
       </div>
 
       <!-- 未选中日期占位 -->
@@ -284,6 +315,11 @@ const showQuickNoteModal = ref(false)
 const quickNoteSaving = ref(false)
 const quickNoteForm = ref({ title: '', content: '', color: '#FFFFFF' })
 
+// 计划步骤日历集成
+const planStepsData = ref([])
+const selectedDaySteps = ref([])
+const stepStatusLabel = { pending: '待开始', in_progress: '进行中', completed: '已完成', skipped: '已跳过' }
+
 const NOTE_COLORS = [
   { label: '白色', value: '#FFFFFF' },
   { label: '粉色', value: '#FFD6E0' },
@@ -350,6 +386,14 @@ function getDayNotes(day) {
   return found ? found.notes : []
 }
 
+function getDayPlanSteps(day) {
+  const dateStr = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  return planStepsData.value.filter(s =>
+    (s.start_date && dayjs(s.start_date).format('YYYY-MM-DD') === dateStr) ||
+    (s.due_date && dayjs(s.due_date).format('YYYY-MM-DD') === dateStr)
+  )
+}
+
 function truncate(str, max) {
   if (!str) return ''
   return str.length > max ? str.slice(0, max) + '...' : str
@@ -361,8 +405,12 @@ function formatDate(date) {
 
 async function loadMonthData() {
   try {
-    const res = await calendarApi.getMonth(currentYear.value, currentMonth.value)
-    if (res.success) calendarData.value = res.data
+    const [calRes, stepRes] = await Promise.all([
+      calendarApi.getMonth(currentYear.value, currentMonth.value),
+      calendarApi.getPlanSteps(currentYear.value, currentMonth.value)
+    ])
+    if (calRes.success) calendarData.value = calRes.data
+    if (stepRes.success) planStepsData.value = stepRes.data
   } catch (err) {
     console.error(err)
   }
@@ -375,6 +423,7 @@ async function selectDay(day) {
     const dateStr = `${currentYear.value}-${String(currentMonth.value).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const res = await calendarApi.getDay(dateStr)
     if (res.success) selectedDayNotes.value = res.data
+    selectedDaySteps.value = getDayPlanSteps(day)
   } catch (err) {
     console.error(err)
   } finally {
@@ -711,6 +760,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .selected-day-header h3 {
@@ -1033,5 +1084,84 @@ onMounted(async () => {
   justify-content: flex-end;
   gap: 10px;
   padding-top: 4px;
+}
+
+/* 日历上的计划步骤圆点 */
+.day-dot--plan {
+  border-radius: 2px;
+}
+
+/* 计划步骤 Day Panel */
+.day-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin: 0 0 8px;
+  padding: 0 4px;
+}
+
+.day-plan-steps {
+  margin-bottom: 16px;
+}
+
+.day-plan-step-item {
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border-left: 3px solid #6c5ce7;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.15s;
+}
+
+.day-plan-step-item:hover {
+  background: var(--color-bg);
+}
+
+.day-plan-step-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.day-plan-step-icon {
+  font-size: 0.9rem;
+}
+
+.day-plan-step-plan {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-plan-step-status {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.step-st-pending { background: #f0f0f0; color: #888; }
+.step-st-in_progress { background: #e4e8f8; color: #6c5ce7; }
+.step-st-completed { background: #d4f5e9; color: #27ae60; }
+.step-st-skipped { background: #fff8d6; color: #e17055; }
+
+.day-plan-step-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.day-plan-step-dates {
+  display: flex;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
 }
 </style>

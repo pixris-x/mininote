@@ -78,9 +78,6 @@ const navItems = computed(() => {
     { name: 'Expense', path: '/expense', icon: '💰', label: '记账' },
     { name: 'Profile', path: '/profile', icon: '🌸', label: '我的' }
   ]
-  if (userStore.user?.is_admin) {
-    items.push({ name: 'Admin', path: '/admin', icon: '👑', label: '管理' })
-  }
   return items
 })
 
@@ -321,11 +318,12 @@ function handleLogout() {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64px;
+  height: 72px;
   background: var(--color-surface);
   box-shadow: 0 -4px 16px var(--color-shadow);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
+  padding-bottom: 8px;
   z-index: 100;
   border-top: 1px solid var(--color-border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -349,14 +347,14 @@ function handleLogout() {
   font-size: 10px;
   font-weight: 500;
   padding: 8px;
-  transition: color var(--transition);
+  transition: color 0.3s, transform 0.3s;
 }
 
 .bottom-nav-item .nav-icon {
   font-size: 22px;
   width: auto;
   display: block;
-  transition: transform var(--transition);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), font-size 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .bottom-nav-item.active {
@@ -364,6 +362,7 @@ function handleLogout() {
 }
 
 .bottom-nav-item.active .nav-icon {
-  transform: scale(1.15);
+  font-size: 32px;
+  transform: translateY(-6px);
 }
 </style>

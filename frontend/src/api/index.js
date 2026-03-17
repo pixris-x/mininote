@@ -77,7 +77,8 @@ export const calendarApi = {
   getMonth: (year, month) => api.get('/calendar/month', { params: { year, month } }),
   getDay: (date) => api.get('/calendar/day', { params: { date } }),
   linkNote: (noteId, date) => api.post('/calendar/link', { note_id: noteId, date }),
-  unlinkNote: (noteId, date) => api.delete('/calendar/link', { data: { note_id: noteId, date } })
+  unlinkNote: (noteId, date) => api.delete('/calendar/link', { data: { note_id: noteId, date } }),
+  getPlanSteps: (year, month) => api.get('/calendar/plan-steps', { params: { year, month } })
 }
 
 // ====== 管理员 API ======
@@ -114,7 +115,11 @@ export const planApi = {
   delete:      (id)     => api.delete(`/plans/${id}`),
   share:       (id, data) => api.post(`/plans/${id}/share`, data),
   unshare:     (id)     => api.delete(`/plans/${id}/share`),
-  importShare: (data)   => api.post('/plans/import-share', data)
+  importShare: (data)   => api.post('/plans/import-share', data),
+  // 协作者
+  addCollaborator:    (id, username) => api.post(`/plans/${id}/collaborators`, { username }),
+  removeCollaborator: (id, userId)  => api.delete(`/plans/${id}/collaborators/${userId}`),
+  leave:              (id)          => api.delete(`/plans/${id}/leave`)
 }
 
 // ====== 计划步骤 API ======

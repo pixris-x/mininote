@@ -1,4 +1,4 @@
--- MiniList 数据库初始化脚本
+-- Mini Note 数据库初始化脚本
 -- 请在 PostgreSQL 中执行此脚本
 
 -- 用户表

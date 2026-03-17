@@ -5,6 +5,29 @@ const authMiddleware = require('../middleware/auth')
 
 router.use(authMiddleware)
 
+// 检查用户是否有权访问某计划（owner 或 collaborator）
+async function canAccessPlan(planId, userId) {
+  const res = await pool.query(
+    `SELECT p.id FROM plans p
+     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+     WHERE p.id = $1 AND (p.user_id = $2 OR c.user_id = $2)`,
+    [planId, userId]
+  )
+  return res.rows.length > 0
+}
+
+// 检查用户是否有权操作某步骤
+async function canAccessStep(stepId, userId) {
+  const res = await pool.query(
+    `SELECT ps.id FROM plan_steps ps
+     JOIN plans p ON p.id = ps.plan_id
+     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+     WHERE ps.id = $1 AND (p.user_id = $2 OR c.user_id = $2)`,
+    [stepId, userId]
+  )
+  return res.rows.length > 0
+}
+
 // GET /api/plan-steps?plan_id=xx — 获取计划的所有步骤
 router.get('/', async (req, res) => {
   const { plan_id } = req.query
@@ -12,12 +35,7 @@ router.get('/', async (req, res) => {
     return res.status(400).json({ success: false, message: '请提供 plan_id' })
   }
 
-  // 验证计划归属
-  const planCheck = await pool.query(
-    'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
-    [plan_id, req.user.id]
-  )
-  if (planCheck.rows.length === 0) {
+  if (!(await canAccessPlan(plan_id, req.user.id))) {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
 
@@ -35,12 +53,7 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ success: false, message: 'plan_id 和步骤标题不能为空' })
   }
 
-  // 验证计划归属
-  const planCheck = await pool.query(
-    'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
-    [plan_id, req.user.id]
-  )
-  if (planCheck.rows.length === 0) {
+  if (!(await canAccessPlan(plan_id, req.user.id))) {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
 
@@ -93,11 +106,8 @@ router.put('/:id', async (req, res) => {
   const dueDateVal = due_date === undefined ? undefined : (due_date || null)
   const startDateVal = start_date === undefined ? undefined : (start_date || null)
 
-  const check = await pool.query(
-    'SELECT id FROM plan_steps WHERE id = $1 AND user_id = $2',
-    [req.params.id, req.user.id]
-  )
-  if (check.rows.length === 0) {
+  const check = await canAccessStep(req.params.id, req.user.id)
+  if (!check) {
     return res.status(404).json({ success: false, message: '步骤不存在' })
   }
 
@@ -131,7 +141,7 @@ router.put('/:id', async (req, res) => {
          completed_at = CASE WHEN $14::boolean THEN $15::timestamp
                              WHEN $16::boolean THEN NULL
                              ELSE completed_at END
-     WHERE id = $17 AND user_id = $18
+     WHERE id = $17
      RETURNING *`,
     [
       title, description, status, badge, badge_color, image_url,
@@ -143,7 +153,7 @@ router.put('/:id', async (req, res) => {
       status === 'completed',      // $14
       completedAt,                 // $15
       status !== undefined && status !== 'completed',  // $16
-      req.params.id, req.user.id   // $17, $18
+      req.params.id                // $17
     ]
   )
   res.json({ success: true, data: result.rows[0] })
@@ -160,10 +170,20 @@ router.patch('/reorder', async (req, res) => {
   try {
     await client.query('BEGIN')
     for (const item of items) {
-      await client.query(
-        'UPDATE plan_steps SET sort_order = $1 WHERE id = $2 AND user_id = $3',
-        [item.sort_order, item.id, req.user.id]
+      // 验证步骤权限（owner 或 collaborator）
+      const accessCheck = await client.query(
+        `SELECT ps.id FROM plan_steps ps
+         JOIN plans p ON p.id = ps.plan_id
+         LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+         WHERE ps.id = $1 AND (p.user_id = $2 OR c.user_id = $2)`,
+        [item.id, req.user.id]
       )
+      if (accessCheck.rows.length > 0) {
+        await client.query(
+          'UPDATE plan_steps SET sort_order = $1 WHERE id = $2',
+          [item.sort_order, item.id]
+        )
+      }
     }
     await client.query('COMMIT')
     res.json({ success: true, message: '排序已更新' })
@@ -177,13 +197,13 @@ router.patch('/reorder', async (req, res) => {
 
 // DELETE /api/plan-steps/:id — 删除步骤
 router.delete('/:id', async (req, res) => {
-  const result = await pool.query(
-    'DELETE FROM plan_steps WHERE id = $1 AND user_id = $2 RETURNING id',
-    [req.params.id, req.user.id]
-  )
-  if (result.rows.length === 0) {
+  if (!(await canAccessStep(req.params.id, req.user.id))) {
     return res.status(404).json({ success: false, message: '步骤不存在' })
   }
+  const result = await pool.query(
+    'DELETE FROM plan_steps WHERE id = $1 RETURNING id',
+    [req.params.id]
+  )
   res.json({ success: true, message: '步骤已删除' })
 })
 

@@ -2,59 +2,122 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../config/db')
 const authMiddleware = require('../middleware/auth')
+const webpush = require('web-push')
+
+// 发送推送通知给指定用户
+async function sendPushToUser(userId, payload) {
+  const publicKey = process.env.VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const subject = process.env.VAPID_SUBJECT || `mailto:${process.env.EMAIL_FROM || 'noreply@example.com'}`
+  if (!publicKey || !privateKey) return
+
+  try {
+    const subs = await pool.query(
+      'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id=$1',
+      [userId]
+    )
+    if (subs.rowCount === 0) return
+
+    webpush.setVapidDetails(subject, publicKey, privateKey)
+    await Promise.allSettled(
+      subs.rows.map(sub =>
+        webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload)
+        ).catch(() => {})
+      )
+    )
+  } catch (_) { /* 静默失败，不影响主流程 */ }
+}
 
 // 所有接口需要登录
 router.use(authMiddleware)
 
-// GET /api/plans — 获取当前用户所有计划（含步骤进度统计）
+// 判断用户对计划的权限：'owner' | 'collaborator' | null
+async function getPlanRole(planId, userId) {
+  const res = await pool.query(
+    `SELECT
+       CASE WHEN p.user_id = $2 THEN 'owner'
+            WHEN c.id IS NOT NULL THEN 'collaborator'
+            ELSE NULL
+       END AS role
+     FROM plans p
+     LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $2
+     WHERE p.id = $1`,
+    [planId, userId]
+  )
+  return res.rows[0]?.role || null
+}
+
+// GET /api/plans — 获取用户的所有计划（自己的 + 协作的）
 router.get('/', async (req, res) => {
   const { status } = req.query
   let query = `
     SELECT
       p.*,
       COUNT(ps.id)                                          AS total_steps,
-      COUNT(ps.id) FILTER (WHERE ps.status = 'completed')  AS done_steps
+      COUNT(ps.id) FILTER (WHERE ps.status = 'completed')  AS done_steps,
+      CASE WHEN p.user_id = $1 THEN 'owner' ELSE 'collaborator' END AS role,
+      ou.nickname AS owner_name
     FROM plans p
     LEFT JOIN plan_steps ps ON ps.plan_id = p.id
-    WHERE p.user_id = $1
+    LEFT JOIN plan_collaborators c ON c.plan_id = p.id AND c.user_id = $1
+    LEFT JOIN users ou ON ou.id = p.user_id
+    WHERE (p.user_id = $1 OR c.user_id = $1)
   `
   const params = [req.user.id]
   if (status) {
     query += ` AND p.status = $2`
     params.push(status)
   }
-  query += ` GROUP BY p.id ORDER BY p.sort_order ASC, p.created_at DESC`
+  query += ` GROUP BY p.id, ou.nickname ORDER BY p.sort_order ASC, p.created_at DESC`
 
   const result = await pool.query(query, params)
   res.json({ success: true, data: result.rows })
 })
 
-// GET /api/plans/:id — 获取单个计划（含所有步骤）
+// GET /api/plans/:id — 获取单个计划（含所有步骤 + 协作者列表）
 router.get('/:id', async (req, res) => {
-  const planRes = await pool.query(
-    `SELECT p.*,
-      COUNT(ps.id)                                          AS total_steps,
-      COUNT(ps.id) FILTER (WHERE ps.status = 'completed')  AS done_steps
-     FROM plans p
-     LEFT JOIN plan_steps ps ON ps.plan_id = p.id
-     WHERE p.id = $1 AND p.user_id = $2
-     GROUP BY p.id`,
-    [req.params.id, req.user.id]
-  )
-  if (planRes.rows.length === 0) {
+  const role = await getPlanRole(req.params.id, req.user.id)
+  if (!role) {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
 
-  const stepsRes = await pool.query(
-    `SELECT * FROM plan_steps
-     WHERE plan_id = $1
-     ORDER BY sort_order ASC, created_at ASC`,
-    [req.params.id]
-  )
+  const [planRes, stepsRes, collabRes] = await Promise.all([
+    pool.query(
+      `SELECT p.*,
+        COUNT(ps.id)                                          AS total_steps,
+        COUNT(ps.id) FILTER (WHERE ps.status = 'completed')  AS done_steps
+       FROM plans p
+       LEFT JOIN plan_steps ps ON ps.plan_id = p.id
+       WHERE p.id = $1
+       GROUP BY p.id`,
+      [req.params.id]
+    ),
+    pool.query(
+      `SELECT * FROM plan_steps
+       WHERE plan_id = $1
+       ORDER BY sort_order ASC, created_at ASC`,
+      [req.params.id]
+    ),
+    pool.query(
+      `SELECT u.id, u.username, u.nickname, u.avatar_color
+       FROM plan_collaborators c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.plan_id = $1
+       ORDER BY c.added_at`,
+      [req.params.id]
+    )
+  ])
 
   res.json({
     success: true,
-    data: { ...planRes.rows[0], steps: stepsRes.rows }
+    data: {
+      ...planRes.rows[0],
+      role,
+      steps: stepsRes.rows,
+      collaborators: collabRes.rows
+    }
   })
 })
 
@@ -81,15 +144,12 @@ router.post('/', async (req, res) => {
   res.status(201).json({ success: true, data: { ...result.rows[0], total_steps: 0, done_steps: 0, steps: [] } })
 })
 
-// PUT /api/plans/:id — 更新计划
+// PUT /api/plans/:id — 更新计划（owner + collaborator 都可以）
 router.put('/:id', async (req, res) => {
   const { title, description, color, icon, status, sort_order } = req.body
 
-  const check = await pool.query(
-    'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
-    [req.params.id, req.user.id]
-  )
-  if (check.rows.length === 0) {
+  const role = await getPlanRole(req.params.id, req.user.id)
+  if (!role) {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
 
@@ -101,14 +161,14 @@ router.put('/:id', async (req, res) => {
          icon        = COALESCE($4, icon),
          status      = COALESCE($5, status),
          sort_order  = COALESCE($6, sort_order)
-     WHERE id = $7 AND user_id = $8
+     WHERE id = $7
      RETURNING *`,
-    [title, description, color, icon, status, sort_order, req.params.id, req.user.id]
+    [title, description, color, icon, status, sort_order, req.params.id]
   )
   res.json({ success: true, data: result.rows[0] })
 })
 
-// DELETE /api/plans/:id — 删除计划（步骤级联删除）
+// DELETE /api/plans/:id — 删除计划（仅 owner）
 router.delete('/:id', async (req, res) => {
   const result = await pool.query(
     'DELETE FROM plans WHERE id = $1 AND user_id = $2 RETURNING id',
@@ -118,6 +178,100 @@ router.delete('/:id', async (req, res) => {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
   res.json({ success: true, message: '计划已删除' })
+})
+
+// ── 协作者管理（仅 owner 可操作） ───────────────────────────────
+
+// POST /api/plans/:id/collaborators — 邀请协作者（按用户名搜索）
+router.post('/:id/collaborators', async (req, res) => {
+  const { username } = req.body
+  if (!username?.trim()) {
+    return res.status(400).json({ success: false, message: '请输入用户名' })
+  }
+
+  // 验证是 owner
+  const ownerCheck = await pool.query(
+    'SELECT p.id, p.title, u.nickname AS owner_name FROM plans p JOIN users u ON u.id = p.user_id WHERE p.id = $1 AND p.user_id = $2',
+    [req.params.id, req.user.id]
+  )
+  if (ownerCheck.rows.length === 0) {
+    return res.status(403).json({ success: false, message: '只有计划创建者可以邀请协作者' })
+  }
+  const plan = ownerCheck.rows[0]
+
+  // 找到目标用户
+  const userRes = await pool.query(
+    'SELECT id, username, nickname, avatar_color FROM users WHERE username = $1',
+    [username.trim()]
+  )
+  if (userRes.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '用户不存在' })
+  }
+
+  const targetUser = userRes.rows[0]
+  if (targetUser.id === req.user.id) {
+    return res.status(400).json({ success: false, message: '不能邀请自己' })
+  }
+
+  // 检查是否已经是协作者
+  const exists = await pool.query(
+    'SELECT id FROM plan_collaborators WHERE plan_id = $1 AND user_id = $2',
+    [req.params.id, targetUser.id]
+  )
+  if (exists.rows.length > 0) {
+    return res.status(409).json({ success: false, message: '该用户已经是协作者' })
+  }
+
+  await pool.query(
+    'INSERT INTO plan_collaborators (plan_id, user_id) VALUES ($1, $2)',
+    [req.params.id, targetUser.id]
+  )
+
+  // 发送推送通知给被邀请用户
+  sendPushToUser(targetUser.id, {
+    title: '🤝 你有新的协作邀请',
+    body: `${plan.owner_name} 邀请你协作计划「${plan.title}」`,
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-64x64.png',
+    url: '/plans'
+  })
+
+  res.status(201).json({
+    success: true,
+    data: { id: targetUser.id, username: targetUser.username, nickname: targetUser.nickname, avatar_color: targetUser.avatar_color }
+  })
+})
+
+// DELETE /api/plans/:id/collaborators/:userId — 移除协作者（仅 owner）
+router.delete('/:id/collaborators/:userId', async (req, res) => {
+  const ownerCheck = await pool.query(
+    'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
+    [req.params.id, req.user.id]
+  )
+  if (ownerCheck.rows.length === 0) {
+    return res.status(403).json({ success: false, message: '只有计划创建者可以管理协作者' })
+  }
+
+  const result = await pool.query(
+    'DELETE FROM plan_collaborators WHERE plan_id = $1 AND user_id = $2 RETURNING id',
+    [req.params.id, req.params.userId]
+  )
+  if (result.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '协作者不存在' })
+  }
+  res.json({ success: true, message: '已移除协作者' })
+})
+
+// DELETE /api/plans/:id/leave — 协作者主动退出
+router.delete('/:id/leave', async (req, res) => {
+  const result = await pool.query(
+    'DELETE FROM plan_collaborators WHERE plan_id = $1 AND user_id = $2 RETURNING id',
+    [req.params.id, req.user.id]
+  )
+  if (result.rows.length === 0) {
+    return res.status(404).json({ success: false, message: '你不是该计划的协作者' })
+  }
+  res.json({ success: true, message: '已退出协作' })
 })
 
 // POST /api/plans/:id/share — 生成分享 token（每次调用都重新生成 PIN 和过期时间）

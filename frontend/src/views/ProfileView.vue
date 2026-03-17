@@ -81,6 +81,14 @@
                 </div>
             </div>
 
+            <!-- 管理员入口 -->
+            <div v-if="userStore.user?.is_admin" class="section card">
+                <h3 class="section-title">👑 管理员</h3>
+                <button class="btn btn-outline" @click="router.push('/admin')">
+                    进入管理面板
+                </button>
+            </div>
+
             <!-- 退出按钮 -->
             <div class="logout-section">
                 <button class="btn btn-logout" @click="handleLogout">

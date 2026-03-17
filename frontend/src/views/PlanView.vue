@@ -1,6 +1,6 @@
 <template>
     <AppLayout>
-        <div class="plans-page">
+        <div class="plans-page" :class="{ 'mobile-show-detail': mobileShowDetail }">
 
             <!-- ── 左侧面板：计划列表 ── -->
             <aside class="plans-sidebar">
@@ -33,20 +33,26 @@
                 <!-- 计划卡片列表 -->
                 <div v-else class="plan-list">
                     <div v-for="plan in filteredPlans" :key="plan.id" class="plan-card"
+                        :data-plan-id="plan.id"
                         :class="{ active: currentPlanId === plan.id }"
                         :style="{ borderLeftColor: plan.color === '#FFFFFF' ? 'var(--theme-primary)' : plan.color }"
                         @click="selectPlan(plan.id)">
                         <div class="plan-card-top">
                             <span class="plan-card-icon">{{ plan.icon }}</span>
                             <div class="plan-card-info">
-                                <div class="plan-card-title">{{ plan.title }}</div>
-                                <div class="plan-card-desc">{{ plan.description || '暂无描述' }}</div>
+                                <div class="plan-card-title">
+                                    {{ plan.title }}
+                                    <span v-if="plan.role === 'collaborator'" class="plan-role-badge">🤝 协作</span>
+                                </div>
+                                <div class="plan-card-desc">{{ plan.role === 'collaborator' ? `来自 ${plan.owner_name}` : (plan.description || '暂无描述') }}</div>
                             </div>
                             <div class="plan-card-actions">
                                 <button class="btn btn-ghost btn-icon-sm" @click.stop="openPlanModal(plan)"
                                     title="编辑">✏️</button>
-                                <button class="btn btn-ghost btn-icon-sm" @click.stop="confirmDeletePlan(plan)"
+                                <button v-if="plan.role !== 'collaborator'" class="btn btn-ghost btn-icon-sm" @click.stop="confirmDeletePlan(plan)"
                                     title="删除">🗑️</button>
+                                <button v-if="plan.role === 'collaborator'" class="btn btn-ghost btn-icon-sm" @click.stop="leavePlan(plan)"
+                                    title="退出协作">🚪</button>
                             </div>
                         </div>
                         <div class="plan-card-bottom">
@@ -66,6 +72,9 @@
 
             <!-- ── 右侧面板：时间线 ── -->
             <main class="plans-main" ref="mainRef">
+                <!-- 移动端返回按钮 -->
+                <button class="mobile-back-btn" @click="goBackToList">← 返回列表</button>
+
                 <!-- 未选择计划 -->
                 <div v-if="!currentPlanId" class="timeline-empty">
                     <span class="timeline-empty-icon">🎯</span>
@@ -85,8 +94,11 @@
                                 </p>
                             </div>
                         </div>
-                        <button class="btn btn-primary btn-sm" @click="openStepModal()">＋ 添加步骤</button>
-                        <button class="btn btn-ghost btn-sm" @click="openShareModal()" title="分享计划">🔗 分享</button>
+                        <div class="timeline-header-actions">
+                            <button class="btn btn-primary btn-sm" @click="openStepModal()">＋ 添加步骤</button>
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm" @click="openCollabModal()" title="管理协作者">🤝 协作</button>
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm" @click="openShareModal()" title="分享计划">🔗 分享</button>
+                        </div>
                     </div>
 
                     <!-- 加载中 -->
@@ -146,7 +158,7 @@
                                 <div v-if="step.description" class="timeline-card-desc-wrap">
                                     <p class="timeline-card-desc"
                                         :class="{ 'is-clamped': isDescLong(step) && !isDescExpanded(step) }">{{
-                                        step.description }}</p>
+                                            step.description }}</p>
                                     <button v-if="isDescLong(step)" class="desc-toggle-btn"
                                         @click.stop="toggleDesc(step)">
                                         {{ isDescExpanded(step) ? '▲ 收起' : '▼ 展开' }}
@@ -157,36 +169,36 @@
                                 <div v-if="step.location" class="step-map-links">
                                     <span class="step-map-label">📍 {{ step.location }}</span>
                                     <div class="step-map-btns">
-                                        <button @click="openMapNav(step, 'amap')"
-                                            class="map-btn map-btn--amap" title="高德地图导航"
-                                            :disabled="mapNavLoading === `${step.id}-amap`">
+                                        <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=mini-note&callnative=1`"
+                                            target="_blank" rel="noopener noreferrer" class="map-btn map-btn--amap"
+                                            title="高德地图">
                                             <svg viewBox="0 0 24 24" fill="none">
                                                 <path
                                                     d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
                                                     fill="currentColor" />
                                             </svg>
-                                            {{ mapNavLoading === `${step.id}-amap` ? '定位中…' : '高德' }}
-                                        </button>
-                                        <button @click="openMapNav(step, 'baidu')"
-                                            class="map-btn map-btn--baidu" title="百度地图导航"
-                                            :disabled="mapNavLoading === `${step.id}-baidu`">
+                                            高德
+                                        </a>
+                                        <a :href="`http://api.map.baidu.com/geocoder?address=${encodeURIComponent(step.location)}&output=html&src=mini-note`"
+                                            target="_blank" rel="noopener noreferrer" class="map-btn map-btn--baidu"
+                                            title="百度地图">
                                             <svg viewBox="0 0 24 24" fill="none">
                                                 <path
                                                     d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
                                                     fill="currentColor" />
                                             </svg>
-                                            {{ mapNavLoading === `${step.id}-baidu` ? '定位中…' : '百度' }}
-                                        </button>
-                                        <button @click="openMapNav(step, 'tencent')"
-                                            class="map-btn map-btn--tencent" title="腾讯地图导航"
-                                            :disabled="mapNavLoading === `${step.id}-tencent`">
+                                            百度
+                                        </a>
+                                        <a :href="`https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(step.location)}&referer=mini-note`"
+                                            target="_blank" rel="noopener noreferrer" class="map-btn map-btn--tencent"
+                                            title="腾讯地图">
                                             <svg viewBox="0 0 24 24" fill="none">
                                                 <path
                                                     d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
                                                     fill="currentColor" />
                                             </svg>
-                                            {{ mapNavLoading === `${step.id}-tencent` ? '定位中…' : '腾讯' }}
-                                        </button>
+                                            腾讯
+                                        </a>
                                     </div>
                                 </div>
 
@@ -250,16 +262,18 @@
 
         <!-- ── 图片预览 ── -->
         <div v-if="previewState.show" class="img-preview-overlay" @click="previewState.show = false"
-            @touchstart.passive="onPreviewTouchStart"
-            @touchend.passive="onPreviewTouchEnd">
+            @touchstart.passive="onPreviewTouchStart" @touchend.passive="onPreviewTouchEnd">
             <img :src="previewState.imgs[previewState.index]" class="img-preview" @click.stop />
-            <div v-if="previewState.index > 0" class="preview-zone preview-zone--prev" @click.stop="previewState.index--">
+            <div v-if="previewState.index > 0" class="preview-zone preview-zone--prev"
+                @click.stop="previewState.index--">
                 <span class="preview-zone-arrow">❮</span>
             </div>
-            <div v-if="previewState.index < previewState.imgs.length - 1" class="preview-zone preview-zone--next" @click.stop="previewState.index++">
+            <div v-if="previewState.index < previewState.imgs.length - 1" class="preview-zone preview-zone--next"
+                @click.stop="previewState.index++">
                 <span class="preview-zone-arrow">❯</span>
             </div>
-            <div v-if="previewState.imgs.length > 1" class="preview-counter">{{ previewState.index + 1 }} / {{ previewState.imgs.length }}</div>
+            <div v-if="previewState.imgs.length > 1" class="preview-counter">{{ previewState.index + 1 }} / {{
+                previewState.imgs.length }}</div>
             <button class="preview-close" @click.stop="previewState.show = false">✕</button>
         </div>
 
@@ -435,12 +449,14 @@
                         <template v-if="shareToken">
                             <div class="share-link-box">
                                 <span class="share-link-text">{{ shareUrl }}</span>
-                                <button class="btn btn-primary btn-sm" @click="copyShareLink">{{ copied ? '✅ 已复制' : '复制' }}</button>
+                                <button class="btn btn-primary btn-sm" @click="copyShareLink">{{ copied ? '✅ 已复制' : '复制'
+                                    }}</button>
                             </div>
                             <div v-if="sharePin" class="share-pin-box">
                                 <span class="share-pin-label">🔑 访问码</span>
                                 <span class="share-pin-value">{{ sharePin }}</span>
-                                <button class="btn btn-ghost btn-sm" @click="copySharePin">{{ copiedPin ? '✅' : '复制' }}</button>
+                                <button class="btn btn-ghost btn-sm" @click="copySharePin">{{ copiedPin ? '✅' : '复制'
+                                    }}</button>
                             </div>
                             <div v-if="shareExpiresAt" class="share-expires-tip">
                                 ⏰ 过期时间：{{ formatExpiresAt(shareExpiresAt) }}
@@ -495,25 +511,61 @@
                     <div class="share-lookup-body">
                         <p class="share-lookup-hint">粘贴好友发给你的分享链接，即可查看行程内容</p>
                         <div class="share-lookup-input-row">
-                            <input
-                                v-model="shareLookupUrl"
-                                class="form-input"
-                                placeholder="https://…/share/…"
-                                @keydown.enter="goToShare"
-                                @input="shareLookupError = ''"
-                            />
-                            <button
-                                class="btn btn-ghost btn-sm share-lookup-clip-btn"
-                                :disabled="clipReading"
-                                title="从剪贴板读取"
-                                @click="readFromClipboard"
-                            >{{ clipReading ? '读取中…' : '📋' }}</button>
+                            <input v-model="shareLookupUrl" class="form-input" placeholder="https://…/share/…"
+                                @keydown.enter="goToShare" @input="shareLookupError = ''" />
+                            <button class="btn btn-ghost btn-sm share-lookup-clip-btn" :disabled="clipReading"
+                                title="从剪贴板读取" @click="readFromClipboard">{{ clipReading ? '读取中…' : '📋' }}</button>
                         </div>
                         <p v-if="shareLookupError" class="share-lookup-error">{{ shareLookupError }}</p>
                     </div>
                     <div class="share-lookup-footer">
                         <button class="btn btn-ghost" @click="showShareLookup = false">取消</button>
-                        <button class="btn btn-primary" :disabled="!shareLookupUrl.trim()" @click="goToShare">前往查看</button>
+                        <button class="btn btn-primary" :disabled="!shareLookupUrl.trim()"
+                            @click="goToShare">前往查看</button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ── 协作者管理弹窗 ── -->
+        <Teleport to="body">
+            <div v-if="showCollabModal" class="collab-overlay" @click.self="showCollabModal = false">
+                <div class="collab-modal">
+                    <div class="collab-header">
+                        <h3>🤝 协作者管理</h3>
+                        <button class="modal-close" @click="showCollabModal = false">✕</button>
+                    </div>
+                    <div class="collab-body">
+                        <div class="collab-invite-row">
+                            <input
+                                v-model="collabUsername"
+                                class="form-input"
+                                placeholder="输入用户名邀请…"
+                                @keydown.enter="inviteCollaborator"
+                            />
+                            <button
+                                class="btn btn-primary btn-sm"
+                                :disabled="!collabUsername.trim() || collabLoading"
+                                @click="inviteCollaborator"
+                            >{{ collabLoading ? '邀请中…' : '邀请' }}</button>
+                        </div>
+                        <p v-if="collabError" class="collab-error">{{ collabError }}</p>
+
+                        <div class="collab-list" v-if="planStore.currentPlan?.collaborators?.length">
+                            <div v-for="c in planStore.currentPlan.collaborators" :key="c.id" class="collab-item">
+                                <div class="collab-avatar" :style="{ background: c.avatar_color || '#ccc' }">
+                                    {{ (c.nickname || c.username || '?').charAt(0).toUpperCase() }}
+                                </div>
+                                <div class="collab-info">
+                                    <span class="collab-name">{{ c.nickname || c.username }}</span>
+                                    <span class="collab-sub">@{{ c.username }}</span>
+                                </div>
+                                <button class="btn btn-ghost btn-icon-sm" @click="removeCollaborator(c)" title="移除">✕</button>
+                            </div>
+                        </div>
+                        <div v-else class="collab-empty">
+                            <p>还没有协作者，邀请好友一起编辑计划吧</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -524,7 +576,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import { usePlanStore } from '@/stores/plans'
@@ -536,6 +588,7 @@ import html2canvas from 'html2canvas'
 
 const planStore = usePlanStore()
 const router = useRouter()
+const route = useRoute()
 
 // ── 常量 ────────────────────────────────────────────────────────
 const planFilters = [
@@ -590,12 +643,19 @@ const timelineRef = ref(null)
 const flashStepId = ref(null)
 const mainRef = ref(null)
 const showBackToTop = ref(false)
+const mobileShowDetail = ref(false)
 
 // \u2500\u2500 \u67e5\u770b\u5206\u4eab\u884c\u7a0b \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 const showShareLookup = ref(false)
 const shareLookupUrl = ref('')
 const shareLookupError = ref('')
 const clipReading = ref(false)
+
+// ── 协作者管理 ────────────────────────────
+const showCollabModal = ref(false)
+const collabUsername = ref('')
+const collabError = ref('')
+const collabLoading = ref(false)
 
 function handleMainScroll() {
     showBackToTop.value = window.scrollY > 300
@@ -665,58 +725,6 @@ function goToShare() {
     router.push(`/share/${token}`)
 }
 
-// ── 地图导航（带当前位置） ──────────────────────────────────────────────────
-const cachedLocation = ref(null)   // 缓存本次会话的位置，避免重复弹授权
-const mapNavLoading = ref(null)    // 当前正在定位的 stepId+map 组合
-
-async function getLocation() {
-    if (cachedLocation.value) return cachedLocation.value
-    if (!navigator.geolocation) return null
-    return new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-                cachedLocation.value = loc
-                resolve(loc)
-            },
-            () => resolve(null),
-            { timeout: 5000, maximumAge: 60000 }
-        )
-    })
-}
-
-async function openMapNav(step, mapType) {
-    const key = `${step.id}-${mapType}`
-    mapNavLoading.value = key
-    const dest = step.location
-    const loc = await getLocation()
-    mapNavLoading.value = null
-
-    let url
-    if (loc) {
-        const { lat, lng } = loc
-        if (mapType === 'amap') {
-            // 高德：from=WGS84坐标，to=关键词，coordinate=wgs84 让高德自动转换
-            url = `https://uri.amap.com/navigation?from=${lng},${lat},我的位置&to=${encodeURIComponent(dest)}&mode=car&src=mini-note&coordinate=wgs84&callnative=1`
-        } else if (mapType === 'baidu') {
-            // 百度：origin=GPS坐标，destination=地名
-            url = `http://api.map.baidu.com/direction?origin=latlng:${lat},${lng}|name:我的位置&destination=name:${encodeURIComponent(dest)}&mode=driving&output=html&src=mini-note`
-        } else {
-            // 腾讯：fromcoord=WGS84，to=地名
-            url = `https://apis.map.qq.com/uri/v1/routeplan?type=drive&from=我的位置&fromcoord=${lat},${lng}&to=${encodeURIComponent(dest)}&referer=mini-note`
-        }
-    } else {
-        // 无位置权限，降级到搜索
-        if (mapType === 'amap') {
-            url = `https://uri.amap.com/search?keyword=${encodeURIComponent(dest)}&src=mini-note&callnative=1`
-        } else if (mapType === 'baidu') {
-            url = `http://api.map.baidu.com/geocoder?address=${encodeURIComponent(dest)}&output=html&src=mini-note`
-        } else {
-            url = `https://apis.map.qq.com/uri/v1/search?keyword=${encodeURIComponent(dest)}&referer=mini-note`
-        }
-    }
-    window.open(url, '_blank')
-}
 const expandedDescs = ref(new Set())
 const DESC_LIMIT = 120
 function isDescLong(step) { return (step.description || '').length > DESC_LIMIT }
@@ -740,8 +748,24 @@ const filteredPlans = computed(() =>
 )
 
 // ── 生命周期 ────────────────────────────────────────────────────
-onMounted(() => {
-    planStore.fetchPlans()
+onMounted(async () => {
+    await planStore.fetchPlans()
+    const qPlan = route.query.plan
+    const qStep = route.query.step
+    if (qPlan) {
+        await selectPlan(Number(qPlan))
+        await nextTick()
+        const planCard = document.querySelector(`[data-plan-id="${qPlan}"]`)
+        planCard?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        if (qStep) {
+            const stepEl = document.querySelector(`[data-step-id="${qStep}"]`)
+            if (stepEl) {
+                stepEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                flashStepId.value = Number(qStep)
+                setTimeout(() => { flashStepId.value = null }, 2000)
+            }
+        }
+    }
     window.addEventListener('scroll', handleMainScroll, { passive: true })
 })
 
@@ -773,6 +797,11 @@ function badgeStyle(step) {
 async function selectPlan(id) {
     currentPlanId.value = id
     await planStore.fetchPlan(id)
+    mobileShowDetail.value = true
+}
+
+function goBackToList() {
+    mobileShowDetail.value = false
 }
 
 // 计划 Modal
@@ -878,6 +907,63 @@ async function quickToggleStep(step) {
     const newStatus = step.status === 'completed' ? 'pending' : 'completed'
     try {
         await planStore.updateStep(step.id, { status: newStatus })
+    } catch (e) {
+        toast.error(e.message)
+    }
+}
+
+// ── 协作者 ──────────────────────────────────────────────────────
+function openCollabModal() {
+    collabUsername.value = ''
+    collabError.value = ''
+    showCollabModal.value = true
+}
+
+async function inviteCollaborator() {
+    if (!collabUsername.value.trim() || collabLoading.value) return
+    collabError.value = ''
+    collabLoading.value = true
+    try {
+        const res = await planApi.addCollaborator(currentPlanId.value, collabUsername.value.trim())
+        if (!planStore.currentPlan.collaborators) planStore.currentPlan.collaborators = []
+        planStore.currentPlan.collaborators.push(res.data)
+        collabUsername.value = ''
+        toast.success('已邀请协作者 🤝')
+    } catch (e) {
+        collabError.value = e.message
+    } finally {
+        collabLoading.value = false
+    }
+}
+
+async function removeCollaborator(user) {
+    const ok = await showConfirm(`确定移除协作者「${user.nickname || user.username}」吗？`, {
+        title: '移除协作者',
+        confirmText: '移除',
+        variant: 'danger'
+    })
+    if (!ok) return
+    try {
+        await planApi.removeCollaborator(currentPlanId.value, user.id)
+        planStore.currentPlan.collaborators = planStore.currentPlan.collaborators.filter(c => c.id !== user.id)
+        toast.success('已移除协作者')
+    } catch (e) {
+        toast.error(e.message)
+    }
+}
+
+async function leavePlan(plan) {
+    const ok = await showConfirm(`确定退出协作计划「${plan.title}」吗？`, {
+        title: '退出协作',
+        confirmText: '退出',
+        variant: 'danger'
+    })
+    if (!ok) return
+    try {
+        await planApi.leave(plan.id)
+        planStore.plans = planStore.plans.filter(p => p.id !== plan.id)
+        if (currentPlanId.value === plan.id) currentPlanId.value = null
+        toast.success('已退出协作')
     } catch (e) {
         toast.error(e.message)
     }
@@ -1478,6 +1564,14 @@ async function handleImgUpload(e) {
     justify-content: space-between;
     margin-bottom: 28px;
     gap: 16px;
+    flex-wrap: wrap;
+}
+
+.timeline-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .timeline-header-left {
@@ -2149,8 +2243,13 @@ async function handleImgUpload(e) {
     transition: background 0.15s;
 }
 
-.preview-zone--prev { left: 0; }
-.preview-zone--next { right: 0; }
+.preview-zone--prev {
+    left: 0;
+}
+
+.preview-zone--next {
+    right: 0;
+}
 
 .preview-zone:hover {
     background: rgba(255, 255, 255, 0.06);
@@ -2219,28 +2318,64 @@ async function handleImgUpload(e) {
     background: rgba(255, 255, 255, 0.32);
 }
 
+/* ── 移动端返回按钮 ── */
+.mobile-back-btn {
+    display: none;
+}
+
 /* ── 响应式：移动端 ── */
 @media (max-width: 768px) {
     .plans-page {
         flex-direction: column;
-        height: auto;
+        height: calc(100vh - 72px);
+        overflow: hidden;
+        position: relative;
     }
 
     .plans-sidebar {
         width: 100%;
         min-width: unset;
         border-right: none;
-        border-bottom: 1px solid var(--color-border);
-        max-height: 320px;
+        flex: 1;
+        max-height: none;
         padding: 16px;
+        overflow-y: auto;
+    }
+
+    .plans-main {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--color-bg);
+        z-index: 10;
+        padding: 16px;
+        overflow-y: auto;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .mobile-show-detail .plans-main {
+        transform: translateX(0);
+    }
+
+    .mobile-back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: none;
+        border: none;
+        color: var(--theme-primary-dark);
+        font-size: 15px;
+        font-weight: 600;
+        padding: 8px 0;
+        margin-bottom: 8px;
+        cursor: pointer;
     }
 
     .sidebar-title {
         font-size: 1rem;
-    }
-
-    .plans-main {
-        padding: 16px;
     }
 
     .timeline-header {
@@ -2726,5 +2861,131 @@ async function handleImgUpload(e) {
     gap: 8px;
     padding: 14px 20px;
     border-top: 1px solid var(--color-border);
+}
+
+/* ── 协作角色标识 ── */
+.plan-role-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: #e4e8f8;
+    color: #6c5ce7;
+    font-weight: 600;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* ── 协作者弹窗 ── */
+.collab-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+    backdrop-filter: blur(4px);
+}
+
+.collab-modal {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    width: 400px;
+    max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: modalSlideIn 0.2s ease;
+}
+
+.collab-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.collab-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.collab-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.collab-invite-row {
+    display: flex;
+    gap: 8px;
+}
+
+.collab-invite-row .form-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.collab-error {
+    font-size: 0.82rem;
+    color: #e17055;
+    margin: 0;
+}
+
+.collab-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.collab-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+}
+
+.collab-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.collab-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.collab-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.collab-sub {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin-left: 6px;
+}
+
+.collab-empty {
+    text-align: center;
+    padding: 16px;
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
 }
 </style>
