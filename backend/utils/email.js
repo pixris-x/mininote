@@ -199,7 +199,7 @@ async function sendNotificationEmail(to, title, body) {
     await resend.emails.send({
       from: process.env.EMAIL_FROM || 'Mini Note <noreply@mininote.pixris.online>',
       to,
-      subject: \`🌸 Mini Note - \${title}\`,
+      subject: `🌸 Mini Note - ${title}`,
       html
     })
   } catch (_) { /* 静默失败 */ }
