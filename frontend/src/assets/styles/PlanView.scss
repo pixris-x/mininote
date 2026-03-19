@@ -1,4 +1,4 @@
-﻿/* ── 页面布局 ── */
+/* ── 页面布局 ── */
 .plans-page {
     display: flex;
     height: 100%;
@@ -8,8 +8,8 @@
 
 /* ── 左侧 Sidebar ── */
 .plans-sidebar {
-    width: 340px;
-    min-width: 300px;
+    width: 380px;
+    min-width: 340px;
     border-right: 1px solid var(--color-border);
     background: var(--color-surface);
     display: flex;
@@ -32,9 +32,67 @@
 }
 
 .sidebar-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 1.1rem;
     font-weight: 700;
     color: var(--color-text);
+    white-space: nowrap;
+}
+
+.title-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.title-icon-sm {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.title-icon-xs {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.btn-inline-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.btn-square-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+.icon-text-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.meta-icon-sm {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+}
+
+.mini-icon {
+    width: 10px;
+    height: 10px;
+}
+
+.form-label-with-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .plan-filters {
@@ -77,8 +135,20 @@
 }
 
 .plan-card-icon {
-    font-size: 1.4rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: var(--theme-primary-light);
+    color: var(--theme-primary-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+}
+
+.plan-card-icon-svg {
+    width: 17px;
+    height: 17px;
 }
 
 .plan-card-info {
@@ -188,6 +258,13 @@
     margin-bottom: 8px;
 }
 
+.empty-icon-lg {
+    width: 34px;
+    height: 34px;
+    margin: 0 auto 8px;
+    color: var(--color-text-light);
+}
+
 /* ── 右侧主区域 ── */
 .plans-main {
     flex: 1;
@@ -214,7 +291,9 @@
 }
 
 .timeline-empty-icon {
-    font-size: 3rem;
+    width: 42px;
+    height: 42px;
+    color: var(--color-text-light);
 }
 
 .timeline-empty h3 {
@@ -249,8 +328,20 @@
 }
 
 .timeline-plan-icon {
-    font-size: 2rem;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: var(--theme-primary-light);
+    color: var(--theme-primary-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+}
+
+.timeline-plan-icon-svg {
+    width: 22px;
+    height: 22px;
 }
 
 .timeline-plan-title {
@@ -302,12 +393,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1rem;
     border: 2px solid var(--color-border);
     background: var(--color-surface);
     flex-shrink: 0;
     z-index: 1;
     transition: all var(--transition);
+}
+
+.step-status-icon {
+    width: 16px;
+    height: 16px;
 }
 
 .dot-clickable {
@@ -357,6 +452,7 @@
     margin-bottom: 16px;
     background: var(--color-surface);
     transition: box-shadow var(--transition);
+    scroll-margin-top: 10px;
 }
 
 .timeline-card:hover {
@@ -364,11 +460,11 @@
 }
 
 .step-completed .timeline-card {
-    opacity: 0.75;
+    opacity: 1;
 }
 
 .step-skipped .timeline-card {
-    opacity: 0.55;
+    opacity: 1;
 }
 
 .timeline-card-header {
@@ -419,41 +515,74 @@
 }
 
 .timeline-card-desc-wrap {
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    padding: 10px 12px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    background: linear-gradient(180deg, #fff, #fffdfd);
+    position: relative;
 }
 
 .timeline-card-desc {
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     color: var(--color-text-secondary);
-    line-height: 1.6;
+    line-height: 1.95;
     white-space: pre-wrap;
     margin: 0;
     overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .timeline-card-desc.is-clamped {
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
-    -webkit-box-orient: vertical;
+    display: block;
+    max-height: 5.85em;
     overflow: hidden;
-    white-space: normal;
+    position: relative;
+    z-index: 1;
+}
+
+.timeline-card-desc-wrap.is-collapsed::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 46px;
+    height: 24px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fffdfd 85%);
+    pointer-events: none;
+    z-index: 1;
 }
 
 .desc-toggle-btn {
-    margin-top: 4px;
-    font-size: 0.75rem;
+    margin-top: 8px;
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 0.82rem;
     color: var(--theme-primary-dark);
-    background: none;
-    border: none;
+    background: var(--theme-primary-light);
+    border: 1px solid rgba(236, 72, 153, 0.28);
     cursor: pointer;
-    padding: 0;
+    border-radius: 999px;
     font-weight: 600;
-    transition: opacity 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.15s, background 0.15s, border-color 0.15s;
+    position: relative;
+    z-index: 2;
 }
 
 .desc-toggle-btn:hover {
-    opacity: 0.7;
+    transform: translateY(-1px);
+    background: #ffe6f0;
+    border-color: rgba(236, 72, 153, 0.45);
+}
+
+.desc-toggle-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }
 
 /* ── 时间线卡片多图网格 ── */
@@ -518,6 +647,9 @@
 .step-due {
     font-size: 0.75rem;
     color: var(--color-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .step-due.overdue {
@@ -528,11 +660,17 @@
 .step-start {
     font-size: 0.75rem;
     color: var(--color-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .step-completed-at {
     font-size: 0.75rem;
     color: #27ae60;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .step-status-group {
@@ -545,11 +683,13 @@
     width: 28px;
     height: 28px;
     border-radius: var(--radius-sm);
-    font-size: 0.85rem;
     cursor: pointer;
     border: 1.5px solid transparent;
     background: var(--color-bg);
     transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .step-status-btn:hover {
@@ -571,8 +711,10 @@
     width: 28px;
     height: 28px;
     padding: 0;
-    font-size: 0.85rem;
     border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ── Modal ── */
@@ -694,12 +836,20 @@
 .emoji-btn {
     width: 36px;
     height: 36px;
-    font-size: 1.2rem;
     border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: var(--color-bg);
     border: 1.5px solid transparent;
     cursor: pointer;
     transition: all var(--transition);
+}
+
+.plan-picker-icon {
+    width: 18px;
+    height: 18px;
 }
 
 .emoji-btn:hover {
@@ -709,6 +859,7 @@
 .emoji-btn.active {
     border-color: var(--theme-primary-dark);
     background: var(--theme-primary-light);
+    color: var(--theme-primary-dark);
 }
 
 /* Color Picker */
@@ -744,6 +895,9 @@
 }
 
 .status-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 6px 12px;
     border-radius: var(--radius-full);
     font-size: 0.82rem;
@@ -751,6 +905,11 @@
     border: 1.5px solid var(--color-border);
     background: var(--color-bg);
     transition: all var(--transition);
+}
+
+.status-option-icon {
+    width: 13px;
+    height: 13px;
 }
 
 .status-option:hover {
@@ -873,6 +1032,11 @@
     font-size: 1.4rem;
 }
 
+.img-add-icon {
+    width: 18px;
+    height: 18px;
+}
+
 .img-add-cell:hover {
     border-color: var(--theme-primary-dark);
     color: var(--theme-primary-dark);
@@ -936,12 +1100,16 @@
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
     color: #fff;
-    font-size: 1.3rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border: 1.5px solid rgba(255, 255, 255, 0.25);
     transition: background 0.15s, transform 0.15s;
+}
+
+.preview-icon {
+    width: 18px;
+    height: 18px;
 }
 
 .preview-zone:hover .preview-zone-arrow {
@@ -974,7 +1142,6 @@
     backdrop-filter: blur(4px);
     border: 1.5px solid rgba(255, 255, 255, 0.3);
     color: white;
-    font-size: 1rem;
     width: 40px;
     height: 40px;
     cursor: pointer;
@@ -1054,6 +1221,7 @@
 
     .sidebar-title {
         font-size: 1rem;
+        white-space: normal;
     }
 
     .timeline-header {
@@ -1154,6 +1322,10 @@
 
 /* ── 全部完成庆祝带 ── */
 .all-done-banner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     text-align: center;
     padding: 14px 20px;
     background: linear-gradient(135deg, #fff0f6, #ffe4f0);
@@ -1271,6 +1443,9 @@
 }
 
 .share-modal-header h3 {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 1rem;
     font-weight: 700;
     margin: 0;
@@ -1282,6 +1457,10 @@
 }
 
 .share-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     flex: 1;
     padding: 10px;
     font-size: 0.85rem;
@@ -1360,6 +1539,9 @@
 }
 
 .share-pin-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.8rem;
     color: var(--color-text-secondary);
     flex-shrink: 0;
@@ -1376,6 +1558,9 @@
 
 /* 过期时间提示 */
 .share-expires-tip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.8rem;
     color: var(--color-text-secondary);
 }
@@ -1475,6 +1660,16 @@
     gap: 6px;
 }
 
+.share-lookup-entry {
+    width: 100%;
+    justify-content: center;
+    border: 1px dashed var(--color-border);
+}
+
+.share-lookup-entry:hover {
+    border-color: var(--theme-primary);
+}
+
 /* ── 邀请按钮 + 面板 ── */
 .invite-bell {
     position: relative;
@@ -1533,8 +1728,20 @@
 }
 
 .invite-plan-icon {
-    font-size: 20px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--theme-primary-light);
+    color: var(--theme-primary-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+}
+
+.invite-plan-icon-svg {
+    width: 16px;
+    height: 16px;
 }
 
 .invite-plan-title {
@@ -1621,7 +1828,6 @@
 
 .share-lookup-clip-btn {
     flex-shrink: 0;
-    font-size: 1rem;
 }
 
 .share-lookup-error {
@@ -1640,7 +1846,9 @@
 
 /* ── 协作角色标识 ── */
 .plan-role-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 0.7rem;
     padding: 1px 6px;
     border-radius: 10px;
@@ -1683,6 +1891,9 @@
 }
 
 .collab-header h3 {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 1rem;
     font-weight: 700;
     margin: 0;

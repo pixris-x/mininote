@@ -1,15 +1,15 @@
 <template>
   <div class="login-page">
     <!-- 背景装饰 -->
-    <div class="deco deco-1">🌸</div>
-    <div class="deco deco-2">✨</div>
-    <div class="deco deco-3">🌿</div>
-    <div class="deco deco-4">💫</div>
+    <Flower2 class="deco deco-1" />
+    <Sparkles class="deco deco-2" />
+    <Leaf class="deco deco-3" />
+    <Star class="deco deco-4" />
 
     <div class="login-card card">
       <!-- Logo -->
       <div class="login-logo">
-        <span class="logo-big">🔑</span>
+        <KeyRound class="logo-big" />
         <h1 class="logo-title">找回密码</h1>
         <p class="logo-sub">{{ step === 1 ? '输入注册邮箱，获取验证码' : '输入验证码和新密码' }}</p>
       </div>
@@ -28,8 +28,14 @@
       </div>
 
       <!-- 错误 / 成功提示 -->
-      <div v-if="errorMsg" class="error-msg">❌ {{ errorMsg }}</div>
-      <div v-if="successMsg" class="success-msg">✅ {{ successMsg }}</div>
+      <div v-if="errorMsg" class="error-msg">
+        <CircleAlert class="msg-icon" />
+        <span>{{ errorMsg }}</span>
+      </div>
+      <div v-if="successMsg" class="success-msg">
+        <CheckCircle2 class="msg-icon" />
+        <span>{{ successMsg }}</span>
+      </div>
 
       <!-- Step 1: 输入邮箱 -->
       <form v-if="step === 1" @submit.prevent="handleSendCode" class="form">
@@ -47,7 +53,10 @@
         <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading || countdown > 0">
           <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
           <span v-else-if="countdown > 0">{{ countdown }}s 后可重新发送</span>
-          <span v-else>📧 发送验证码</span>
+          <span v-else class="btn-content">
+            <Mail class="btn-icon" />
+            发送验证码
+          </span>
         </button>
       </form>
 
@@ -92,7 +101,8 @@
               required
             />
             <button type="button" class="show-pass" @click="showPass = !showPass">
-              {{ showPass ? '🙈' : '👁️' }}
+              <EyeOff v-if="showPass" class="pass-icon" />
+              <Eye v-else class="pass-icon" />
             </button>
           </div>
         </div>
@@ -111,13 +121,19 @@
         </div>
         <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading">
           <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
-          <span v-else>🌸 重置密码</span>
+          <span v-else class="btn-content">
+            <KeyRound class="btn-icon" />
+            重置密码
+          </span>
         </button>
       </form>
 
       <!-- 返回登录 -->
       <div style="text-align:center;margin-top:20px;">
-        <router-link to="/login" class="back-link">← 返回登录</router-link>
+        <router-link to="/login" class="back-link">
+          <ArrowLeft class="back-icon" />
+          返回登录
+        </router-link>
       </div>
     </div>
   </div>
@@ -126,6 +142,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ArrowLeft, CheckCircle2, CircleAlert, Eye, EyeOff, Flower2, KeyRound, Leaf, Mail, Sparkles, Star } from 'lucide-vue-next'
 import api from '@/api'
 import { toast } from '@/utils/toast'
 
@@ -165,7 +182,7 @@ async function handleSendCode() {
   try {
     await api.post('/auth/forgot-password', { email: email.value })
     successMsg.value = '验证码已发送，请查收邮件（15分钟内有效）'
-    toast.success('验证码已发送 📧')
+    toast.success('验证码已发送')
     step.value = 2
     startCountdown()
   } catch (err) {
@@ -197,7 +214,7 @@ async function handleResetPassword() {
       code: code.value,
       newPassword: newPassword.value
     })
-    toast.success('密码重置成功！请使用新密码登录 🌸')
+    toast.success('密码重置成功，请使用新密码登录')
     router.push('/login')
   } catch (err) {
     errorMsg.value = err.message || '重置失败，请检查验证码是否正确'
@@ -231,7 +248,13 @@ async function handleResetPassword() {
   text-align: center;
   margin-bottom: 28px;
 }
-.logo-big { font-size: 48px; display: block; margin-bottom: 8px; }
+.logo-big {
+  width: 48px;
+  height: 48px;
+  display: block;
+  margin: 0 auto 8px;
+  color: var(--theme-primary);
+}
 .logo-title { font-size: 24px; font-weight: 700; margin: 0 0 4px; color: var(--color-text-primary); }
 .logo-sub { font-size: 14px; color: var(--color-text-muted); margin: 0; }
 
@@ -294,6 +317,9 @@ async function handleResetPassword() {
   padding: 10px 14px;
   font-size: 13px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .success-msg {
   background: #f0fff4;
@@ -303,6 +329,15 @@ async function handleResetPassword() {
   padding: 10px 14px;
   font-size: 13px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.msg-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .form { display: flex; flex-direction: column; gap: 16px; }
@@ -311,17 +346,42 @@ async function handleResetPassword() {
 .input-wrap { position: relative; }
 .show-pass {
   position: absolute;
-  right: 12px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
-  padding: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.pass-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   color: var(--color-text-muted);
   text-decoration: none;
@@ -329,9 +389,16 @@ async function handleResetPassword() {
 }
 .back-link:hover { color: var(--color-pink); }
 
+.back-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .deco {
   position: absolute;
-  font-size: 60px;
+  width: 60px;
+  height: 60px;
+  stroke-width: 1.8;
   opacity: 0.12;
   pointer-events: none;
   animation: float 6s ease-in-out infinite;

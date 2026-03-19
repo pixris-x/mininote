@@ -367,6 +367,10 @@ body {
     animation: toastIn 0.3s ease;
 }
 
+.toast-icon {
+    flex-shrink: 0;
+}
+
 .toast-success {
     background: #B5EAD7;
     color: #2D7A5A;

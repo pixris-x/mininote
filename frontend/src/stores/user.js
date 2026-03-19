@@ -54,6 +54,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function logout() {
+    const authToken = token.value || localStorage.getItem('minilist_token') || ''
     user.value = null
     token.value = ''
     localStorage.removeItem('minilist_token')
@@ -65,11 +66,10 @@ export const useUserStore = defineStore('user', () => {
         const sub = await reg.pushManager.getSubscription()
         if (sub) {
           try {
-            const token = localStorage.getItem('minilist_token')
             // 通知后端删除
             await fetch('/api/push/unsubscribe', {
               method: 'DELETE',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
               body: JSON.stringify({ endpoint: sub.endpoint })
             })
           } catch {}

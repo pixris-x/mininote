@@ -7,7 +7,7 @@
         :key="toast.id"
         :class="['toast', `toast-${toast.type}`]"
       >
-        <span>{{ toastIcon(toast.type) }}</span>
+        <component :is="toastIcon(toast.type)" class="toast-icon" :size="16" />
         {{ toast.message }}
       </div>
     </div>
@@ -27,10 +27,11 @@
 <script setup>
 import AppAlert from '@/components/AppAlert.vue'
 import { toasts } from '@/utils/toast'
+import { CheckCircle2, CircleAlert, MessageCircle } from 'lucide-vue-next'
 
 function toastIcon(type) {
-  const icons = { success: '✅', error: '❌', info: '💬' }
-  return icons[type] || '💬'
+  const icons = { success: CheckCircle2, error: CircleAlert, info: MessageCircle }
+  return icons[type] || MessageCircle
 }
 </script>
 

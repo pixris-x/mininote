@@ -5,7 +5,10 @@
         <Transition name="alert-pop">
           <div v-if="alertState" class="app-alert-box" :class="`app-alert-box--${alertState.variant}`">
             <!-- 图标 -->
-            <div class="app-alert-icon">{{ alertState.icon }}</div>
+            <div class="app-alert-icon">
+              <component v-if="alertIconComponent" :is="alertIconComponent" class="app-alert-icon-svg" />
+              <span v-else>{{ alertState.icon }}</span>
+            </div>
 
             <!-- 标题 -->
             <div class="app-alert-title">{{ alertState.title }}</div>
@@ -35,10 +38,26 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
+import { CircleHelp, CircleAlert, Info, CheckCircle2 } from 'lucide-vue-next'
 import { alertState } from '@/utils/alert'
 
 const confirmBtnRef = ref(null)
+const ALERT_ICON_COMPONENTS = {
+  info: Info,
+  help: CircleHelp,
+  danger: CircleAlert,
+  success: CheckCircle2,
+  '!': CircleAlert,
+  '❓': CircleHelp,
+  'ℹ️': Info,
+  '✅': CheckCircle2
+}
+
+const alertIconComponent = computed(() => {
+  const key = String(alertState.value?.icon || '')
+  return ALERT_ICON_COMPONENTS[key] || null
+})
 
 // 自动聚焦确认按钮
 watch(alertState, async (val) => {
@@ -108,9 +127,27 @@ window.addEventListener('keydown', onKeydown)
 }
 
 .app-alert-icon {
-  font-size: 2.2rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffeaf0;
+  color: var(--theme-primary-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
   line-height: 1;
   margin-bottom: 2px;
+}
+
+.app-alert-box--danger .app-alert-icon {
+  background: #ffe9ec;
+  color: #ff5a6e;
+}
+
+.app-alert-icon-svg {
+  width: 24px;
+  height: 24px;
 }
 
 .app-alert-title {

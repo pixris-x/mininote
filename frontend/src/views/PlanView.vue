@@ -1,36 +1,52 @@
-﻿<template>
+<template>
     <AppLayout>
         <div class="plans-page" :class="{ 'mobile-show-detail': mobileShowDetail }">
 
             <!-- ── 左侧面板：计划列表 ── -->
             <aside class="plans-sidebar">
                 <div class="plans-sidebar-header">
-                    <h2 class="sidebar-title">🎯 我的计划</h2>
+                    <h2 class="sidebar-title">
+                        <Target class="title-icon" />
+                        我的计划
+                    </h2>
                     <div class="sidebar-header-actions">
                         <button class="btn btn-ghost btn-sm invite-bell" @click="showInvitesPanel = !showInvitesPanel"
                             title="待处理邀请">
-                            🔔
+                            <Bell class="btn-inline-icon" />
                             <span v-if="pendingInvites.length" class="invite-badge">{{ pendingInvites.length }}</span>
                         </button>
-                        <button class="btn btn-ghost btn-sm" @click="openShareLookup" title="查看分享行程">🔗</button>
-                        <button class="btn btn-primary btn-sm" @click="openPlanModal()">＋ 新建</button>
+                        <button class="btn btn-primary btn-sm icon-text-btn" @click="openPlanModal()">
+                            <Plus class="btn-inline-icon" />
+                            <span>新建</span>
+                        </button>
                     </div>
                 </div>
 
                 <!-- 待处理邀请 -->
                 <div v-if="showInvitesPanel && pendingInvites.length" class="invites-panel">
-                    <h4 class="invites-panel-title">🔔 待处理邀请</h4>
+                    <h4 class="invites-panel-title">
+                        <Bell class="title-icon-sm" />
+                        待处理邀请
+                    </h4>
                     <div v-for="invite in pendingInvites" :key="invite.id" class="invite-card">
                         <div class="invite-card-info">
-                            <span class="invite-plan-icon">{{ invite.plan_icon }}</span>
+                            <span class="invite-plan-icon">
+                                <component :is="getPlanIconComponentOrDefault(invite.plan_icon)" class="invite-plan-icon-svg" />
+                            </span>
                             <div>
                                 <div class="invite-plan-title">{{ invite.plan_title }}</div>
                                 <div class="invite-from">来自 {{ invite.owner_name }}</div>
                             </div>
                         </div>
                         <div class="invite-card-actions">
-                            <button class="btn btn-primary btn-sm" @click="acceptInvite(invite)">✓ 接受</button>
-                            <button class="btn btn-ghost btn-sm" @click="rejectInvite(invite)">✗ 拒绝</button>
+                            <button class="btn btn-primary btn-sm icon-text-btn" @click="acceptInvite(invite)">
+                                <Check class="btn-inline-icon" />
+                                <span>接受</span>
+                            </button>
+                            <button class="btn btn-ghost btn-sm icon-text-btn" @click="rejectInvite(invite)">
+                                <X class="btn-inline-icon" />
+                                <span>拒绝</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -41,6 +57,10 @@
                         :class="{ active: activeFilter === f.value }" @click="activeFilter = f.value">{{ f.label
                         }}</button>
                 </div>
+                <button class="btn btn-ghost btn-sm icon-text-btn share-lookup-entry" @click="openShareLookup" title="查看分享行程">
+                    <Link2 class="btn-inline-icon" />
+                    <span>查看分享行程</span>
+                </button>
 
                 <!-- 加载中 -->
                 <div v-if="planStore.loading && !planStore.plans.length" class="loading-center">
@@ -49,7 +69,7 @@
 
                 <!-- 空状态 -->
                 <div v-else-if="filteredPlans.length === 0" class="plans-empty">
-                    <span>📋</span>
+                    <NotebookText class="empty-icon-lg" />
                     <p>还没有计划哦～</p>
                 </div>
 
@@ -60,22 +80,33 @@
                         :style="{ borderLeftColor: plan.color === '#FFFFFF' ? 'var(--theme-primary)' : plan.color }"
                         @click="selectPlan(plan.id)">
                         <div class="plan-card-top">
-                            <span class="plan-card-icon">{{ plan.icon }}</span>
+                            <span class="plan-card-icon">
+                                <component :is="getPlanIconComponentOrDefault(plan.icon)" class="plan-card-icon-svg" />
+                            </span>
                             <div class="plan-card-info">
                                 <div class="plan-card-title">
                                     {{ plan.title }}
-                                    <span v-if="plan.role === 'collaborator'" class="plan-role-badge">🤝 协作</span>
+                                    <span v-if="plan.role === 'collaborator'" class="plan-role-badge">
+                                        <Users class="title-icon-xs" />
+                                        协作
+                                    </span>
                                 </div>
                                 <div class="plan-card-desc">{{ plan.role === 'collaborator' ? `来自 ${plan.owner_name}` :
                                     (plan.description || '暂无描述') }}</div>
                             </div>
                             <div class="plan-card-actions">
                                 <button class="btn btn-ghost btn-icon-sm" @click.stop="openPlanModal(plan)"
-                                    title="编辑">✏️</button>
+                                    title="编辑">
+                                    <SquarePen class="btn-square-icon" />
+                                </button>
                                 <button v-if="plan.role !== 'collaborator'" class="btn btn-ghost btn-icon-sm"
-                                    @click.stop="confirmDeletePlan(plan)" title="删除">🗑️</button>
+                                    @click.stop="confirmDeletePlan(plan)" title="删除">
+                                    <Trash2 class="btn-square-icon" />
+                                </button>
                                 <button v-if="plan.role === 'collaborator'" class="btn btn-ghost btn-icon-sm"
-                                    @click.stop="leavePlan(plan)" title="退出协作">🚪</button>
+                                    @click.stop="leavePlan(plan)" title="退出协作">
+                                    <LogOut class="btn-square-icon" />
+                                </button>
                             </div>
                         </div>
                         <div class="plan-card-bottom">
@@ -96,20 +127,26 @@
             <!-- ── 右侧面板：时间线 ── -->
             <main class="plans-main" ref="mainRef">
                 <!-- 移动端返回按钮 -->
-                <button class="mobile-back-btn" @click="goBackToList">← 返回列表</button>
+                <button class="mobile-back-btn" @click="goBackToList">
+                    <ArrowLeft class="btn-inline-icon" />
+                    返回列表
+                </button>
 
                 <!-- 未选择计划 -->
                 <div v-if="!currentPlanId" class="timeline-empty">
-                    <span class="timeline-empty-icon">🎯</span>
+                    <Target class="timeline-empty-icon" />
                     <h3>选择一个计划</h3>
-                    <p>从左侧选择计划，或新建一个开始你的旅程 🌸</p>
+                    <p>从左侧选择计划，或新建一个开始你的旅程</p>
                 </div>
 
                 <template v-else>
                     <!-- 计划标题栏 -->
                     <div class="timeline-header">
                         <div class="timeline-header-left">
-                            <span class="timeline-plan-icon">{{ planStore.currentPlan?.icon }}</span>
+                            <span class="timeline-plan-icon">
+                                <component :is="getPlanIconComponentOrDefault(planStore.currentPlan?.icon)"
+                                    class="timeline-plan-icon-svg" />
+                            </span>
                             <div class="timeline-header-info">
                                 <h2 class="timeline-plan-title">{{ planStore.currentPlan?.title }}</h2>
                                 <p v-if="planStore.currentPlan?.description" class="timeline-plan-desc">
@@ -118,11 +155,20 @@
                             </div>
                         </div>
                         <div class="timeline-header-actions">
-                            <button class="btn btn-primary btn-sm" @click="openStepModal()">＋ 添加步骤</button>
-                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm"
-                                @click="openCollabModal()" title="管理协作者">🤝 协作</button>
-                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm"
-                                @click="openShareModal()" title="分享计划">🔗 分享</button>
+                            <button class="btn btn-primary btn-sm icon-text-btn" @click="openStepModal()">
+                                <Plus class="btn-inline-icon" />
+                                <span>添加步骤</span>
+                            </button>
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm icon-text-btn"
+                                @click="openCollabModal()" title="管理协作者">
+                                <Users class="btn-inline-icon" />
+                                <span>协作</span>
+                            </button>
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm icon-text-btn"
+                                @click="openShareModal()" title="分享计划">
+                                <Link2 class="btn-inline-icon" />
+                                <span>分享</span>
+                            </button>
                         </div>
                     </div>
 
@@ -134,9 +180,9 @@
 
                     <!-- 空状态 -->
                     <div v-else-if="!planStore.currentPlan?.steps?.length" class="timeline-empty">
-                        <span class="timeline-empty-icon">📋</span>
+                        <NotebookText class="timeline-empty-icon" />
                         <h3>暂无步骤</h3>
-                        <p>点击「添加步骤」开始规划你的第一步 ✨</p>
+                        <p>点击「添加步骤」开始规划你的第一步</p>
                     </div>
 
                     <!-- 时间线 -->
@@ -149,7 +195,7 @@
                                 <div class="timeline-dot" :class="[`dot-${step.status}`, 'dot-clickable']"
                                     :title="step.status === 'completed' ? '点击取消完成' : '点击标记完成'"
                                     @click="quickToggleStep(step)">
-                                    {{ stepStatusIcon[step.status] }}
+                                    <component :is="stepStatusIcon[step.status]" class="step-status-icon" />
                                 </div>
                                 <div v-if="idx < planStore.currentPlan.steps.length - 1" class="timeline-connector">
                                 </div>
@@ -168,31 +214,45 @@
                                     <div class="timeline-card-actions">
                                         <!-- 上移/下移 -->
                                         <button v-if="idx > 0" class="btn btn-ghost btn-icon-sm"
-                                            @click="moveStep(idx, -1)" title="上移">↑</button>
+                                            @click="moveStep(idx, -1)" title="上移">
+                                            <ChevronUp class="btn-square-icon" />
+                                        </button>
                                         <button v-if="idx < planStore.currentPlan.steps.length - 1"
                                             class="btn btn-ghost btn-icon-sm" @click="moveStep(idx, 1)"
-                                            title="下移">↓</button>
+                                            title="下移">
+                                            <ChevronDown class="btn-square-icon" />
+                                        </button>
                                         <button class="btn btn-ghost btn-icon-sm" @click="openStepModal(step)"
-                                            title="编辑">✏️</button>
+                                            title="编辑">
+                                            <SquarePen class="btn-square-icon" />
+                                        </button>
                                         <button class="btn btn-ghost btn-icon-sm" @click="confirmDeleteStep(step)"
-                                            title="删除">🗑️</button>
+                                            title="删除">
+                                            <Trash2 class="btn-square-icon" />
+                                        </button>
                                     </div>
                                 </div>
 
                                 <h3 class="timeline-card-title">{{ step.title }}</h3>
-                                <div v-if="step.description" class="timeline-card-desc-wrap">
+                                <div v-if="step.description" class="timeline-card-desc-wrap"
+                                    :class="{ 'is-collapsed': isDescLong(step) && !isDescExpanded(step) }">
                                     <p class="timeline-card-desc"
                                         :class="{ 'is-clamped': isDescLong(step) && !isDescExpanded(step) }">{{
                                             step.description }}</p>
                                     <button v-if="isDescLong(step)" class="desc-toggle-btn"
                                         @click.stop="toggleDesc(step)">
-                                        {{ isDescExpanded(step) ? '▲ 收起' : '▼ 展开' }}
+                                        <ChevronUp v-if="isDescExpanded(step)" class="desc-toggle-icon" />
+                                        <ChevronDown v-else class="desc-toggle-icon" />
+                                        <span>{{ isDescExpanded(step) ? '收起内容' : '展开查看' }}</span>
                                     </button>
                                 </div>
 
                                 <!-- 地图导航按钮 -->
                                 <div v-if="step.location" class="step-map-links">
-                                    <span class="step-map-label">📍 {{ step.location }}</span>
+                                    <span class="step-map-label">
+                                        <MapPin class="meta-icon-sm" />
+                                        {{ step.location }}
+                                    </span>
                                     <div class="step-map-btns">
                                         <a :href="`https://uri.amap.com/search?keyword=${encodeURIComponent(step.location)}&src=mini-note&callnative=1`"
                                             target="_blank" rel="noopener noreferrer" class="map-btn map-btn--amap"
@@ -242,21 +302,26 @@
                                 <div class="timeline-card-footer">
                                     <!-- 开始日期 -->
                                     <span v-if="step.start_date" class="step-start">
-                                        🗓️ {{ formatDate(step.start_date) }}
+                                        <CalendarRange class="meta-icon-sm" />
+                                        {{ formatDate(step.start_date) }}
                                     </span>
                                     <!-- 截止日期 -->
                                     <span v-if="step.due_date" class="step-due" :class="{ overdue: isOverdue(step) }">
-                                        📅 {{ formatDate(step.due_date) }}
+                                        <CalendarDays class="meta-icon-sm" />
+                                        {{ formatDate(step.due_date) }}
                                     </span>
                                     <span v-if="step.completed_at" class="step-completed-at">
-                                        ✅ {{ formatDate(step.completed_at) }}
+                                        <CheckCircle2 class="meta-icon-sm" />
+                                        {{ formatDate(step.completed_at) }}
                                     </span>
 
                                     <!-- 状态切换 -->
                                     <div class="step-status-group">
                                         <button v-for="s in stepStatuses" :key="s.value" class="step-status-btn"
                                             :class="{ active: step.status === s.value }" :title="s.label"
-                                            @click="changeStepStatus(step, s.value)">{{ s.icon }}</button>
+                                            @click="changeStepStatus(step, s.value)">
+                                            <component :is="s.icon" class="step-status-icon" />
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -266,7 +331,8 @@
                     <!-- 全部完成庆祝横幅 -->
                     <div v-if="planStore.currentPlan?.steps?.length > 0 && planStore.currentPlan.steps.filter(s => s.status !== 'skipped').length > 0 && planStore.currentPlan.steps.filter(s => s.status !== 'skipped').every(s => s.status === 'completed')"
                         class="all-done-banner">
-                        🎉 所有步骤已完成！超棒！
+                        <PartyPopper class="title-icon-sm" />
+                        所有步骤已完成！超棒！
                     </div>
 
                     <!-- 时间线末尾添加步骤行 -->
@@ -280,7 +346,7 @@
             <!-- 返回顶部按钮（放在 plans-page 内，不受 transform 影响） -->
             <Transition name="back-top-fade">
                 <button v-if="showBackToTop" class="back-to-top-btn" @click="scrollToTop" title="返回顶部">
-                    &#8679;
+                    <ArrowUp class="btn-square-icon" />
                 </button>
             </Transition>
         </div>
@@ -291,15 +357,21 @@
             <img :src="previewState.imgs[previewState.index]" class="img-preview" @click.stop />
             <div v-if="previewState.index > 0" class="preview-zone preview-zone--prev"
                 @click.stop="previewState.index--">
-                <span class="preview-zone-arrow">❮</span>
+                <span class="preview-zone-arrow">
+                    <ChevronLeft class="preview-icon" />
+                </span>
             </div>
             <div v-if="previewState.index < previewState.imgs.length - 1" class="preview-zone preview-zone--next"
                 @click.stop="previewState.index++">
-                <span class="preview-zone-arrow">❯</span>
+                <span class="preview-zone-arrow">
+                    <ChevronRight class="preview-icon" />
+                </span>
             </div>
             <div v-if="previewState.imgs.length > 1" class="preview-counter">{{ previewState.index + 1 }} / {{
                 previewState.imgs.length }}</div>
-            <button class="preview-close" @click.stop="previewState.show = false">✕</button>
+            <button class="preview-close" @click.stop="previewState.show = false">
+                <X class="preview-icon" />
+            </button>
         </div>
 
         <!-- ── 计划 Modal ── -->
@@ -307,14 +379,19 @@
             <div class="modal">
                 <div class="modal-header">
                     <h3>{{ editingPlan?.id ? '编辑计划' : '新建计划' }}</h3>
-                    <button class="btn btn-ghost btn-icon" @click="showPlanModal = false">✕</button>
+                    <button class="btn btn-ghost btn-icon" @click="showPlanModal = false">
+                        <X class="btn-square-icon" />
+                    </button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
                         <label>图标</label>
                         <div class="emoji-picker">
-                            <button v-for="e in planIcons" :key="e" class="emoji-btn"
-                                :class="{ active: planForm.icon === e }" @click="planForm.icon = e">{{ e }}</button>
+                            <button v-for="opt in planIconOptions" :key="opt.key" class="emoji-btn"
+                                :class="{ active: planForm.icon === opt.key }" @click="planForm.icon = opt.key"
+                                :title="opt.label">
+                                <component :is="opt.component" class="plan-picker-icon" />
+                            </button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -338,9 +415,10 @@
                         <label>状态</label>
                         <div class="status-select">
                             <button v-for="s in planStatuses" :key="s.value" class="status-option"
-                                :class="{ active: planForm.status === s.value }" @click="planForm.status = s.value">{{
-                                    s.icon }}
-                                {{ s.label }}</button>
+                                :class="{ active: planForm.status === s.value }" @click="planForm.status = s.value">
+                                <component :is="s.icon" class="status-option-icon" />
+                                {{ s.label }}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -358,7 +436,9 @@
             <div class="modal modal-lg" tabindex="-1">
                 <div class="modal-header">
                     <h3>{{ editingStep?.id ? '编辑步骤' : '添加步骤' }}</h3>
-                    <button class="btn btn-ghost btn-icon" @click="showStepModal = false">✕</button>
+                    <button class="btn btn-ghost btn-icon" @click="showStepModal = false">
+                        <X class="btn-square-icon" />
+                    </button>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
@@ -404,15 +484,20 @@
                         <label>状态</label>
                         <div class="status-select">
                             <button v-for="s in stepStatuses" :key="s.value" class="status-option"
-                                :class="{ active: stepForm.status === s.value }" @click="stepForm.status = s.value">{{
-                                    s.icon }}
-                                {{ s.label }}</button>
+                                :class="{ active: stepForm.status === s.value }" @click="stepForm.status = s.value">
+                                <component :is="s.icon" class="status-option-icon" />
+                                {{ s.label }}
+                            </button>
                         </div>
                     </div>
 
                     <!-- 多图上传（最多9张） -->
                     <div class="form-group">
-                        <label>📍 地点地址 <span class="form-label-hint">支持条目名、地址、地标居民地址等</span></label>
+                        <label class="form-label-with-icon">
+                            <MapPin class="meta-icon-sm" />
+                            地点地址
+                            <span class="form-label-hint">支持条目名、地址、地标居民地址等</span>
+                        </label>
                         <input v-model="stepForm.location" class="form-input" placeholder="例：北京天安门、上海赛克巴孙大道100号..."
                             maxlength="200" />
                     </div>
@@ -424,7 +509,9 @@
                             <!-- 已上传完成的图 -->
                             <div v-for="(url, i) in stepForm.image_urls" :key="`done-${i}`" class="img-grid-cell">
                                 <img :src="url" alt="" @click="openPreview(stepForm.image_urls, i)" />
-                                <button class="img-cell-remove" @click="removeImage(i)">✕</button>
+                                <button class="img-cell-remove" @click="removeImage(i)">
+                                    <X class="mini-icon" />
+                                </button>
                             </div>
                             <!-- 上传中的占位图 -->
                             <div v-for="item in uploadingItems" :key="item.id" class="img-grid-cell img-grid-uploading">
@@ -436,7 +523,7 @@
                             <!-- 添加按钮 -->
                             <button v-if="stepForm.image_urls.length + uploadingItems.length < 9" class="img-add-cell"
                                 @click="$refs.imgInput.click()">
-                                <span>📷</span>
+                                <Camera class="img-add-icon" />
                                 <p>添加图片</p>
                             </button>
                         </div>
@@ -457,14 +544,23 @@
             <div v-if="showShareModal" class="share-modal-overlay" @click.self="showShareModal = false">
                 <div class="share-modal">
                     <div class="share-modal-header">
-                        <h3>🔗 分享计划</h3>
-                        <button class="modal-close" @click="showShareModal = false">✕</button>
+                        <h3>
+                            <Link2 class="title-icon-sm" />
+                            分享计划
+                        </h3>
+                        <button class="modal-close" @click="showShareModal = false">
+                            <X class="btn-square-icon" />
+                        </button>
                     </div>
                     <div class="share-tabs">
-                        <button :class="['share-tab', { active: shareTab === 'link' }]" @click="shareTab = 'link'">🔗
-                            分享链接</button>
-                        <button :class="['share-tab', { active: shareTab === 'image' }]" @click="shareTab = 'image'">🖼️
-                            生成图片</button>
+                        <button :class="['share-tab', { active: shareTab === 'link' }]" @click="shareTab = 'link'">
+                            <Link2 class="btn-inline-icon" />
+                            分享链接
+                        </button>
+                        <button :class="['share-tab', { active: shareTab === 'image' }]" @click="shareTab = 'image'">
+                            <ImageIcon class="btn-inline-icon" />
+                            生成图片
+                        </button>
                     </div>
 
                     <div v-if="shareTab === 'link'" class="share-panel">
@@ -474,19 +570,32 @@
                         <template v-if="shareToken">
                             <div class="share-link-box">
                                 <span class="share-link-text">{{ shareUrl }}</span>
-                                <button class="btn btn-primary btn-sm" @click="copyShareLink">{{ copied ? '✅ 已复制' : '复制'
-                                }}</button>
+                                <button class="btn btn-primary btn-sm icon-text-btn" @click="copyShareLink">
+                                    <Check v-if="copied" class="btn-inline-icon" />
+                                    <Copy v-else class="btn-inline-icon" />
+                                    <span>{{ copied ? '已复制' : '复制' }}</span>
+                                </button>
                             </div>
                             <div v-if="sharePin" class="share-pin-box">
-                                <span class="share-pin-label">🔑 访问码</span>
+                                <span class="share-pin-label">
+                                    <KeyRound class="meta-icon-sm" />
+                                    访问码
+                                </span>
                                 <span class="share-pin-value">{{ sharePin }}</span>
-                                <button class="btn btn-ghost btn-sm" @click="copySharePin">{{ copiedPin ? '✅' : '复制'
-                                }}</button>
+                                <button class="btn btn-ghost btn-sm icon-text-btn" @click="copySharePin">
+                                    <Check v-if="copiedPin" class="btn-inline-icon" />
+                                    <Copy v-else class="btn-inline-icon" />
+                                    <span>{{ copiedPin ? '已复制' : '复制' }}</span>
+                                </button>
                             </div>
                             <div v-if="shareExpiresAt" class="share-expires-tip">
-                                ⏰ 过期时间：{{ formatExpiresAt(shareExpiresAt) }}
+                                <Clock3 class="meta-icon-sm" />
+                                过期时间：{{ formatExpiresAt(shareExpiresAt) }}
                             </div>
-                            <div v-else class="share-expires-tip">⏰ 永久有效</div>
+                            <div v-else class="share-expires-tip">
+                                <Clock3 class="meta-icon-sm" />
+                                永久有效
+                            </div>
                         </template>
 
                         <!-- 未生成：过期时间选择器 -->
@@ -506,7 +615,10 @@
                             </button>
                             <button v-if="shareToken" class="btn btn-ghost btn-sm" :disabled="shareLoading"
                                 @click="regenerateShareToken">
-                                {{ shareLoading ? '重新生成中...' : '🔄 重新生成' }}
+                                <span class="icon-text-btn">
+                                    <RotateCcw class="btn-inline-icon" />
+                                    <span>{{ shareLoading ? '重新生成中...' : '重新生成' }}</span>
+                                </span>
                             </button>
                             <button v-if="shareToken" class="btn btn-ghost btn-sm share-revoke-btn"
                                 :disabled="shareLoading" @click="revokeShareToken">
@@ -517,8 +629,9 @@
 
                     <div v-if="shareTab === 'image'" class="share-panel">
                         <p class="share-desc">将当前计划步骤列表截图保存为 PNG 图片。</p>
-                        <button class="btn btn-primary" :disabled="exportingImage" @click="exportAsImage">
-                            {{ exportingImage ? '生成中...' : '📸 生成并下载图片' }}
+                        <button class="btn btn-primary icon-text-btn" :disabled="exportingImage" @click="exportAsImage">
+                            <Camera class="btn-inline-icon" />
+                            <span>{{ exportingImage ? '生成中...' : '生成并下载图片' }}</span>
                         </button>
                     </div>
                 </div>
@@ -530,8 +643,13 @@
             <div v-if="showShareLookup" class="share-lookup-overlay" @click.self="showShareLookup = false">
                 <div class="share-lookup-modal">
                     <div class="share-lookup-header">
-                        <h3>🔗 查看分享行程</h3>
-                        <button class="modal-close" @click="showShareLookup = false">✕</button>
+                        <h3>
+                            <Link2 class="title-icon-sm" />
+                            查看分享行程
+                        </h3>
+                        <button class="modal-close" @click="showShareLookup = false">
+                            <X class="btn-square-icon" />
+                        </button>
                     </div>
                     <div class="share-lookup-body">
                         <p class="share-lookup-hint">粘贴好友发给你的分享链接，即可查看行程内容</p>
@@ -539,7 +657,12 @@
                             <input v-model="shareLookupUrl" class="form-input" placeholder="https://…/share/…"
                                 @keydown.enter="goToShare" @input="shareLookupError = ''" />
                             <button class="btn btn-ghost btn-sm share-lookup-clip-btn" :disabled="clipReading"
-                                title="从剪贴板读取" @click="readFromClipboard">{{ clipReading ? '读取中…' : '📋' }}</button>
+                                title="从剪贴板读取" @click="readFromClipboard">
+                                <span class="icon-text-btn">
+                                    <Clipboard class="btn-inline-icon" />
+                                    <span>{{ clipReading ? '读取中…' : '读取' }}</span>
+                                </span>
+                            </button>
                         </div>
                         <p v-if="shareLookupError" class="share-lookup-error">{{ shareLookupError }}</p>
                     </div>
@@ -557,8 +680,13 @@
             <div v-if="showCollabModal" class="collab-overlay" @click.self="showCollabModal = false">
                 <div class="collab-modal">
                     <div class="collab-header">
-                        <h3>🤝 协作者管理</h3>
-                        <button class="modal-close" @click="showCollabModal = false">✕</button>
+                        <h3>
+                            <Users class="title-icon-sm" />
+                            协作者管理
+                        </h3>
+                        <button class="modal-close" @click="showCollabModal = false">
+                            <X class="btn-square-icon" />
+                        </button>
                     </div>
                     <div class="collab-body">
                         <div class="collab-invite-row">
@@ -579,7 +707,9 @@
                                     <span class="collab-sub">@{{ c.username }}</span>
                                 </div>
                                 <button class="btn btn-ghost btn-icon-sm" @click="removeCollaborator(c)"
-                                    title="移除">✕</button>
+                                    title="移除">
+                                    <X class="btn-square-icon" />
+                                </button>
                             </div>
                         </div>
                         <div v-else class="collab-empty">
@@ -596,12 +726,53 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import {
+    ArrowLeft,
+    ArrowUp,
+    Bell,
+    CalendarDays,
+    CalendarRange,
+    Camera,
+    Check,
+    CheckCircle2,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    ChevronUp,
+    Circle,
+    Clipboard,
+    Clock3,
+    Copy,
+    Image as ImageIcon,
+    KeyRound,
+    Link2,
+    LogOut,
+    MapPin,
+    NotebookText,
+    PartyPopper,
+    Pause,
+    Play,
+    Plus,
+    RotateCcw,
+    SkipForward,
+    SquarePen,
+    Target,
+    Trash2,
+    Users,
+    X
+} from 'lucide-vue-next'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import { usePlanStore } from '@/stores/plans'
 import { uploadApi, planApi } from '@/api'
 import { toast } from '@/utils/toast'
 import { showConfirm } from '@/utils/alert'
+import {
+    DEFAULT_PLAN_ICON,
+    PLAN_ICON_OPTIONS,
+    getPlanIconComponentOrDefault,
+    sanitizePlanIcon
+} from '@/utils/plan-icons'
 import dayjs from 'dayjs'
 import html2canvas from 'html2canvas'
 
@@ -617,20 +788,20 @@ const planFilters = [
     { label: '已暂停', value: 'paused' }
 ]
 const planStatuses = [
-    { value: 'active', label: '进行中', icon: '🚀' },
-    { value: 'paused', label: '已暂停', icon: '⏸️' },
-    { value: 'completed', label: '已完成', icon: '✅' }
+    { value: 'active', label: '进行中', icon: Play },
+    { value: 'paused', label: '已暂停', icon: Pause },
+    { value: 'completed', label: '已完成', icon: CheckCircle2 }
 ]
 const stepStatuses = [
-    { value: 'pending', label: '待开始', icon: '⬜' },
-    { value: 'in_progress', label: '进行中', icon: '🔄' },
-    { value: 'completed', label: '已完成', icon: '✅' },
-    { value: 'skipped', label: '已跳过', icon: '⏭️' }
+    { value: 'pending', label: '待开始', icon: Circle },
+    { value: 'in_progress', label: '进行中', icon: Clock3 },
+    { value: 'completed', label: '已完成', icon: CheckCircle2 },
+    { value: 'skipped', label: '已跳过', icon: SkipForward }
 ]
-const stepStatusIcon = { pending: '⬜', in_progress: '🔄', completed: '✅', skipped: '⏭️' }
+const stepStatusIcon = { pending: Circle, in_progress: Clock3, completed: CheckCircle2, skipped: SkipForward }
 const statusLabel = { active: '进行中', paused: '已暂停', completed: '已完成' }
 const planColors = ['#FFFFFF', '#FFD6E0', '#D4F5E9', '#E4E8F8', '#FFE8D6', '#FFF8D6', '#D6EEFF', '#DCEDC8']
-const planIcons = ['🎯', '🚀', '💡', '📚', '💪', '🌱', '✨', '🏆', '🎨', '🔬', '🌍', '❤️']
+const planIconOptions = PLAN_ICON_OPTIONS
 const badgePresets = [
     { label: '里程碑', color: '#FF85A1' },
     { label: '重要', color: '#FF7675' },
@@ -785,15 +956,33 @@ const expandedDescs = ref(new Set())
 const DESC_LIMIT = 120
 function isDescLong(step) { return (step.description || '').length > DESC_LIMIT }
 function isDescExpanded(step) { return expandedDescs.value.has(step.id) }
-function toggleDesc(step) {
+async function toggleDesc(step) {
     const s = expandedDescs.value
-    s.has(step.id) ? s.delete(step.id) : s.add(step.id)
+    const wasExpanded = s.has(step.id)
+    wasExpanded ? s.delete(step.id) : s.add(step.id)
     expandedDescs.value = new Set(s)
+
+    // 点击“收起内容”后，将视图重新对齐到当前步骤，避免用户丢失阅读位置
+    if (wasExpanded) {
+        await nextTick()
+        const stepEl = document.querySelector(`[data-step-id="${step.id}"]`)
+        if (!stepEl) return
+        const anchorEl = stepEl.querySelector('.timeline-card') || stepEl
+
+        if (mainRef.value) {
+            const containerRect = mainRef.value.getBoundingClientRect()
+            const anchorRect = anchorEl.getBoundingClientRect()
+            const targetTop = mainRef.value.scrollTop + (anchorRect.top - containerRect.top) - 10
+            mainRef.value.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+        } else {
+            anchorEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+    }
 }
 const uploadingItems = ref([]) // [{ id, localUrl }]
 const uploading = computed(() => uploadingItems.value.length > 0)
 
-const planForm = ref({ title: '', description: '', color: '#FFFFFF', icon: '🎯', status: 'active' })
+const planForm = ref({ title: '', description: '', color: '#FFFFFF', icon: DEFAULT_PLAN_ICON, status: 'active' })
 const stepForm = ref({ title: '', description: '', status: 'pending', badge: '', badge_color: '', image_urls: [], start_date: '', due_date: '', location: '' })
 
 // ── 计算 ────────────────────────────────────────────────────────
@@ -870,20 +1059,30 @@ function goBackToList() {
 function openPlanModal(plan = null) {
     editingPlan.value = plan
     planForm.value = plan
-        ? { title: plan.title, description: plan.description, color: plan.color, icon: plan.icon, status: plan.status }
-        : { title: '', description: '', color: '#FFFFFF', icon: '🎯', status: 'active' }
+        ? {
+            title: plan.title,
+            description: plan.description,
+            color: plan.color,
+            icon: sanitizePlanIcon(plan.icon, DEFAULT_PLAN_ICON),
+            status: plan.status
+        }
+        : { title: '', description: '', color: '#FFFFFF', icon: DEFAULT_PLAN_ICON, status: 'active' }
     showPlanModal.value = true
 }
 
 async function savePlan() {
     if (!planForm.value.title.trim()) return
+    const payload = {
+        ...planForm.value,
+        icon: sanitizePlanIcon(planForm.value.icon, DEFAULT_PLAN_ICON)
+    }
     try {
         if (editingPlan.value?.id) {
-            await planStore.updatePlan(editingPlan.value.id, planForm.value)
-            toast.success('计划已更新 ✨')
+            await planStore.updatePlan(editingPlan.value.id, payload)
+            toast.success('计划已更新')
         } else {
-            const res = await planStore.createPlan(planForm.value)
-            toast.success('计划已创建 🎯')
+            const res = await planStore.createPlan(payload)
+            toast.success('计划已创建')
             await selectPlan(res.data.id)
         }
         showPlanModal.value = false
@@ -895,7 +1094,7 @@ async function savePlan() {
 async function confirmDeletePlan(plan) {
     const ok = await showConfirm(`确定删除计划「${plan.title}」及其所有步骤吗？`, {
         title: '删除计划',
-        icon: '🗑️',
+        icon: '!',
         confirmText: '删除',
         variant: 'danger',
     })
@@ -937,10 +1136,10 @@ async function saveStep() {
     try {
         if (editingStep.value?.id) {
             await planStore.updateStep(editingStep.value.id, stepForm.value)
-            toast.success('步骤已更新 ✨')
+            toast.success('步骤已更新')
         } else {
             const res = await planStore.createStep({ plan_id: currentPlanId.value, ...stepForm.value })
-            toast.success('步骤已添加 🌸')
+            toast.success('步骤已添加')
             // 滚动到新步骤并高亮闪烁
             await nextTick()
             const newId = res?.data?.id
@@ -990,7 +1189,7 @@ async function inviteCollaborator() {
         if (!planStore.currentPlan.collaborators) planStore.currentPlan.collaborators = []
         planStore.currentPlan.collaborators.push(res.data)
         collabUsername.value = ''
-        toast.success('已邀请协作者 🤝')
+        toast.success('已邀请协作者')
     } catch (e) {
         collabError.value = e.message
     } finally {
@@ -1133,9 +1332,26 @@ async function exportAsImage() {
     if (!plan) { exportingImage.value = false; return }
 
     try {
-        const statusIcon = { pending: '⬜', in_progress: '🔄', completed: '✅', skipped: '⏭️' }
+        const statusIcon = { pending: '○', in_progress: '↻', completed: '✓', skipped: '↷' }
         const doneCnt = plan.steps.filter(s => s.status === 'completed').length
         const pct = plan.steps.length ? Math.round(doneCnt / plan.steps.length * 100) : 0
+        const planIconGlyphMap = {
+            target: '◎',
+            rocket: '↑',
+            lightbulb: '◉',
+            book: '▦',
+            dumbbell: '◆',
+            sprout: '◇',
+            sparkles: '✦',
+            trophy: '★',
+            palette: '◌',
+            flask: '△',
+            globe: '◍',
+            heart: '♥'
+        }
+        const planIconKey = sanitizePlanIcon(plan.icon, DEFAULT_PLAN_ICON)
+        const planIconGlyph = planIconGlyphMap[planIconKey] || '◎'
+        const planAccentColor = plan.color && plan.color !== '#FFFFFF' ? plan.color : '#ec4899'
 
         // ── 构建离屏容器，样式与 ShareView 保持一致 ──────────────
         const root = document.createElement('div')
@@ -1155,7 +1371,7 @@ async function exportAsImage() {
         `
         header.innerHTML = `
             <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:16px;">
-                <span style="font-size:18px;">🌸</span> Mini Note
+                <span style="font-size:18px;">MN</span> Mini Note
             </div>
             <span style="font-size:12px;color:#aaa;">${dayjs().format('YYYY-MM-DD')} 导出</span>
         `
@@ -1168,7 +1384,13 @@ async function exportAsImage() {
             border-bottom:1px solid #f0f0f0; flex-wrap:wrap;
         `
         planHeader.innerHTML = `
-            <span style="font-size:40px;line-height:1;">${plan.icon || '🎯'}</span>
+            <span style="
+                width:40px;height:40px;border-radius:12px;
+                display:inline-flex;align-items:center;justify-content:center;
+                background:${planAccentColor}22;color:${planAccentColor};
+                border:1px solid ${planAccentColor}55;
+                font-size:20px;line-height:1;font-weight:700;
+            ">${planIconGlyph}</span>
             <div style="flex:1;">
                 <div style="font-size:20px;font-weight:800;color:#222;margin-bottom:4px;">${plan.title}</div>
                 ${plan.description ? `<div style="font-size:13px;color:#888;">${plan.description}</div>` : ''}
@@ -1211,7 +1433,7 @@ async function exportAsImage() {
                 display:flex; align-items:center; justify-content:center;
                 font-size:12px; margin-top:4px; position:relative; z-index:1;
             `
-            dot.textContent = statusIcon[step.status] || '⬜'
+            dot.textContent = statusIcon[step.status] || '○'
 
             // card
             const card = document.createElement('div')
@@ -1245,10 +1467,10 @@ async function exportAsImage() {
 
             // dates
             const dates = []
-            if (step.start_date) dates.push(`🗓️ 开始：${dayjs(step.start_date).format('YYYY-MM-DD')}`)
+            if (step.start_date) dates.push(`开始：${dayjs(step.start_date).format('YYYY-MM-DD')}`)
             if (step.due_date) {
                 const overdue = step.status !== 'completed' && dayjs(step.due_date).isBefore(dayjs(), 'day')
-                dates.push(`<span style="color:${overdue ? '#e17055' : '#aaa'};">📅 截止：${dayjs(step.due_date).format('YYYY-MM-DD')}</span>`)
+                dates.push(`<span style="color:${overdue ? '#e17055' : '#aaa'};">截止：${dayjs(step.due_date).format('YYYY-MM-DD')}</span>`)
             }
             if (dates.length) {
                 headHtml += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:#aaa;">${dates.join('')}</div>`
@@ -1256,7 +1478,7 @@ async function exportAsImage() {
 
             // location
             if (step.location) {
-                headHtml += `<div style="font-size:12px;color:#aaa;margin-bottom:8px;">📍 ${step.location}</div>`
+                headHtml += `<div style="font-size:12px;color:#aaa;margin-bottom:8px;">地点：${step.location}</div>`
             }
 
             card.innerHTML = headHtml
@@ -1288,7 +1510,7 @@ async function exportAsImage() {
         link.download = `${plan.title || '计划'}-${dayjs().format('YYYYMMDD')}.png`
         link.href = canvas.toDataURL('image/png')
         link.click()
-        toast.success('图片已生成并下载 🎉')
+        toast.success('图片已生成并下载')
     } catch (e) {
         toast.error('生成图片失败: ' + e.message)
     } finally {
@@ -1299,7 +1521,7 @@ async function exportAsImage() {
 async function confirmDeleteStep(step) {
     const ok = await showConfirm(`确定删除步骤「${step.title}」吗？`, {
         title: '删除步骤',
-        icon: '🗑️',
+        icon: '!',
         confirmText: '删除',
         variant: 'danger',
     })

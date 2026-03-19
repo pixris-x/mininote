@@ -12,10 +12,10 @@ router.post('/register', async (req, res) => {
   const { username, email, password, nickname, code } = req.body
 
   if (!username || !email || !password) {
-    return res.status(400).json({ success: false, message: '用户名、邮筱和密码为必填项' })
+    return res.status(400).json({ success: false, message: '用户名、邮箱和密码为必填项' })
   }
   if (!code) {
-    return res.status(400).json({ success: false, message: '请先进行邮筱验证' })
+    return res.status(400).json({ success: false, message: '请先进行邮箱验证' })
   }
 
   if (password.length < 6) {
@@ -23,7 +23,7 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // 验证邮筱验证码
+    // 验证邮箱验证码
     const tokenResult = await pool.query(
       `SELECT id FROM password_reset_tokens
        WHERE email = $1 AND code = $2 AND used = FALSE AND expires_at > NOW()`,
@@ -79,18 +79,18 @@ router.post('/register', async (req, res) => {
   }
 })
 
-// 发送注册邮筱验证码
+// 发送注册邮箱验证码
 router.post('/send-register-code', async (req, res) => {
   const { email } = req.body
   if (!email) {
-    return res.status(400).json({ success: false, message: '请输入邮筱' })
+    return res.status(400).json({ success: false, message: '请输入邮箱' })
   }
 
   try {
-    // 检查邮号是否已被注册
+    // 检查邮箱是否已被注册
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email])
     if (existing.rows.length > 0) {
-      return res.status(400).json({ success: false, message: '该邮筱已被注册', field: 'email' })
+      return res.status(400).json({ success: false, message: '该邮箱已被注册', field: 'email' })
     }
 
     // 限制频率：1 分钟内只能发一次
@@ -142,7 +142,7 @@ router.post('/login', async (req, res) => {
     )
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: '账号不存在，请检查用户名或邮筱' })
+      return res.status(401).json({ success: false, message: '账号不存在，请检查用户名或邮箱' })
     }
 
     const user = result.rows[0]

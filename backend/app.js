@@ -55,7 +55,7 @@ app.use('/api/plans', plansRoutes)
 app.use('/api/plan-steps', planStepsRoutes)
 app.use('/api/push', pushRoutes)
 
-// 公开分享：获取基本信息（无需 PIN，用于显示验证码输入页）
+// 公开分享：获取基本信息（用于显示验证码输入页，必须 PIN）
 const pool = require('./config/db')
 app.get('/api/share/:token', async (req, res) => {
   const { token } = req.params
@@ -74,13 +74,16 @@ app.get('/api/share/:token', async (req, res) => {
   if (plan.share_expires_at && new Date(plan.share_expires_at) < new Date()) {
     return res.status(410).json({ success: false, message: '分享链接已过期', expired: true })
   }
+  if (!plan.needs_pin) {
+    return res.status(403).json({ success: false, message: '该分享链接未设置访问码，请联系分享者重新生成' })
+  }
   res.json({
     success: true,
     data: {
       title: plan.title,
       icon: plan.icon,
       authorName: plan.author_name,
-      needsPin: plan.needs_pin,
+      needsPin: true,
       expiresAt: plan.share_expires_at
     }
   })
@@ -105,7 +108,10 @@ app.post('/api/share/:token/verify', async (req, res) => {
   if (plan.share_expires_at && new Date(plan.share_expires_at) < new Date()) {
     return res.status(410).json({ success: false, message: '分享链接已过期', expired: true })
   }
-  if (plan.share_pin && plan.share_pin !== String(pin)) {
+  if (!plan.share_pin) {
+    return res.status(403).json({ success: false, message: '该分享链接未设置访问码，请联系分享者重新生成' })
+  }
+  if (plan.share_pin !== String(pin || '')) {
     return res.status(401).json({ success: false, message: '访问码错误，请重新输入' })
   }
   const stepsRes = await pool.query(
@@ -123,21 +129,27 @@ app.post('/api/share/:token/verify', async (req, res) => {
 // 公开分享：切换步骤完成状态（无需登录）
 app.patch('/api/share/:token/steps/:stepId/status', async (req, res) => {
   const { token, stepId } = req.params
-  const { status } = req.body
+  const { status, pin } = req.body
   const allowed = ['pending', 'in_progress', 'completed', 'skipped']
   if (!allowed.includes(status)) {
     return res.status(400).json({ success: false, message: '无效状态' })
   }
   // 验证 token 对应的计划
   const planRes = await pool.query(
-    'SELECT id, share_expires_at FROM plans WHERE share_token = $1', [token]
+    'SELECT id, share_pin, share_expires_at FROM plans WHERE share_token = $1', [token]
   )
   if (planRes.rows.length === 0) {
     return res.status(404).json({ success: false, message: '分享链接无效' })
   }
-  const { id: planId, share_expires_at } = planRes.rows[0]
+  const { id: planId, share_pin, share_expires_at } = planRes.rows[0]
   if (share_expires_at && new Date(share_expires_at) < new Date()) {
-    return res.status(410).json({ success: false, message: '分享链接已过期' })
+    return res.status(410).json({ success: false, message: '分享链接已过期', expired: true })
+  }
+  if (!share_pin) {
+    return res.status(403).json({ success: false, message: '该分享链接未设置访问码，请联系分享者重新生成' })
+  }
+  if (share_pin !== String(pin || '')) {
+    return res.status(401).json({ success: false, message: '访问码错误，请重新输入' })
   }
   // 验证步骤属于该计划
   const checkRes = await pool.query(

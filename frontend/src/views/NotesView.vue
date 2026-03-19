@@ -5,17 +5,24 @@
       <div class="page-header">
         <div class="header-top">
           <div>
-            <h1 class="page-title">我的记事 📝</h1>
-            <p class="page-sub">{{ greeting }}，{{ userStore.user?.nickname }} ✨</p>
+            <h1 class="page-title">
+              <NotebookText class="title-icon" :size="20" />
+              <span>我的记事</span>
+            </h1>
+            <p class="page-sub">
+              <span>{{ greeting }}，{{ userStore.user?.nickname }}</span>
+              <Sparkles class="sub-icon" :size="14" />
+            </p>
           </div>
-          <button class="btn btn-primary" @click="showCreateModal = true">
-            ＋ 新建
+          <button class="btn btn-primary create-btn" @click="showCreateModal = true">
+            <Plus :size="16" />
+            <span>新建</span>
           </button>
         </div>
 
         <!-- 搜索栏 -->
         <div class="search-bar">
-          <span class="search-icon">🔍</span>
+          <Search class="search-icon" :size="15" />
           <input
             v-model="searchQuery"
             type="text"
@@ -23,7 +30,9 @@
             placeholder="搜索记事标题或内容..."
             @input="handleSearch"
           />
-          <button v-if="searchQuery" class="clear-search" @click="searchQuery = ''; fetchData()">✕</button>
+          <button v-if="searchQuery" class="clear-search" aria-label="清空搜索" @click="searchQuery = ''; fetchData()">
+            <X :size="14" />
+          </button>
         </div>
 
         <!-- 过滤标签 -->
@@ -48,15 +57,18 @@
 
       <!-- 空状态 -->
       <div v-else-if="notesStore.notes.length === 0" class="empty-state">
-        <span class="empty-icon">📋</span>
+        <ListTodo class="empty-icon" :size="42" />
         <h3>{{ searchQuery ? '没有找到相关记事' : '还没有记事哦~' }}</h3>
-        <p>{{ searchQuery ? '换个关键词试试吧' : '点击右上角「新建」创建你的第一条记事 🌸' }}</p>
+        <p>{{ searchQuery ? '换个关键词试试吧' : '点击右上角「新建」创建你的第一条记事' }}</p>
       </div>
 
       <!-- 置顶记事区 -->
       <template v-else>
         <div v-if="pinnedNotes.length > 0" class="notes-section">
-          <div class="section-label">📌 置顶</div>
+          <div class="section-label">
+            <Pin :size="14" />
+            <span>置顶</span>
+          </div>
           <div class="notes-grid">
             <NoteCard
               v-for="note in pinnedNotes"
@@ -70,7 +82,10 @@
         </div>
 
         <div v-if="normalNotes.length > 0" class="notes-section">
-          <div v-if="pinnedNotes.length > 0" class="section-label">💬 其他</div>
+          <div v-if="pinnedNotes.length > 0" class="section-label">
+            <MessageCircle :size="14" />
+            <span>其他</span>
+          </div>
           <div class="notes-grid">
             <NoteCard
               v-for="note in normalNotes"
@@ -95,8 +110,13 @@
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <div class="modal-card card">
           <div class="modal-header">
-            <h2>✨ 新建记事</h2>
-            <button class="btn btn-ghost btn-icon" @click="showCreateModal = false">✕</button>
+            <h2>
+              <SquarePen :size="18" />
+              <span>新建记事</span>
+            </h2>
+            <button class="btn btn-ghost btn-icon modal-close-btn" aria-label="关闭" @click="showCreateModal = false">
+              <X :size="16" />
+            </button>
           </div>
 
           <form @submit.prevent="handleCreate" class="create-form">
@@ -141,7 +161,9 @@
                   class="tag tag-removable"
                 >
                   {{ tag }}
-                  <button type="button" @click="removeTag(i)">✕</button>
+                  <button type="button" aria-label="移除标签" @click="removeTag(i)">
+                    <X :size="12" />
+                  </button>
                 </span>
                 <input
                   v-model="tagInput"
@@ -158,7 +180,10 @@
               <button type="button" class="btn btn-outline" @click="showCreateModal = false">取消</button>
               <button type="submit" class="btn btn-primary" :disabled="creating">
                 <span v-if="creating" class="loading-spinner" style="width:14px;height:14px;border-width:2px"></span>
-                <span v-else>保存 💾</span>
+                <span v-else class="save-btn-content">
+                  <Save :size="14" />
+                  <span>保存</span>
+                </span>
               </button>
             </div>
           </form>
@@ -170,7 +195,9 @@
     <Teleport to="body">
       <div v-if="deleteTarget" class="modal-overlay" @click.self="deleteTarget = null">
         <div class="modal-card card confirm-modal">
-          <div class="confirm-icon">🗑️</div>
+          <div class="confirm-icon">
+            <Trash2 :size="44" />
+          </div>
           <h3>删除记事</h3>
           <p>确定要删除「{{ deleteTarget.title }}」吗？此操作不可恢复</p>
           <div class="modal-actions">
@@ -193,6 +220,19 @@ import NoteCard from '@/components/NoteCard.vue'
 import { useUserStore } from '@/stores/user'
 import { useNotesStore } from '@/stores/notes'
 import { toast } from '@/utils/toast'
+import {
+  ListTodo,
+  MessageCircle,
+  NotebookText,
+  Pin,
+  Plus,
+  Save,
+  Search,
+  Sparkles,
+  SquarePen,
+  Trash2,
+  X
+} from 'lucide-vue-next'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -211,7 +251,7 @@ let searchTimer = null
 const filters = [
   { label: '全部', value: 'all' },
   { label: '置顶', value: 'pinned' },
-  { label: '已归档 📦', value: 'archived' }
+  { label: '已归档', value: 'archived' }
 ]
 
 const greeting = computed(() => {
@@ -277,7 +317,7 @@ function goDetail(note) {
 async function handlePin(note) {
   try {
     await notesStore.togglePin(note.id, note.is_pinned)
-    toast.success(note.is_pinned ? '已取消置顶' : '已置顶 📌')
+    toast.success(note.is_pinned ? '已取消置顶' : '已置顶')
   } catch (err) {
     toast.error(err.message)
   }
@@ -305,7 +345,7 @@ async function handleCreate() {
   creating.value = true
   try {
     await notesStore.createNote({ ...createForm })
-    toast.success('记事创建成功 ✨')
+    toast.success('记事创建成功')
     showCreateModal.value = false
     resetCreateForm()
   } catch (err) {
@@ -332,6 +372,34 @@ onMounted(fetchData)
   margin-bottom: 16px;
 }
 
+.page-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title-icon {
+  color: var(--theme-primary-dark);
+  flex-shrink: 0;
+}
+
+.page-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sub-icon {
+  color: var(--theme-primary-dark);
+  flex-shrink: 0;
+}
+
+.create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* 搜索 */
 .search-bar {
   position: relative;
@@ -343,7 +411,7 @@ onMounted(fetchData)
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 15px;
+  color: var(--color-text-secondary);
 }
 
 .search-input {
@@ -373,8 +441,17 @@ onMounted(fetchData)
   border: none;
   cursor: pointer;
   color: var(--color-text-secondary);
-  font-size: 13px;
-  padding: 2px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.clear-search:hover {
+  background: var(--color-border);
 }
 
 /* 过滤 */
@@ -390,6 +467,9 @@ onMounted(fetchData)
 }
 
 .section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-secondary);
@@ -508,10 +588,25 @@ onMounted(fetchData)
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 10px;
   color: var(--theme-primary-dark);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   line-height: 1;
+}
+
+.tag-removable button:hover {
+  background: var(--theme-primary-light);
+}
+
+.save-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .tag-input {
@@ -537,8 +632,11 @@ onMounted(fetchData)
 }
 
 .confirm-icon {
-  font-size: 48px;
+  color: #e57373;
   margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .confirm-modal h3 {
@@ -559,5 +657,15 @@ onMounted(fetchData)
 .form-label {
   font-size: 12px; /* 此处比全局 13px 略小，保留 */
   flex-shrink: 0;
+}
+
+.modal-close-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 </style>

@@ -86,7 +86,7 @@ router.beforeEach((to, from, next) => {
   const isAuthenticated = !!token
 
   // 更新页面标题
-  document.title = to.meta.title || 'Mini Note 🌸'
+  document.title = to.meta.title || 'Mini Note'
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'Login', query: { redirect: to.fullPath } })

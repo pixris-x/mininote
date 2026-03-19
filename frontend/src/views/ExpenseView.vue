@@ -5,12 +5,16 @@
             <!-- 月份导航 + Tab -->
             <div class="page-top">
                 <div class="month-nav">
-                    <button class="month-btn" @click="changeMonth(-1)">&#8249;</button>
+                    <button class="month-btn" @click="changeMonth(-1)">
+                        <ChevronLeft class="month-btn-icon" />
+                    </button>
                     <div class="month-display">
                         <span class="month-year">{{ currentYear }}年</span>
                         <span class="month-num">{{ String(currentMonth).padStart(2, '0') }}月</span>
                     </div>
-                    <button class="month-btn" @click="changeMonth(1)" :disabled="isCurrentMonth">&#8250;</button>
+                    <button class="month-btn" @click="changeMonth(1)" :disabled="isCurrentMonth">
+                        <ChevronRight class="month-btn-icon" />
+                    </button>
                 </div>
                 <div class="main-tabs">
                     <button class="main-tab" :class="{ active: activeTab === 'bill' }"
@@ -48,8 +52,12 @@
                             <template v-if="filterCategory">
                                 <span class="filter-trigger-dot"
                                     :style="{ background: selectedFilterCat?.color }"></span>
-                                <span class="filter-trigger-label">{{ selectedFilterCat?.icon }} {{
-                                    selectedFilterCat?.name }}</span>
+                                <span class="filter-trigger-label">
+                                    <component v-if="hasExpenseIcon(selectedFilterCat?.icon)"
+                                        :is="getExpenseIconComponent(selectedFilterCat?.icon)"
+                                        class="filter-item-icon-svg" />
+                                    {{ selectedFilterCat?.name }}
+                                </span>
                             </template>
                             <template v-else>
                                 <span class="filter-trigger-label">全部分类</span>
@@ -64,31 +72,34 @@
                             <button type="button" class="filter-dropdown-item" :class="{ selected: !filterCategory }"
                                 @click="filterCategory = null; showFilterDropdown = false">
                                 <span class="filter-item-name">全部分类</span>
-                                <span v-if="!filterCategory" class="filter-item-check">&#10003;</span>
+                                <Check v-if="!filterCategory" class="filter-item-check" />
                             </button>
                             <button v-for="cat in store.categories" :key="cat.id" type="button"
                                 class="filter-dropdown-item" :class="{ selected: filterCategory === cat.id }"
                                 @click="filterCategory = cat.id; showFilterDropdown = false">
                                 <span class="filter-item-dot" :style="{ background: cat.color }"></span>
-                                <span class="filter-item-icon-emoji">{{ cat.icon }}</span>
+                                <component v-if="hasExpenseIcon(cat.icon)" :is="getExpenseIconComponent(cat.icon)"
+                                    class="filter-item-icon-svg" />
                                 <span class="filter-item-name">{{ cat.name }}</span>
-                                <span v-if="filterCategory === cat.id" class="filter-item-check">&#10003;</span>
+                                <Check v-if="filterCategory === cat.id" class="filter-item-check" />
                             </button>
                         </div>
                     </div>
-                    <button class="manage-cat-btn" @click="showCatModal = true" title="管理分类">&#9881;</button>
+                    <button class="manage-cat-btn" @click="showCatModal = true" title="管理分类">
+                        <Settings2 class="manage-icon" />
+                    </button>
                 </div>
 
                 <!-- 消费记录列表 -->
                 <div class="expense-list">
                     <div v-if="store.loading" class="empty-state">
-                        <div class="empty-icon">&#8987;</div>
+                        <LoaderCircle class="empty-icon spin" />
                         <p>加载中</p>
                     </div>
                     <div v-else-if="!groupedExpenses.length" class="empty-state">
                         <div class="empty-icon"></div>
                         <p>{{ filterCategory ? "该分类暂无记录" : "本月还没有记录" }}</p>
-                        <p class="empty-sub">点击右下角 + 开始记账</p>
+                        <p class="empty-sub">点击右下角按钮开始记账</p>
                     </div>
                     <template v-else>
                         <div v-for="group in groupedExpenses" :key="group.date" class="day-group">
@@ -100,7 +111,8 @@
                                 @click="openEdit(item)">
                                 <div class="item-icon"
                                     :style="{ background: (item.category_color || '#a29bfe') + '22' }">
-                                    {{ item.category_icon || '' }}
+                                    <component v-if="hasExpenseIcon(item.category_icon)"
+                                        :is="getExpenseIconComponent(item.category_icon)" class="item-icon-svg" />
                                 </div>
                                 <div class="item-info">
                                     <div class="item-cat">{{ item.category_name || '未分类' }}</div>
@@ -193,7 +205,9 @@
                         <div v-else class="rank-list">
                             <div v-for="(cat, i) in catBreakdown" :key="cat.id" class="rank-item">
                                 <div class="rank-no" :class="['rank-' + (i + 1)]">{{ i + 1 }}</div>
-                                <div class="rank-icon-wrap" :style="{ background: cat.color + '22' }">{{ cat.icon }}
+                                <div class="rank-icon-wrap" :style="{ background: cat.color + '22' }">
+                                    <component v-if="hasExpenseIcon(cat.icon)" :is="getExpenseIconComponent(cat.icon)"
+                                        class="rank-icon-svg" />
                                 </div>
                                 <div class="rank-info">
                                     <div class="rank-name-row">
@@ -219,7 +233,9 @@
             </template>
 
             <!-- FAB -->
-            <button class="fab" @click="openAdd">＋</button>
+            <button class="fab" @click="openAdd">
+                <Plus class="fab-icon" />
+            </button>
 
             <!-- ===== 新增/编辑 Modal ===== -->
             <Teleport to="body">
@@ -229,7 +245,9 @@
                             <div class="modal-drag-bar"></div>
                             <div class="modal-header">
                                 <h3>{{ editingExpense ? '编辑记录' : '记一笔' }}</h3>
-                                <button class="modal-close" @click="closeExpenseModal"></button>
+                                <button class="modal-close" @click="closeExpenseModal">
+                                    <X class="modal-close-icon" />
+                                </button>
                             </div>
                             <div class="amount-section">
                                 <span class="amount-currency">&#165;</span>
@@ -241,8 +259,11 @@
                                 <button type="button" class="cat-dropdown-trigger"
                                     @click="showCatDropdown = !showCatDropdown">
                                     <template v-if="selectedCat">
-                                        <div class="cat-trigger-icon" :style="{ background: selectedCat.color }">{{
-                                            selectedCat.icon }}</div>
+                                        <div class="cat-trigger-icon" :style="{ background: selectedCat.color }">
+                                            <component v-if="hasExpenseIcon(selectedCat.icon)"
+                                                :is="getExpenseIconComponent(selectedCat.icon)"
+                                                class="cat-icon-svg cat-icon-svg--light" />
+                                        </div>
                                         <span class="cat-trigger-name">{{ selectedCat.name }}</span>
                                     </template>
                                     <template v-else>
@@ -250,17 +271,19 @@
                                         <span class="cat-trigger-name"
                                             style="color: var(--color-text-secondary)">请选择消费类型</span>
                                     </template>
-                                    <span class="cat-dropdown-chevron"
-                                        :class="{ rotated: showCatDropdown }">&#8964;</span>
+                                    <ChevronDown class="cat-dropdown-chevron"
+                                        :class="{ rotated: showCatDropdown }" />
                                 </button>
                                 <div v-show="showCatDropdown" class="cat-dropdown-list">
                                     <button v-for="cat in store.categories" :key="cat.id" type="button"
                                         class="cat-dropdown-item" :class="{ selected: form.category_id === cat.id }"
                                         @click="form.category_id = cat.id; showCatDropdown = false">
-                                        <div class="cat-item-icon" :style="{ background: cat.color + '33' }">{{ cat.icon
-                                        }}</div>
+                                        <div class="cat-item-icon" :style="{ background: cat.color + '33' }">
+                                            <component v-if="hasExpenseIcon(cat.icon)"
+                                                :is="getExpenseIconComponent(cat.icon)" class="cat-icon-svg" />
+                                        </div>
                                         <span class="cat-item-name">{{ cat.name }}</span>
-                                        <span v-if="form.category_id === cat.id" class="cat-item-check">✓</span>
+                                        <Check v-if="form.category_id === cat.id" class="cat-item-check" />
                                     </button>
                                 </div>
                             </div>
@@ -299,15 +322,21 @@
                             <div class="modal-drag-bar"></div>
                             <div class="modal-header">
                                 <h3>消费类型管理</h3>
-                                <button class="modal-close" @click="showCatModal = false"></button>
+                                <button class="modal-close" @click="showCatModal = false">
+                                    <X class="modal-close-icon" />
+                                </button>
                             </div>
                             <div class="cat-manage-list">
                                 <div v-for="cat in store.categories" :key="cat.id" class="cat-manage-item">
-                                    <div class="cat-manage-icon" :style="{ background: cat.color + '33' }">{{ cat.icon
-                                        }}</div>
+                                    <div class="cat-manage-icon" :style="{ background: cat.color + '33' }">
+                                        <component v-if="hasExpenseIcon(cat.icon)" :is="getExpenseIconComponent(cat.icon)"
+                                            class="cat-icon-svg" />
+                                    </div>
                                     <span class="cat-manage-name">{{ cat.name }}</span>
                                     <span v-if="cat.is_default" class="cat-sys-badge">系统</span>
-                                    <button v-else class="cat-del-btn" @click="handleDeleteCat(cat.id)"></button>
+                                    <button v-else class="cat-del-btn" @click="handleDeleteCat(cat.id)">
+                                        <Trash2 class="cat-del-icon" />
+                                    </button>
                                 </div>
                             </div>
                             <div class="cat-add-area">
@@ -315,11 +344,15 @@
                                 <div class="icon-preset-label">选择图标</div>
                                 <div class="icon-preset-grid">
                                     <button v-for="ico in PRESET_ICONS" :key="ico" class="icon-preset-btn"
-                                        :class="{ active: newCat.icon === ico }" @click="newCat.icon = ico">{{ ico
-                                        }}</button>
+                                        :class="{ active: newCat.icon === normalizeExpenseIcon(ico) }"
+                                        @click="newCat.icon = normalizeExpenseIcon(ico)">
+                                        <component :is="getExpenseIconComponent(ico)" class="icon-preset-svg" />
+                                    </button>
                                 </div>
                                 <div class="cat-add-row">
-                                    <div class="icon-preview" :title="'已选图标：' + newCat.icon">{{ newCat.icon || '' }}
+                                    <div class="icon-preview" :title="'已选图标：' + newCat.icon">
+                                        <component v-if="newCat.icon && hasExpenseIcon(newCat.icon)"
+                                            :is="getExpenseIconComponent(newCat.icon)" class="icon-preview-svg" />
                                     </div>
                                     <input v-model="newCat.name" type="text" placeholder="输入类型名称"
                                         class="modal-input flex-input" maxlength="20" @keydown.enter="handleAddCat" />
@@ -351,9 +384,142 @@ echarts.use([LineChart, PieChart, GridComponent, TooltipComponent, LegendCompone
 import { useExpenseStore } from '@/stores/expense'
 import { toast } from '@/utils/toast'
 import { showConfirm } from '@/utils/alert'
+import {
+    Beef,
+    Beer,
+    Bike,
+    BookOpen,
+    Brush,
+    Bus,
+    CakeSlice,
+    Car,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    Clapperboard,
+    CupSoda,
+    Dice5,
+    Dumbbell,
+    Fish,
+    Flower2,
+    Fuel,
+    Gamepad2,
+    Gem,
+    Gift,
+    Hospital,
+    House,
+    Laptop,
+    Lightbulb,
+    LoaderCircle,
+    Music2,
+    NotebookPen,
+    Package,
+    Palette,
+    PawPrint,
+    PersonStanding,
+    Pill,
+    Pizza,
+    Plane,
+    Plus,
+    Salad,
+    Settings2,
+    Shirt,
+    Ship,
+    ShoppingCart,
+    Smartphone,
+    Soup,
+    Tag,
+    Target,
+    Theater,
+    TramFront,
+    Trash2,
+    Utensils,
+    Wallet,
+    Wrench,
+    X
+} from 'lucide-vue-next'
 import dayjs from 'dayjs'
 
 const store = useExpenseStore()
+const EXPENSE_ICON_COMPONENTS = {
+    food: Utensils,
+    noodles: Soup,
+    pizza: Pizza,
+    fish: Fish,
+    salad: Salad,
+    drink: CupSoda,
+    dessert: CakeSlice,
+    meat: Beef,
+    meal_box: Package,
+    beer: Beer,
+    car: Car,
+    bus: Bus,
+    subway: TramFront,
+    plane: Plane,
+    bike: Bike,
+    fuel: Fuel,
+    ship: Ship,
+    shopping: ShoppingCart,
+    clothes: Shirt,
+    makeup: Palette,
+    gift: Gift,
+    jewel: Gem,
+    game: Gamepad2,
+    movie: Clapperboard,
+    music: Music2,
+    art: Palette,
+    study: BookOpen,
+    goal: Target,
+    theater: Theater,
+    dice: Dice5,
+    medicine: Pill,
+    hospital: Hospital,
+    fitness: Dumbbell,
+    sports: PersonStanding,
+    home: House,
+    light: Lightbulb,
+    phone: Smartphone,
+    laptop: Laptop,
+    tool: Wrench,
+    package: Package,
+    clean: Brush,
+    money: Wallet,
+    note: NotebookPen,
+    flower: Flower2,
+    pet: PawPrint,
+    tag: Tag
+}
+const EXPENSE_EMOJI_ALIAS = {
+    '🍔': 'food', '🍜': 'noodles', '🍕': 'pizza', '🍣': 'fish', '🥗': 'salad', '🧋': 'drink',
+    '🍰': 'dessert', '🥩': 'meat', '🍱': 'meal_box', '🍺': 'beer',
+    '🚗': 'car', '🚌': 'bus', '🚇': 'subway', '✈️': 'plane', '🚕': 'car', '🛵': 'bike',
+    '🚲': 'bike', '⛽': 'fuel', '🚢': 'ship', '🚁': 'plane',
+    '🛒': 'shopping', '👗': 'clothes', '👟': 'clothes', '💄': 'makeup', '🧴': 'package', '🎁': 'gift',
+    '💍': 'jewel', '🧸': 'gift', '🛍️': 'shopping', '👔': 'clothes',
+    '🎮': 'game', '🎬': 'movie', '🎵': 'music', '🎨': 'art', '📚': 'study', '🎯': 'goal',
+    '🎳': 'dice', '🎭': 'theater', '🎠': 'theater', '🎲': 'dice',
+    '💊': 'medicine', '🏥': 'hospital', '🦷': 'hospital', '💪': 'fitness', '🧘': 'sports', '🏃': 'sports',
+    '⚽': 'sports', '🏊': 'sports', '🎾': 'sports', '🧗': 'sports',
+    '🏠': 'home', '💡': 'light', '📱': 'phone', '💻': 'laptop', '🔧': 'tool', '📦': 'package',
+    '🧹': 'clean', '💰': 'money', '📝': 'note', '🌸': 'flower', '🐾': 'pet', '🏷️': 'tag'
+}
+
+function normalizeExpenseIcon(icon) {
+    if (!icon) return ''
+    if (EXPENSE_ICON_COMPONENTS[icon]) return icon
+    return EXPENSE_EMOJI_ALIAS[icon] || icon
+}
+
+function getExpenseIconComponent(icon) {
+    const key = normalizeExpenseIcon(icon)
+    return EXPENSE_ICON_COMPONENTS[key] || null
+}
+
+function hasExpenseIcon(icon) {
+    return !!getExpenseIconComponent(icon)
+}
+
 const today = dayjs()
 const currentYear = ref(today.year())
 const currentMonth = ref(today.month() + 1)
@@ -505,7 +671,7 @@ function buildPieOption() {
             radius: ['42%', '68%'],
             center: ['50%', '50%'],
             data: bd.map(c => ({
-                name: c.icon + ' ' + c.name,
+                name: c.name,
                 value: +Number(c.total).toFixed(2),
                 itemStyle: { color: c.color || '#a29bfe' }
             })),
@@ -631,7 +797,7 @@ async function handleDelete() {
     if (!editingExpense.value) return
     const ok = await showConfirm('确认删除这条记录？', {
         title: '删除记录',
-        icon: '🗑️',
+        icon: '!',
         confirmText: '删除',
         variant: 'danger',
     })
@@ -647,18 +813,22 @@ async function handleDelete() {
 // ===== 分类管理 =====
 const showCatModal = ref(false)
 const PRESET_ICONS = [
-    '🍔', '🍜', '🍕', '🍣', '🥗', '🧋', '🍰', '🥩', '🍱', '🍺',
-    '🚗', '🚌', '🚇', '✈️', '🚕', '🛵', '🚲', '⛽', '🚢', '🚁',
-    '🛒', '👗', '👟', '💄', '🧴', '🎁', '💍', '🧸', '🛍️', '👔',
-    '🎮', '🎬', '🎵', '🎨', '📚', '🎯', '🎳', '🎭', '🎠', '🎲',
-    '💊', '🏥', '🦷', '💪', '🧘', '🏃', '⚽', '🏊', '🎾', '🧗',
-    '🏠', '💡', '📱', '💻', '🔧', '📦', '🧹', '💰', '📝', '🌸'
+    'food', 'noodles', 'pizza', 'fish', 'salad', 'drink', 'dessert', 'meat', 'meal_box', 'beer',
+    'car', 'bus', 'subway', 'plane', 'bike', 'fuel', 'ship',
+    'shopping', 'clothes', 'makeup', 'gift', 'jewel',
+    'game', 'movie', 'music', 'art', 'study', 'goal', 'theater', 'dice',
+    'medicine', 'hospital', 'fitness', 'sports',
+    'home', 'light', 'phone', 'laptop', 'tool', 'package', 'clean', 'money', 'note', 'flower', 'pet', 'tag'
 ]
 const newCat = ref({ name: '', icon: '', color: '#a29bfe' })
 async function handleAddCat() {
     if (!newCat.value.name.trim()) return
     try {
-        const res = await store.createCategory({ name: newCat.value.name.trim(), icon: newCat.value.icon || '', color: newCat.value.color })
+        const res = await store.createCategory({
+            name: newCat.value.name.trim(),
+            icon: normalizeExpenseIcon(newCat.value.icon) || '',
+            color: newCat.value.color
+        })
         if (res.success) { toast.success('分类已添加 '); newCat.value = { name: '', icon: '', color: '#a29bfe' } }
         else toast.error(res.message || '添加失败')
     } catch (e) { toast.error(e.message || '添加失败') }
@@ -666,7 +836,7 @@ async function handleAddCat() {
 async function handleDeleteCat(id) {
     const ok = await showConfirm('删除该分类？（已有记录不受影响）', {
         title: '删除分类',
-        icon: '🗑️',
+        icon: '!',
         confirmText: '删除',
         variant: 'danger',
     })
@@ -713,13 +883,17 @@ async function handleDeleteCat(id) {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    font-size: 20px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all var(--transition);
     flex-shrink: 0;
+}
+
+.month-btn-icon {
+    width: 16px;
+    height: 16px;
 }
 
 .month-btn:hover:not(:disabled) {
@@ -1024,6 +1198,12 @@ async function handleDeleteCat(id) {
     flex-shrink: 0;
 }
 
+.rank-icon-svg {
+    width: 20px;
+    height: 20px;
+    color: var(--color-text);
+}
+
 .rank-info {
     flex: 1;
     min-width: 0;
@@ -1107,6 +1287,9 @@ async function handleDeleteCat(id) {
 }
 
 .filter-trigger-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 13px;
     font-weight: 600;
     color: var(--color-text);
@@ -1185,8 +1368,9 @@ async function handleDeleteCat(id) {
     flex-shrink: 0;
 }
 
-.filter-item-icon-emoji {
-    font-size: 16px;
+.filter-item-icon-svg {
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
 }
 
@@ -1204,10 +1388,11 @@ async function handleDeleteCat(id) {
 }
 
 .filter-item-check {
-    font-size: 12px;
     color: var(--theme-primary-dark);
     font-weight: 700;
     flex-shrink: 0;
+    width: 14px;
+    height: 14px;
 }
 
 .manage-cat-btn {
@@ -1217,13 +1402,17 @@ async function handleDeleteCat(id) {
     border: 1.5px solid var(--color-border);
     border-radius: 50%;
     cursor: pointer;
-    font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all var(--transition);
     color: var(--color-text-secondary);
     flex-shrink: 0;
+}
+
+.manage-icon {
+    width: 16px;
+    height: 16px;
 }
 
 .manage-cat-btn:hover {
@@ -1247,8 +1436,14 @@ async function handleDeleteCat(id) {
 }
 
 .empty-icon {
-    font-size: 52px;
+    width: 52px;
+    height: 52px;
+    color: var(--color-text-light);
     margin-bottom: 12px;
+}
+
+.spin {
+    animation: expenseSpin 1s linear infinite;
 }
 
 .empty-state p {
@@ -1318,6 +1513,12 @@ async function handleDeleteCat(id) {
     flex-shrink: 0;
 }
 
+.item-icon-svg {
+    width: 22px;
+    height: 22px;
+    color: var(--color-text);
+}
+
 .item-info {
     flex: 1;
     min-width: 0;
@@ -1355,7 +1556,6 @@ async function handleDeleteCat(id) {
     border-radius: 50%;
     background: var(--theme-primary-dark);
     color: white;
-    font-size: 28px;
     border: none;
     cursor: pointer;
     box-shadow: var(--shadow-md);
@@ -1365,6 +1565,11 @@ async function handleDeleteCat(id) {
     transition: transform var(--transition), box-shadow var(--transition);
     z-index: 50;
     line-height: 1;
+}
+
+.fab-icon {
+    width: 24px;
+    height: 24px;
 }
 
 .fab:hover {
@@ -1463,11 +1668,15 @@ async function handleDeleteCat(id) {
     border-radius: 50%;
     cursor: pointer;
     color: var(--color-text-secondary);
-    font-size: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background var(--transition);
+}
+
+.modal-close-icon {
+    width: 14px;
+    height: 14px;
 }
 
 .modal-close:hover {
@@ -1577,11 +1786,11 @@ async function handleDeleteCat(id) {
 }
 
 .cat-dropdown-chevron {
-    font-size: 18px;
+    width: 18px;
+    height: 18px;
     color: var(--color-text-secondary);
     flex-shrink: 0;
     transition: transform var(--transition);
-    line-height: 1;
 }
 
 .cat-dropdown-chevron.rotated {
@@ -1651,6 +1860,16 @@ async function handleDeleteCat(id) {
     flex-shrink: 0;
 }
 
+.cat-icon-svg {
+    width: 18px;
+    height: 18px;
+    color: var(--color-text);
+}
+
+.cat-icon-svg--light {
+    color: #fff;
+}
+
 .cat-item-name {
     flex: 1;
     font-size: 14px;
@@ -1664,10 +1883,11 @@ async function handleDeleteCat(id) {
 }
 
 .cat-item-check {
-    font-size: 14px;
     color: var(--theme-primary-dark);
     font-weight: 700;
     flex-shrink: 0;
+    width: 14px;
+    height: 14px;
 }
 
 .modal-row {
@@ -1840,15 +2060,28 @@ async function handleDeleteCat(id) {
     border: none;
     color: #e74c3c;
     cursor: pointer;
-    font-size: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background var(--transition);
 }
 
+.cat-del-icon {
+    width: 12px;
+    height: 12px;
+}
+
 .cat-del-btn:hover {
     background: #ffe0e0;
+}
+
+@keyframes expenseSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .cat-add-area {
@@ -1895,7 +2128,6 @@ async function handleDeleteCat(id) {
     background: transparent;
     border: 1.5px solid transparent;
     border-radius: var(--radius-sm);
-    font-size: 18px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -1903,6 +2135,11 @@ async function handleDeleteCat(id) {
     transition: all var(--transition);
     line-height: 1;
     padding: 0;
+}
+
+.icon-preset-svg {
+    width: 18px;
+    height: 18px;
 }
 
 .icon-preset-btn:hover {
@@ -1928,6 +2165,11 @@ async function handleDeleteCat(id) {
     align-items: center;
     justify-content: center;
     font-size: 20px;
+}
+
+.icon-preview-svg {
+    width: 20px;
+    height: 20px;
 }
 
 .cat-add-row {

@@ -2,7 +2,10 @@
   <AppLayout>
     <div class="calendar-page">
       <div class="page-header">
-        <h1 class="page-title">日历记事 📅</h1>
+        <h1 class="page-title">
+          <CalendarDays class="page-title-icon" />
+          日历记事
+        </h1>
         <p class="page-sub">在日历上记录每一天的故事</p>
       </div>
 
@@ -12,12 +15,16 @@
 
       <!-- 月份导航 -->
       <div class="month-nav card">
-        <button class="nav-arrow" @click="prevMonth">‹</button>
+        <button class="nav-arrow" @click="prevMonth" title="上一月">
+          <ChevronLeft class="nav-arrow-icon" />
+        </button>
         <div class="month-display">
           <span class="month-year">{{ currentYear }}</span>
           <span class="month-name">{{ monthNames[currentMonth - 1] }}</span>
         </div>
-        <button class="nav-arrow" @click="nextMonth">›</button>
+        <button class="nav-arrow" @click="nextMonth" title="下一月">
+          <ChevronRight class="nav-arrow-icon" />
+        </button>
         <button class="btn btn-outline btn-sm today-btn" @click="goToday">今天</button>
       </div>
 
@@ -75,7 +82,10 @@
 
       <!-- 即将来到的节日 -->
       <div class="upcoming-panel card" v-if="upcomingHolidays.length > 0">
-        <div class="upcoming-title">🗓️ 即将到来</div>
+        <div class="upcoming-title">
+          <CalendarRange class="inline-icon" />
+          即将到来
+        </div>
         <div class="upcoming-list">
           <div
             v-for="item in upcomingHolidays"
@@ -107,11 +117,13 @@
             <span v-if="isToday(selectedDay)" class="today-badge">今天</span>
           </h3>
           <div class="header-actions">
-            <button class="btn btn-primary btn-sm" @click="openQuickNote">
-              ✏️ 新建记事
+            <button class="btn btn-primary btn-sm icon-btn-sm" @click="openQuickNote">
+              <SquarePen class="btn-icon-sm" />
+              新建记事
             </button>
-            <button class="btn btn-outline btn-sm" @click="showLinkModal = true">
-              🔗 关联记事
+            <button class="btn btn-outline btn-sm icon-btn-sm" @click="showLinkModal = true">
+              <Link2 class="btn-icon-sm" />
+              关联记事
             </button>
           </div>
         </div>
@@ -121,14 +133,17 @@
         </div>
 
         <div v-else-if="selectedDayNotes.length === 0 && selectedDaySteps.length === 0" class="empty-state" style="padding: 24px">
-          <span class="empty-icon" style="font-size:40px">📋</span>
+          <NotebookText class="empty-icon" />
           <p>这一天还没有记事</p>
         </div>
 
         <template v-else>
         <!-- 计划步骤列表 -->
         <div v-if="selectedDaySteps.length" class="day-plan-steps">
-          <h4 class="day-section-title">🎯 计划步骤</h4>
+          <h4 class="day-section-title">
+            <Target class="section-icon" />
+            计划步骤
+          </h4>
           <div
             v-for="step in selectedDaySteps"
             :key="step.id"
@@ -137,7 +152,9 @@
             @click="router.push(`/plans?plan=${step.plan_id}&step=${step.id}`)"
           >
             <div class="day-plan-step-head">
-              <span class="day-plan-step-icon">{{ step.plan_icon }}</span>
+              <span class="day-plan-step-icon">
+                <component :is="getPlanIconComponentOrDefault(step.plan_icon)" class="day-plan-step-icon-svg" />
+              </span>
               <span class="day-plan-step-plan">{{ step.plan_title }}</span>
               <span class="day-plan-step-status" :class="`step-st-${step.status}`">
                 {{ stepStatusLabel[step.status] || step.status }}
@@ -145,15 +162,24 @@
             </div>
             <div class="day-plan-step-title">{{ step.title }}</div>
             <div class="day-plan-step-dates">
-              <span v-if="step.start_date">🗓️ 开始：{{ dayjs(step.start_date).format('YYYY-MM-DD') }}</span>
-              <span v-if="step.due_date">📅 截止：{{ dayjs(step.due_date).format('YYYY-MM-DD') }}</span>
+              <span v-if="step.start_date" class="date-item">
+                <CalendarRange class="date-icon" />
+                开始：{{ dayjs(step.start_date).format('YYYY-MM-DD') }}
+              </span>
+              <span v-if="step.due_date" class="date-item">
+                <CalendarDays class="date-icon" />
+                截止：{{ dayjs(step.due_date).format('YYYY-MM-DD') }}
+              </span>
             </div>
           </div>
         </div>
 
         <!-- 记事列表 -->
         <div v-if="selectedDayNotes.length" class="day-notes-list">
-          <h4 v-if="selectedDaySteps.length" class="day-section-title">📝 记事</h4>
+          <h4 v-if="selectedDaySteps.length" class="day-section-title">
+            <NotebookText class="section-icon" />
+            记事
+          </h4>
           <div
             v-for="note in selectedDayNotes"
             :key="note.id"
@@ -167,7 +193,9 @@
               class="unlink-btn"
               @click.stop="unlinkNote(note.id)"
               title="取消关联"
-            >✕</button>
+            >
+              <X class="unlink-icon" />
+            </button>
           </div>
         </div>
         </template>
@@ -175,7 +203,7 @@
 
       <!-- 未选中日期占位 -->
       <div v-else class="no-day-selected">
-        <span style="font-size:48px">📅</span>
+        <CalendarDays class="no-day-icon" />
         <p>点击左侧日历中的某一天<br/>查看当天的记事</p>
       </div>
 
@@ -187,8 +215,13 @@
         <div v-if="showQuickNoteModal" class="modal-overlay" @click.self="closeQuickNote">
           <div class="modal-card card">
             <div class="modal-header">
-              <h2>✏️ 新建记事 · {{ currentMonth }}月{{ selectedDay }}日</h2>
-              <button class="btn btn-ghost btn-icon" @click="closeQuickNote">✕</button>
+              <h2 class="modal-title">
+                <SquarePen class="section-icon" />
+                新建记事 · {{ currentMonth }}月{{ selectedDay }}日
+              </h2>
+              <button class="btn btn-ghost btn-icon icon-only-btn" @click="closeQuickNote" title="关闭">
+                <X class="btn-icon-sm" />
+              </button>
             </div>
 
             <div class="quick-note-form">
@@ -233,11 +266,15 @@
               <div class="quick-note-actions">
                 <button class="btn btn-ghost" @click="closeQuickNote">取消</button>
                 <button
-                  class="btn btn-primary"
+                  class="btn btn-primary icon-btn-sm"
                   :disabled="!quickNoteForm.title.trim() || quickNoteSaving"
                   @click="saveQuickNote"
                 >
-                  {{ quickNoteSaving ? '保存中...' : '✓ 保存并关联' }}
+                  <span v-if="!quickNoteSaving" class="btn-content">
+                    <Check class="btn-icon-sm" />
+                    保存并关联
+                  </span>
+                  <span v-else>保存中...</span>
                 </button>
               </div>
             </div>
@@ -250,8 +287,13 @@
         <div v-if="showLinkModal" class="modal-overlay" @click.self="showLinkModal = false">
           <div class="modal-card card">
             <div class="modal-header">
-              <h2>🔗 关联到 {{ currentMonth }}月{{ selectedDay }}日</h2>
-              <button class="btn btn-ghost btn-icon" @click="showLinkModal = false">✕</button>
+              <h2 class="modal-title">
+                <Link2 class="section-icon" />
+                关联到 {{ currentMonth }}月{{ selectedDay }}日
+              </h2>
+              <button class="btn btn-ghost btn-icon icon-only-btn" @click="showLinkModal = false" title="关闭">
+                <X class="btn-icon-sm" />
+              </button>
             </div>
 
             <input
@@ -275,7 +317,7 @@
                   <div class="link-note-title">{{ note.title }}</div>
                   <div class="link-note-date">{{ formatDate(note.updated_at) }}</div>
                 </div>
-                <span v-if="isLinked(note.id)" class="link-check">✅</span>
+                <Check v-if="isLinked(note.id)" class="link-check" />
               </div>
               <div v-if="filteredLinkNotes.length === 0" class="empty-state" style="padding: 20px">
                 <p>没有找到记事</p>
@@ -291,10 +333,12 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { CalendarDays, CalendarRange, Check, ChevronLeft, ChevronRight, Link2, NotebookText, SquarePen, Target, X } from 'lucide-vue-next'
 import AppLayout from '@/components/AppLayout.vue'
 import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'
+import { getPlanIconComponentOrDefault } from '@/utils/plan-icons'
 import dayjs from 'dayjs'
 import { getHoliday, getUpcomingHolidays } from '@/utils/holidays'
 import { Solar } from 'lunar-javascript'
@@ -485,7 +529,7 @@ async function saveQuickNote() {
     selectedDayNotes.value.push(newNote)
     await loadMonthData()
     closeQuickNote()
-    toast.success('记事已创建并关联到日历 ✨')
+    toast.success('记事已创建并关联到日历')
   } catch (err) {
     toast.error(err.message)
   } finally {
@@ -515,7 +559,7 @@ async function toggleLink(note) {
     } else {
       await calendarApi.linkNote(note.id, dateStr)
       selectedDayNotes.value.push(note)
-      toast.success('已关联到日历 ✨')
+      toast.success('已关联到日历')
     }
     await loadMonthData()
   } catch (err) {
@@ -551,6 +595,47 @@ onMounted(async () => {
   padding: 24px 20px;
   max-width: 1100px;
   margin: 0 auto;
+}
+
+.page-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-title-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.inline-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.icon-btn-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.section-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* ===== 两栏布局（PC端） ===== */
@@ -636,6 +721,11 @@ onMounted(async () => {
   justify-content: center;
   transition: all var(--transition);
   flex-shrink: 0;
+}
+
+.nav-arrow-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .nav-arrow:hover {
@@ -790,6 +880,12 @@ onMounted(async () => {
   color: var(--color-text-secondary);
 }
 
+.empty-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--color-text-muted);
+}
+
 .day-notes-list {
   display: flex;
   flex-direction: column;
@@ -833,10 +929,19 @@ onMounted(async () => {
   border: none;
   cursor: pointer;
   color: var(--color-text-light);
-  font-size: 12px;
-  padding: 4px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   transition: all var(--transition);
+}
+
+.unlink-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .unlink-btn:hover {
@@ -861,6 +966,18 @@ onMounted(async () => {
 .modal-header h2 {
   font-size: 16px;
   font-weight: 700;
+}
+
+.modal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-only-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
 }
 
 .link-notes-list {
@@ -907,6 +1024,13 @@ onMounted(async () => {
 .link-note-date {
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.link-check {
+  width: 16px;
+  height: 16px;
+  color: #2d8f6f;
+  flex-shrink: 0;
 }
 
 /* ===== 周末加深 ===== */
@@ -965,6 +1089,9 @@ onMounted(async () => {
 }
 
 .upcoming-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   font-weight: 700;
   color: var(--color-text);
@@ -1093,6 +1220,9 @@ onMounted(async () => {
 
 /* 计划步骤 Day Panel */
 .day-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--color-text-secondary);
@@ -1126,7 +1256,20 @@ onMounted(async () => {
 }
 
 .day-plan-step-icon {
-  font-size: 0.9rem;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #ede9fe;
+  color: #6c5ce7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.day-plan-step-icon-svg {
+  width: 14px;
+  height: 14px;
 }
 
 .day-plan-step-plan {
@@ -1163,5 +1306,21 @@ onMounted(async () => {
   font-size: 0.72rem;
   color: var(--color-text-secondary);
   margin-top: 4px;
+}
+
+.date-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.date-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.no-day-icon {
+  width: 48px;
+  height: 48px;
 }
 </style>

@@ -4,6 +4,7 @@ const pool = require('../config/db')
 const authMiddleware = require('../middleware/auth')
 const webpush = require('web-push')
 const { sendNotificationEmail } = require('../utils/email')
+const { DEFAULT_PLAN_ICON, sanitizePlanIcon, toPlanIconKey } = require('../utils/plan-icons')
 
 // 发送推送通知 + 邮件给指定用户
 async function notifyUser(userId, payload) {
@@ -154,6 +155,19 @@ router.post('/', async (req, res) => {
   if (!title?.trim()) {
     return res.status(400).json({ success: false, message: '计划标题不能为空' })
   }
+  const hasIconField = Object.prototype.hasOwnProperty.call(req.body, 'icon')
+  let iconValue = DEFAULT_PLAN_ICON
+  if (hasIconField) {
+    const raw = String(icon ?? '').trim()
+    if (!raw) {
+      return res.status(400).json({ success: false, message: '计划图标不能为空' })
+    }
+    const normalized = toPlanIconKey(icon)
+    if (!normalized) {
+      return res.status(400).json({ success: false, message: '计划图标不合法' })
+    }
+    iconValue = normalized
+  }
 
   const result = await pool.query(
     `INSERT INTO plans (user_id, title, description, color, icon, status)
@@ -164,7 +178,7 @@ router.post('/', async (req, res) => {
       title.trim(),
       description || '',
       color || '#FFFFFF',
-      icon || '🎯',
+      iconValue,
       status || 'active'
     ]
   )
@@ -174,6 +188,17 @@ router.post('/', async (req, res) => {
 // PUT /api/plans/:id — 更新计划（owner + collaborator 都可以）
 router.put('/:id', async (req, res) => {
   const { title, description, color, icon, status, sort_order } = req.body
+  let normalizedIcon = null
+  if (Object.prototype.hasOwnProperty.call(req.body, 'icon')) {
+    const raw = String(icon ?? '').trim()
+    if (!raw) {
+      return res.status(400).json({ success: false, message: '计划图标不能为空' })
+    }
+    normalizedIcon = toPlanIconKey(icon)
+    if (!normalizedIcon) {
+      return res.status(400).json({ success: false, message: '计划图标不合法' })
+    }
+  }
 
   const role = await getPlanRole(req.params.id, req.user.id)
   if (!role) {
@@ -190,7 +215,7 @@ router.put('/:id', async (req, res) => {
          sort_order  = COALESCE($6, sort_order)
      WHERE id = $7
      RETURNING *`,
-    [title, description, color, icon, status, sort_order, req.params.id]
+    [title, description, color, normalizedIcon, status, sort_order, req.params.id]
   )
   res.json({ success: true, data: result.rows[0] })
 })
@@ -429,7 +454,11 @@ router.post('/import-share', async (req, res) => {
     return res.status(410).json({ success: false, message: '分享链接已过期' })
   }
 
-  if (src.share_pin && src.share_pin !== String(pin || '')) {
+  if (!src.share_pin) {
+    return res.status(403).json({ success: false, message: '该分享链接未设置访问码，请联系分享者重新生成' })
+  }
+
+  if (src.share_pin !== String(pin || '')) {
     return res.status(401).json({ success: false, message: '访问码错误' })
   }
 
@@ -445,7 +474,7 @@ router.post('/import-share', async (req, res) => {
     `INSERT INTO plans (user_id, title, description, color, icon, status)
      VALUES ($1, $2, $3, $4, $5, 'active')
      RETURNING *`,
-    [req.user.id, src.title, src.description || '', src.color, src.icon]
+    [req.user.id, src.title, src.description || '', src.color, sanitizePlanIcon(src.icon, DEFAULT_PLAN_ICON)]
   )
   const newPlan = newPlanRes.rows[0]
 

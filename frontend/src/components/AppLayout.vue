@@ -3,14 +3,14 @@
     <!-- 桌面侧边栏 -->
     <aside class="sidebar" :class="{ collapsed }">
       <div class="sidebar-logo">
-        <span class="logo-icon">🌸</span>
+        <Flower2Icon class="logo-icon" :size="26" />
         <span class="logo-text">Mini Note</span>
       </div>
 
       <nav class="sidebar-nav">
         <router-link v-for="item in navItems" :key="item.name" :to="item.path" class="nav-item"
           :class="{ active: $route.path === item.path }" :title="collapsed ? item.label : ''">
-          <span class="nav-icon">{{ item.icon }}</span>
+          <component :is="item.icon" class="nav-icon" :size="20" />
           <span class="nav-label">{{ item.label }}</span>
         </router-link>
       </nav>
@@ -24,7 +24,7 @@
           <div class="user-sub">@{{ userStore.user?.username }}</div>
         </div>
         <button class="btn btn-ghost btn-icon" @click="handleLogout" title="退出登录">
-          🚪
+          <LogOutIcon :size="18" />
         </button>
       </div>
 
@@ -46,7 +46,7 @@
     <nav class="bottom-nav">
       <router-link v-for="item in navItems" :key="item.name" :to="item.path" class="bottom-nav-item"
         :class="{ active: $route.path === item.path }">
-        <span class="nav-icon">{{ item.icon }}</span>
+        <component :is="item.icon" class="nav-icon" :size="22" />
         <span class="nav-label">{{ item.label }}</span>
       </router-link>
     </nav>
@@ -58,7 +58,17 @@ import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import { toast } from '@/utils/toast'
-import { ChevronsLeft as ChevronsLeftIcon, ChevronsRight as ChevronsRightIcon } from 'lucide-vue-next'
+import {
+  CalendarDays as CalendarDaysIcon,
+  ChevronsLeft as ChevronsLeftIcon,
+  ChevronsRight as ChevronsRightIcon,
+  FileText as FileTextIcon,
+  Flower2 as Flower2Icon,
+  ListTodo as ListTodoIcon,
+  LogOut as LogOutIcon,
+  UserRound as UserRoundIcon,
+  Wallet as WalletIcon
+} from 'lucide-vue-next'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -72,18 +82,18 @@ function toggleCollapse() {
 
 const navItems = computed(() => {
   const items = [
-    { name: 'Notes',   path: '/notes',   icon: '📝', label: '记事' },
-    { name: 'Plans',   path: '/plans',   icon: '🎯', label: '计划' },
-    { name: 'Calendar', path: '/calendar', icon: '📅', label: '日历' },
-    { name: 'Expense', path: '/expense', icon: '💰', label: '记账' },
-    { name: 'Profile', path: '/profile', icon: '🌸', label: '我的' }
+    { name: 'Notes', path: '/notes', icon: FileTextIcon, label: '记事' },
+    { name: 'Plans', path: '/plans', icon: ListTodoIcon, label: '计划' },
+    { name: 'Calendar', path: '/calendar', icon: CalendarDaysIcon, label: '日历' },
+    { name: 'Expense', path: '/expense', icon: WalletIcon, label: '记账' },
+    { name: 'Profile', path: '/profile', icon: UserRoundIcon, label: '我的' }
   ]
   return items
 })
 
 function handleLogout() {
   userStore.logout()
-  toast.success('已安全退出 👋')
+  toast.success('已安全退出')
   router.push('/login')
 }
 </script>
@@ -150,7 +160,8 @@ function handleLogout() {
 }
 
 .logo-icon {
-  font-size: 28px;
+  color: var(--theme-primary-dark);
+  flex-shrink: 0;
 }
 
 .logo-text {
@@ -211,9 +222,11 @@ function handleLogout() {
 }
 
 .nav-icon {
-  font-size: 20px;
   width: 24px;
-  text-align: center;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -351,10 +364,9 @@ function handleLogout() {
 }
 
 .bottom-nav-item .nav-icon {
-  font-size: 22px;
-  width: auto;
-  display: block;
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), font-size 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 22px;
+  height: 22px;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .bottom-nav-item.active {
@@ -362,7 +374,6 @@ function handleLogout() {
 }
 
 .bottom-nav-item.active .nav-icon {
-  font-size: 32px;
-  transform: translateY(-6px);
+  transform: translateY(-5px) scale(1.22);
 }
 </style>

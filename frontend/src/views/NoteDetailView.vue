@@ -4,11 +4,17 @@
       <!-- 顶部工具栏 -->
       <div class="detail-toolbar">
         <button class="btn btn-ghost" @click="$router.back()">
-          ‹ 返回
+          <span class="btn-with-icon">
+            <ArrowLeft class="btn-icon-sm" />
+            返回
+          </span>
         </button>
         <div class="toolbar-actions">
           <!-- 已归档标识 -->
-          <span v-if="note?.is_archived" class="archived-badge">📦 已归档</span>
+          <span v-if="note?.is_archived" class="archived-badge">
+            <Archive class="badge-icon" />
+            已归档
+          </span>
 
           <!-- 预览/编辑切换 -->
           <button
@@ -18,20 +24,28 @@
             @click="previewMode = !previewMode"
             :title="previewMode ? '切换编辑' : '切换预览'"
           >
-            {{ previewMode ? '✏️' : '👁' }}
+            <SquarePen v-if="previewMode" class="toolbar-icon" />
+            <Eye v-else class="toolbar-icon" />
           </button>
 
           <button class="btn btn-ghost btn-icon" :class="{ 'pin-active': note?.is_pinned }" @click="togglePin"
-            title="置顶">📌</button>
+            title="置顶">
+            <Pin class="toolbar-icon" />
+          </button>
           <button class="btn btn-ghost btn-icon" @click="toggleArchive" title="归档">
-            {{ note?.is_archived ? '📤' : '📦' }}
+            <Undo2 v-if="note?.is_archived" class="toolbar-icon" />
+            <Archive v-else class="toolbar-icon" />
           </button>
           <button class="btn btn-ghost btn-icon delete-btn" @click="showDeleteConfirm = true" title="删除">
-            🗑️
+            <Trash2 class="toolbar-icon" />
           </button>
           <button v-if="!isReadOnly" class="btn btn-primary" @click="saveNote" :disabled="saving || !isDirty">
             <span v-if="saving" class="loading-spinner" style="width:14px;height:14px;border-width:2px"></span>
-            <span v-else>{{ isDirty ? '保存 ✨' : '已保存 ✅' }}</span>
+            <span v-else class="btn-with-icon">
+              <Save v-if="isDirty" class="btn-icon-sm" />
+              <Check v-else class="btn-icon-sm" />
+              {{ isDirty ? '保存' : '已保存' }}
+            </span>
           </button>
         </div>
       </div>
@@ -55,7 +69,9 @@
             <div class="tag-list-inline">
               <span v-for="(tag, i) in note.tags" :key="i" class="tag tag-removable">
                 {{ tag }}
-                <button @click="removeTag(i)">✕</button>
+                <button @click="removeTag(i)" title="移除标签">
+                  <X class="tag-remove-icon" />
+                </button>
               </span>
               <input v-model="tagInput" type="text" class="inline-tag-input" placeholder="＋ 标签"
                 @keydown.enter.prevent="addTag" />
@@ -77,14 +93,23 @@
 
         <!-- 底部信息 -->
         <div class="note-meta">
-          <span>🕐 {{ formatFullDate(note.updated_at) }}</span>
-          <span>📝 {{ wordCount }} 字</span>
+          <span class="meta-item">
+            <Clock3 class="meta-icon" />
+            {{ formatFullDate(note.updated_at) }}
+          </span>
+          <span class="meta-item">
+            <NotebookText class="meta-icon" />
+            {{ wordCount }} 字
+          </span>
         </div>
 
         <!-- 关联日历 -->
         <div class="calendar-links">
           <div class="cal-link-header">
-            <span class="cal-label">📅 日历关联</span>
+            <span class="cal-label">
+              <CalendarDays class="meta-icon" />
+              日历关联
+            </span>
             <button class="btn btn-ghost btn-sm" @click="showCalPicker = !showCalPicker">
               {{ showCalPicker ? '收起' : '＋ 添加日期' }}
             </button>
@@ -109,7 +134,7 @@
       </div>
 
       <div v-else class="empty-state">
-        <span class="empty-icon">🔍</span>
+        <Search class="empty-icon" />
         <p>记事不存在</p>
         <button class="btn btn-primary" @click="$router.push('/notes')">返回记事</button>
       </div>
@@ -118,7 +143,7 @@
       <Teleport to="body">
         <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
           <div class="modal-card card" style="max-width:360px;text-align:center;padding:32px 24px">
-            <div style="font-size:48px;margin-bottom:12px">🗑️</div>
+            <Trash2 class="modal-delete-icon" />
             <h3 style="font-size:18px;margin-bottom:8px">删除记事</h3>
             <p style="font-size:14px;color:var(--color-text-secondary);margin-bottom:24px">
               此操作不可恢复，确定删除吗？
@@ -137,6 +162,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Archive, ArrowLeft, CalendarDays, Check, Clock3, Eye, NotebookText, Pin, Save, Search, SquarePen, Trash2, Undo2, X } from 'lucide-vue-next'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import TiptapEditor from '@/components/TiptapEditor.vue'
@@ -212,7 +238,7 @@ async function saveNote() {
       tags: note.value.tags
     })
     isDirty.value = false
-    toast.success('已保存 ✅')
+    toast.success('已保存')
   } catch (err) {
     toast.error(err.message)
   } finally {
@@ -224,7 +250,7 @@ async function togglePin() {
   try {
     await notesStore.togglePin(note.value.id, note.value.is_pinned)
     note.value.is_pinned = !note.value.is_pinned
-    toast.success(note.value.is_pinned ? '已置顶 📌' : '已取消置顶')
+    toast.success(note.value.is_pinned ? '已置顶' : '已取消置顶')
   } catch (err) {
     toast.error(err.message)
   }
@@ -235,7 +261,7 @@ async function toggleArchive() {
     await notesStore.updateNote(note.value.id, { is_archived: !note.value.is_archived })
     note.value.is_archived = !note.value.is_archived
     if (!note.value.is_archived) previewMode.value = false
-    toast.success(note.value.is_archived ? '已归档 📦' : '已取消归档')
+    toast.success(note.value.is_archived ? '已归档' : '已取消归档')
   } catch (err) {
     toast.error(err.message)
   }
@@ -259,7 +285,7 @@ async function addCalDate() {
     if (!note.value.calendar_dates.includes(newCalDate.value)) {
       note.value.calendar_dates.push(newCalDate.value)
     }
-    toast.success('日期已关联 📅')
+    toast.success('日期已关联')
     newCalDate.value = ''
     showCalPicker.value = false
   } catch (err) {
@@ -330,6 +356,32 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 
+.btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.toolbar-actions .btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .pin-active {
   color: var(--theme-primary-dark);
 }
@@ -342,6 +394,7 @@ onBeforeUnmount(() => {
 .archived-badge {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 4px 12px;
   background: #FFF3CD;
   color: #856404;
@@ -349,6 +402,11 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-weight: 600;
   border: 1px solid #FFECB5;
+}
+
+.badge-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .delete-btn:hover {
@@ -411,6 +469,21 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
+.tag-removable button {
+  background: none;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tag-remove-icon {
+  width: 12px;
+  height: 12px;
+}
+
 .inline-tag-input {
   border: none;
   border-bottom: 1px dashed var(--color-border);
@@ -466,6 +539,18 @@ onBeforeUnmount(() => {
   margin-bottom: 20px;
 }
 
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
 /* 日历关联 */
 .calendar-links {
   padding: 16px;
@@ -481,6 +566,9 @@ onBeforeUnmount(() => {
 }
 
 .cal-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
@@ -530,6 +618,18 @@ onBeforeUnmount(() => {
 /* 弹窗 */
 .modal-card {
   animation: popIn 0.2s ease;
+}
+
+.empty-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.modal-delete-icon {
+  width: 48px;
+  height: 48px;
+  color: #C0392B;
+  margin-bottom: 12px;
 }
 
 </style>

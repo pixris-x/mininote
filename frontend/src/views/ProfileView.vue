@@ -13,14 +13,15 @@
                     <p v-else class="profile-bio placeholder">还没有个性签名，去写一个吧~</p>
                 </div>
                 <button class="btn btn-outline btn-sm edit-btn" @click="openEditModal">
-                    ✏️ 编辑
+                    <SquarePen :size="14" />
+                    <span>编辑</span>
                 </button>
             </div>
 
             <!-- 统计数据 -->
             <div class="stats-grid">
                 <div class="stat-card card" v-for="s in stats" :key="s.label">
-                    <span class="stat-icon">{{ s.icon }}</span>
+                    <component :is="s.icon" class="stat-icon" :size="22" />
                     <span class="stat-number">{{ s.value }}</span>
                     <span class="stat-label">{{ s.label }}</span>
                 </div>
@@ -28,7 +29,10 @@
 
             <!-- 主题设置 -->
             <div class="section card">
-                <h3 class="section-title">🎨 主题颜色</h3>
+                <h3 class="section-title">
+                    <Brush class="section-title-icon" :size="16" />
+                    <span>主题颜色</span>
+                </h3>
                 <div class="theme-options">
                     <button v-for="theme in themes" :key="theme.value" class="theme-btn"
                         :class="{ active: currentTheme === theme.value }" @click="changeTheme(theme.value)">
@@ -40,27 +44,38 @@
 
             <!-- 头像颜色 -->
             <div class="section card">
-                <h3 class="section-title">🌈 头像颜色</h3>
+                <h3 class="section-title">
+                    <SwatchBook class="section-title-icon" :size="16" />
+                    <span>头像颜色</span>
+                </h3>
                 <div class="avatar-colors">
                     <button v-for="color in avatarColors" :key="color" class="avatar-color-btn"
                         :class="{ active: userStore.user?.avatar_color === color }" :style="{ background: color }"
                         @click="changeAvatarColor(color)">
-                        <span v-if="userStore.user?.avatar_color === color" class="color-check">✓</span>
+                        <Check v-if="userStore.user?.avatar_color === color" class="color-check" :size="14" />
                     </button>
                 </div>
             </div>
 
             <!-- 修改密码 -->
             <div class="section card">
-                <h3 class="section-title">🔐 账号安全</h3>
-                <button class="btn btn-outline" @click="showPassModal = true">
-                    修改密码
-                </button>
+                <div class="section-head">
+                    <h3 class="section-title">
+                        <Shield class="section-title-icon" :size="16" />
+                        <span>账号安全</span>
+                    </h3>
+                    <button class="btn btn-outline btn-sm section-action-btn" @click="showPassModal = true">
+                        修改密码
+                    </button>
+                </div>
             </div>
 
             <!-- 消息通知 -->
             <div class="section card">
-                <h3 class="section-title">🔔 消息通知</h3>
+                <h3 class="section-title">
+                    <Bell class="section-title-icon" :size="16" />
+                    <span>消息通知</span>
+                </h3>
                 <div v-if="!pushSupported" class="push-unsupported">
                     当前浏览器不支持推送通知（需要 iOS 16.4+ 且从主屏幕打开）
                 </div>
@@ -76,23 +91,33 @@
                 </div>
                 <div v-if="pushSubscribed" class="push-test-row">
                     <button class="btn btn-outline btn-sm" :disabled="testSending" @click="sendTestPush">
-                        {{ testSending ? '发送中...' : '📨 发送测试通知' }}
+                        <template v-if="testSending">发送中...</template>
+                        <template v-else>
+                            <Send :size="14" />
+                            <span>发送测试通知</span>
+                        </template>
                     </button>
                 </div>
             </div>
 
             <!-- 管理员入口 -->
             <div v-if="userStore.user?.is_admin" class="section card">
-                <h3 class="section-title">👑 管理员</h3>
-                <button class="btn btn-outline" @click="router.push('/admin')">
-                    进入管理面板
-                </button>
+                <div class="section-head">
+                    <h3 class="section-title">
+                        <Crown class="section-title-icon" :size="16" />
+                        <span>管理员</span>
+                    </h3>
+                    <button class="btn btn-outline btn-sm section-action-btn" @click="router.push('/admin')">
+                        进入管理面板
+                    </button>
+                </div>
             </div>
 
             <!-- 退出按钮 -->
             <div class="logout-section">
                 <button class="btn btn-logout" @click="handleLogout">
-                    🚪 退出登录
+                    <LogOut :size="16" />
+                    <span>退出登录</span>
                 </button>
             </div>
         </div>
@@ -102,8 +127,13 @@
             <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
                 <div class="modal-card card">
                     <div class="modal-header">
-                        <h2>✏️ 编辑资料</h2>
-                        <button class="btn btn-ghost btn-icon" @click="showEditModal = false">✕</button>
+                        <h2>
+                            <SquarePen :size="18" />
+                            <span>编辑资料</span>
+                        </h2>
+                        <button class="btn btn-ghost btn-icon modal-close-btn" aria-label="关闭" @click="showEditModal = false">
+                            <X :size="16" />
+                        </button>
                     </div>
                     <form @submit.prevent="saveProfile" class="edit-form">
                         <div class="form-group">
@@ -115,11 +145,18 @@
                             <textarea v-model="editForm.bio" class="input" placeholder="说说你的故事..." rows="3"
                                 style="resize:none"></textarea>
                         </div>
-                        <div v-if="editError" class="error-msg">❌ {{ editError }}</div>
+                        <div v-if="editError" class="error-msg">
+                            <CircleAlert :size="14" />
+                            <span>{{ editError }}</span>
+                        </div>
                         <div class="modal-actions">
                             <button type="button" class="btn btn-outline" @click="showEditModal = false">取消</button>
                             <button type="submit" class="btn btn-primary" :disabled="editSaving">
-                                {{ editSaving ? '保存中...' : '保存 💾' }}
+                                <template v-if="editSaving">保存中...</template>
+                                <template v-else>
+                                    <Save :size="14" />
+                                    <span>保存</span>
+                                </template>
                             </button>
                         </div>
                     </form>
@@ -132,8 +169,13 @@
             <div v-if="showPassModal" class="modal-overlay" @click.self="showPassModal = false">
                 <div class="modal-card card">
                     <div class="modal-header">
-                        <h2>🔐 修改密码</h2>
-                        <button class="btn btn-ghost btn-icon" @click="showPassModal = false">✕</button>
+                        <h2>
+                            <Lock :size="18" />
+                            <span>修改密码</span>
+                        </h2>
+                        <button class="btn btn-ghost btn-icon modal-close-btn" aria-label="关闭" @click="showPassModal = false">
+                            <X :size="16" />
+                        </button>
                     </div>
                     <form @submit.prevent="savePassword" class="edit-form">
                         <div class="form-group">
@@ -146,7 +188,10 @@
                             <input v-model="passForm.new_password" type="password" class="input" placeholder="至少6位"
                                 required />
                         </div>
-                        <div v-if="passError" class="error-msg">❌ {{ passError }}</div>
+                        <div v-if="passError" class="error-msg">
+                            <CircleAlert :size="14" />
+                            <span>{{ passError }}</span>
+                        </div>
                         <div class="modal-actions">
                             <button type="button" class="btn btn-outline" @click="showPassModal = false">取消</button>
                             <button type="submit" class="btn btn-primary" :disabled="passSaving">
@@ -174,6 +219,24 @@ import {
     unsubscribePush,
     checkPushSubscribed
 } from '@/utils/push'
+import {
+    Bell,
+    Brush,
+    CalendarDays,
+    Check,
+    CircleAlert,
+    Crown,
+    Lock,
+    LogOut,
+    NotebookText,
+    Pin,
+    Save,
+    Send,
+    Shield,
+    SquarePen,
+    SwatchBook,
+    X
+} from 'lucide-vue-next'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -203,7 +266,7 @@ async function togglePush() {
             const result = await subscribePush()
             if (result === 'granted') {
                 pushSubscribed.value = true
-                toast.success('已开启推送通知 🔔')
+                toast.success('已开启推送通知')
             } else if (result === 'denied') {
                 toast.error('通知权限被拒绝，请在系统设置中允许')
             } else {
@@ -219,7 +282,7 @@ async function sendTestPush() {
     testSending.value = true
     try {
         await pushApi.sendTest()
-        toast.success('测试通知已发送，请注意查收 📨')
+        toast.success('测试通知已发送，请注意查收')
     } catch (err) {
         toast.error(err.message || '发送失败')
     } finally {
@@ -244,9 +307,9 @@ const avatarColors = [
 const currentTheme = computed(() => userStore.user?.theme || 'pink')
 
 const stats = computed(() => [
-    { icon: '📝', value: notesStore.notes.length, label: '记事' },
-    { icon: '📌', value: notesStore.notes.filter(n => n.is_pinned).length, label: '置顶' },
-    { icon: '🌸', value: Math.ceil((Date.now() - new Date(userStore.user?.created_at || Date.now())) / 86400000), label: '天' }
+    { icon: NotebookText, value: notesStore.notes.length, label: '记事' },
+    { icon: Pin, value: notesStore.notes.filter(n => n.is_pinned).length, label: '置顶' },
+    { icon: CalendarDays, value: Math.ceil((Date.now() - new Date(userStore.user?.created_at || Date.now())) / 86400000), label: '天' }
 ])
 
 const editForm = reactive({ nickname: '', bio: '' })
@@ -264,7 +327,7 @@ async function saveProfile() {
     editSaving.value = true
     try {
         await userStore.updateProfile(editForm)
-        toast.success('资料更新成功 ✨')
+        toast.success('资料更新成功')
         showEditModal.value = false
     } catch (err) {
         editError.value = err.message
@@ -276,7 +339,7 @@ async function saveProfile() {
 async function changeTheme(theme) {
     try {
         await userStore.updateProfile({ theme })
-        toast.success(`已切换到${themes.find(t => t.value === theme)?.label}主题 🎨`)
+        toast.success(`已切换到${themes.find(t => t.value === theme)?.label}主题`)
     } catch (err) {
         toast.error(err.message)
     }
@@ -285,7 +348,7 @@ async function changeTheme(theme) {
 async function changeAvatarColor(color) {
     try {
         await userStore.updateProfile({ avatar_color: color })
-        toast.success('头像颜色已更新 🌈')
+        toast.success('头像颜色已更新')
     } catch (err) {
         toast.error(err.message)
     }
@@ -301,7 +364,7 @@ async function savePassword() {
     try {
         const res = await userApi.changePassword(passForm)
         if (res.success) {
-            toast.success('密码修改成功 🔐')
+            toast.success('密码修改成功')
             showPassModal.value = false
             passForm.old_password = ''
             passForm.new_password = ''
@@ -315,7 +378,7 @@ async function savePassword() {
 
 function handleLogout() {
     userStore.logout()
-    toast.success('已退出登录 👋')
+    toast.success('已退出登录')
     router.push('/login')
 }
 
@@ -394,6 +457,10 @@ onMounted(() => {
     position: absolute;
     top: 20px;
     right: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 36px;
 }
 
 /* 统计 */
@@ -413,7 +480,7 @@ onMounted(() => {
 }
 
 .stat-icon {
-    font-size: 24px;
+    color: var(--theme-primary-dark);
 }
 
 .stat-number {
@@ -432,11 +499,36 @@ onMounted(() => {
     padding: 20px;
 }
 
+.section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
 .section-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 15px;
     font-weight: 700;
     color: var(--color-text);
     margin-bottom: 14px;
+}
+
+.section-head .section-title {
+    margin-bottom: 0;
+}
+
+.section-title-icon {
+    color: var(--theme-primary-dark);
+    flex-shrink: 0;
+}
+
+.section-action-btn {
+    min-height: 36px;
+    padding: 7px 16px;
+    white-space: nowrap;
 }
 
 /* 主题选择 */
@@ -507,9 +599,7 @@ onMounted(() => {
 }
 
 .color-check {
-    font-size: 14px;
     color: white;
-    font-weight: 700;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
@@ -530,6 +620,10 @@ onMounted(() => {
     cursor: pointer;
     transition: all var(--transition);
     font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .btn-logout:hover {
@@ -610,6 +704,12 @@ onMounted(() => {
     margin-top: 12px;
 }
 
+.push-test-row .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 /* 弹窗 */
 .modal-card {
     width: 100%;
@@ -626,5 +726,39 @@ onMounted(() => {
 
 .form-label {
     color: var(--color-text); /* 覆盖全局的 color-text-secondary，此页使用深色 */
+}
+
+.modal-header h2 {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.modal-close-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.error-msg {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@media (max-width: 520px) {
+    .section-head {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .section-action-btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
 </style>

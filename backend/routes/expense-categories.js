@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../config/db')
 const authMiddleware = require('../middleware/auth')
+const { DEFAULT_EXPENSE_ICON, toExpenseIconKey } = require('../utils/expense-icons')
 
 // 获取所有可用分类（系统默认 + 当前用户自定义）
 router.get('/', authMiddleware, async (req, res) => {
@@ -25,6 +26,19 @@ router.post('/', authMiddleware, async (req, res) => {
   if (!name || !name.trim()) {
     return res.status(400).json({ success: false, message: '分类名称不能为空' })
   }
+  const hasIconField = Object.prototype.hasOwnProperty.call(req.body, 'icon')
+  let iconValue = DEFAULT_EXPENSE_ICON
+  if (hasIconField) {
+    const raw = String(icon ?? '').trim()
+    if (!raw) {
+      return res.status(400).json({ success: false, message: '分类图标不能为空' })
+    }
+    const normalized = toExpenseIconKey(icon)
+    if (!normalized) {
+      return res.status(400).json({ success: false, message: '分类图标不合法' })
+    }
+    iconValue = normalized
+  }
   try {
     // 检查同用户是否已存在同名分类
     const dup = await pool.query(
@@ -39,7 +53,7 @@ router.post('/', authMiddleware, async (req, res) => {
       `INSERT INTO expense_categories (user_id, name, icon, color, is_default)
        VALUES ($1, $2, $3, $4, FALSE)
        RETURNING *`,
-      [req.user.id, name.trim(), icon || '🏷️', color || '#a29bfe']
+      [req.user.id, name.trim(), iconValue, color || '#a29bfe']
     )
     res.json({ success: true, data: result.rows[0] })
   } catch (err) {
@@ -52,6 +66,17 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   const { id } = req.params
   const { name, icon, color } = req.body
+  let normalizedIcon = null
+  if (Object.prototype.hasOwnProperty.call(req.body, 'icon')) {
+    const raw = String(icon ?? '').trim()
+    if (!raw) {
+      return res.status(400).json({ success: false, message: '分类图标不能为空' })
+    }
+    normalizedIcon = toExpenseIconKey(icon)
+    if (!normalizedIcon) {
+      return res.status(400).json({ success: false, message: '分类图标不合法' })
+    }
+  }
   try {
     const result = await pool.query(
       `UPDATE expense_categories
@@ -60,7 +85,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
            color = COALESCE($3, color)
        WHERE id = $4 AND user_id = $5
        RETURNING *`,
-      [name?.trim() || null, icon || null, color || null, id, req.user.id]
+      [name?.trim() || null, normalizedIcon, color || null, id, req.user.id]
     )
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: '分类不存在或无权限修改' })

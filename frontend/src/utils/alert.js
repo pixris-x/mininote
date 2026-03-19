@@ -19,13 +19,14 @@ export const alertState = ref(null)
  */
 export function showAlert(message, options = {}) {
   return new Promise(resolve => {
+    const variant = options.variant ?? 'default'
     alertState.value = {
       type: 'alert',
       message,
       title: options.title ?? '提示',
-      icon: options.icon ?? 'ℹ️',
+      icon: options.icon ?? (variant === 'danger' ? 'danger' : 'info'),
       confirmText: options.confirmText ?? '好的',
-      variant: options.variant ?? 'default',
+      variant,
       resolve,
     }
   })
@@ -39,14 +40,15 @@ export function showAlert(message, options = {}) {
  */
 export function showConfirm(message, options = {}) {
   return new Promise(resolve => {
+    const variant = options.variant ?? 'default'
     alertState.value = {
       type: 'confirm',
       message,
       title: options.title ?? '确认操作',
-      icon: options.icon ?? '❓',
+      icon: options.icon ?? (variant === 'danger' ? 'danger' : 'help'),
       confirmText: options.confirmText ?? '确认',
       cancelText: options.cancelText ?? '取消',
-      variant: options.variant ?? 'default',
+      variant,
       resolve,
     }
   })

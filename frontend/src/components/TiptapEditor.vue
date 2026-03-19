@@ -109,7 +109,9 @@
                 <div class="img-modal-card">
                     <div class="img-modal-header">
                         <span>插入图片</span>
-                        <button class="img-modal-close" @click="closeImgModal">✕</button>
+                        <button class="img-modal-close" @click="closeImgModal">
+                            <XIcon :size="14" />
+                        </button>
                     </div>
 
                     <div class="img-modal-tabs">
@@ -175,6 +177,7 @@ import {
     AlignRight as AlignRightIcon,
     Undo2 as Undo2Icon,
     Redo2 as Redo2Icon,
+    X as XIcon
 } from 'lucide-vue-next'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -595,11 +598,15 @@ onBeforeUnmount(() => {
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 14px;
     color: #999;
-    padding: 4px 6px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
     border-radius: 6px;
     transition: background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .img-modal-close:hover {

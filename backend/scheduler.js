@@ -5,6 +5,7 @@
  *  1. 清理过期分享链接        每天 03:00
  *  2. 清理孤儿上传图片        每周日 04:00
  *  3. 计划步骤到期提醒邮件    每天 08:00
+ *  4. 管理员定时推送通知      每分钟检查
  */
 
 const cron = require('node-cron')
@@ -15,6 +16,7 @@ const webpush = require('web-push')
 require('dotenv').config({ path: path.join(__dirname, '.env') })
 const pool = require('./config/db')
 const { Resend } = require('resend')
+const { sendBroadcastPush } = require('./utils/admin-push')
 
 // 延迟初始化，确保 dotenv 已加载后再读取 API Key
 function getResend() {
@@ -27,6 +29,12 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads', 'images')
 function log(tag, msg) {
   const ts = new Date().toISOString()
   console.log(`[Scheduler][${ts}][${tag}] ${msg}`)
+}
+
+function normalizeFrontendUrl(raw) {
+  const value = String(raw || '').trim()
+  if (!value) return 'https://mininote.pixris.online'
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`
 }
 
 /**
@@ -144,6 +152,7 @@ async function cleanOrphanUploads() {
 
 async function sendDueDateReminders() {
   const t0 = Date.now()
+  const frontendUrl = normalizeFrontendUrl(process.env.FRONTEND_URL)
   try {
     const res = await pool.query(`
       SELECT
@@ -185,7 +194,7 @@ async function sendDueDateReminders() {
       const listHtml = steps.map(s => `
         <tr>
           <td style="padding:10px 12px;border-bottom:1px solid #fce4ec;">
-            ${s.plan_icon || '🎯'} <strong>${s.plan_title}</strong>
+            <strong>${s.plan_title}</strong>
           </td>
           <td style="padding:10px 12px;border-bottom:1px solid #fce4ec;color:#555;">
             ${s.title}
@@ -235,7 +244,7 @@ async function sendDueDateReminders() {
         <tr>
           <td style="background:#fdf6f9;padding:16px 40px;text-align:center;border-top:1px solid #fce4ec;">
             <p style="margin:0;font-size:12px;color:#ccc;">
-              此邮件由 <a href="https://${process.env.FRONTEND_URL || 'mininote.pixris.online'}"
+              此邮件由 <a href="${frontendUrl}"
                 style="color:#ffb3c6;text-decoration:none;">Mini Note</a> 自动发送，请勿直接回复
             </p>
           </td>
@@ -317,7 +326,7 @@ async function sendPushReminders() {
 
     for (const [endpoint, { sub, steps }] of byEndpoint) {
       const body = steps.length === 1
-        ? `${steps[0].plan_icon || '🎯'} ${steps[0].plan_title} · ${steps[0].step_title}`
+        ? `${steps[0].plan_title} · ${steps[0].step_title}`
         : `共 ${steps.length} 个步骤明天到期`
 
       const payload = JSON.stringify({
@@ -359,6 +368,119 @@ async function sendPushReminders() {
   }
 }
 
+// ─── 任务 5：管理员定时 Push 通知 ───────────────────────────────────────────
+
+async function fetchDueAdminPushNotifications(limit = 20) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    const existsRes = await client.query(
+      "SELECT to_regclass('public.admin_push_notifications') AS table_name"
+    )
+    if (!existsRes.rows[0]?.table_name) {
+      await client.query('COMMIT')
+      return []
+    }
+
+    const dueRes = await client.query(
+      `SELECT id, title, body, target_url
+       FROM admin_push_notifications
+       WHERE status = 'scheduled'
+         AND scheduled_for <= NOW()
+       ORDER BY scheduled_for ASC
+       LIMIT $1
+       FOR UPDATE SKIP LOCKED`,
+      [limit]
+    )
+
+    if (dueRes.rowCount === 0) {
+      await client.query('COMMIT')
+      return []
+    }
+
+    const ids = dueRes.rows.map(row => row.id)
+    await client.query(
+      `UPDATE admin_push_notifications
+       SET status = 'sending',
+           last_error = NULL,
+           updated_at = NOW()
+       WHERE id = ANY($1)`,
+      [ids]
+    )
+
+    await client.query('COMMIT')
+    return dueRes.rows
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+async function sendScheduledAdminPushNotifications() {
+  const t0 = Date.now()
+  try {
+    const dueNotifications = await fetchDueAdminPushNotifications()
+    if (dueNotifications.length === 0) return
+
+    let successJobs = 0
+    let failedJobs = 0
+    let totalSent = 0
+
+    for (const item of dueNotifications) {
+      try {
+        const result = await sendBroadcastPush({
+          title: item.title,
+          body: item.body,
+          url: item.target_url
+        })
+
+        const finalStatus = (result.total > 0 && result.sent === 0) ? 'failed' : 'sent'
+
+        await pool.query(
+          `UPDATE admin_push_notifications
+           SET status = $2,
+               total_count = $3,
+               sent_count = $4,
+               failed_count = $5,
+               expired_count = $6,
+               sent_at = CASE WHEN $2 = 'sent' THEN NOW() ELSE sent_at END,
+               last_error = CASE WHEN $2 = 'failed' THEN '全部发送失败' ELSE NULL END,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [item.id, finalStatus, result.total, result.sent, result.failed, result.expired]
+        )
+
+        if (finalStatus === 'sent') {
+          successJobs++
+        } else {
+          failedJobs++
+        }
+        totalSent += result.sent
+      } catch (err) {
+        failedJobs++
+        await pool.query(
+          `UPDATE admin_push_notifications
+           SET status = 'failed',
+               last_error = $2,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [item.id, err.message || '发送失败']
+        )
+      }
+    }
+
+    const msg = `已处理 ${dueNotifications.length} 个定时通知，成功 ${successJobs}，失败 ${failedJobs}，送达 ${totalSent} 条`
+    log('ADMIN_PUSH', msg)
+    await writeLog('admin_push_schedule', 'success', msg, totalSent, Date.now() - t0)
+  } catch (err) {
+    log('ADMIN_PUSH', `错误: ${err.message}`)
+    await writeLog('admin_push_schedule', 'error', err.message, 0, Date.now() - t0)
+  }
+}
+
 // ─── 注册定时任务 ────────────────────────────────────────────────────────────
 
 function startScheduler() {
@@ -372,10 +494,21 @@ function startScheduler() {
   cron.schedule('0 8 * * *', sendDueDateReminders, { timezone: 'Asia/Shanghai' })
   cron.schedule('0 8 * * *', sendPushReminders,    { timezone: 'Asia/Shanghai' })
 
+  // 每分钟扫描管理员定时推送任务
+  cron.schedule('*/1 * * * *', sendScheduledAdminPushNotifications, { timezone: 'Asia/Shanghai' })
+
   log('INIT', '定时任务已启动 ✅')
   log('INIT', '  - 过期分享清理   : 每天 03:00')
   log('INIT', '  - 孤儿图片清理   : 每周日 04:00')
   log('INIT', '  - 步骤到期提醒   : 每天 08:00（邮件 + Push）')
+  log('INIT', '  - 管理员定时推送 : 每分钟扫描')
 }
 
-module.exports = { startScheduler, cleanExpiredShares, cleanOrphanUploads, sendDueDateReminders, sendPushReminders }
+module.exports = {
+  startScheduler,
+  cleanExpiredShares,
+  cleanOrphanUploads,
+  sendDueDateReminders,
+  sendPushReminders,
+  sendScheduledAdminPushNotifications
+}

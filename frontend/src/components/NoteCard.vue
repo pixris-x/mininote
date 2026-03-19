@@ -13,10 +13,10 @@
           @click="$emit('pin', note)"
           :title="note.is_pinned ? '取消置顶' : '置顶'"
         >
-          📌
+          <Pin class="action-icon" />
         </button>
         <button class="action-btn" @click="$emit('delete', note)" title="删除">
-          🗑️
+          <Trash2 class="action-icon" />
         </button>
       </div>
     </div>
@@ -36,6 +36,7 @@
 
 <script setup>
 import dayjs from 'dayjs'
+import { Pin, Trash2 } from 'lucide-vue-next'
 
 defineProps({
   note: { type: Object, required: true }
@@ -123,12 +124,20 @@ function formatDate(date) {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border-radius: var(--radius-sm);
-  font-size: 14px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all var(--transition);
   opacity: 0.6;
+}
+
+.action-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .action-btn:hover {

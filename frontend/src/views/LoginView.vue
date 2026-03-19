@@ -1,17 +1,17 @@
 <template>
   <div class="login-page">
     <!-- 背景装饰 -->
-    <div class="deco deco-1">🌸</div>
-    <div class="deco deco-2">✨</div>
-    <div class="deco deco-3">🌿</div>
-    <div class="deco deco-4">💫</div>
+    <Flower2 class="deco deco-1" />
+    <Sparkles class="deco deco-2" />
+    <Leaf class="deco deco-3" />
+    <Star class="deco deco-4" />
 
     <div class="login-card card">
       <!-- Logo -->
       <div class="login-logo">
-        <span class="logo-big">🌸</span>
+        <Flower2 class="logo-big" />
         <h1 class="logo-title">Mini Note</h1>
-        <p class="logo-sub">记录每一个美好瞬间 ✨</p>
+        <p class="logo-sub">记录每一个美好瞬间</p>
       </div>
 
       <!-- 切换标签 -->
@@ -34,7 +34,8 @@
 
       <!-- 错误提示 -->
       <div v-if="errorMsg" class="error-msg">
-        ❌ {{ errorMsg }}
+        <CircleAlert class="msg-icon" />
+        <span>{{ errorMsg }}</span>
       </div>
 
       <!-- 登录表单 -->
@@ -62,7 +63,8 @@
               required
             />
             <button type="button" class="show-pass" @click="showPass = !showPass">
-              {{ showPass ? '🙈' : '👁️' }}
+              <EyeOff v-if="showPass" class="pass-icon" />
+              <Eye v-else class="pass-icon" />
             </button>
           </div>
         </div>
@@ -89,7 +91,10 @@
         </div>
         <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading">
           <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
-          <span v-else>🌸 登录</span>
+          <span v-else class="btn-content">
+            <LogIn class="btn-icon" />
+            登录
+          </span>
         </button>
         <div style="text-align:right;margin-top:4px;">
           <router-link to="/forgot-password" style="font-size:13px;color:var(--color-text-muted);text-decoration:none;" class="forgot-link">忘记密码？</router-link>
@@ -167,13 +172,17 @@
               required
             />
             <button type="button" class="show-pass" @click="showPass = !showPass">
-              {{ showPass ? '🙈' : '👁️' }}
+              <EyeOff v-if="showPass" class="pass-icon" />
+              <Eye v-else class="pass-icon" />
             </button>
           </div>
         </div>
         <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading">
           <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
-          <span v-else>✨ 创建账号</span>
+          <span v-else class="btn-content">
+            <UserPlus class="btn-icon" />
+            创建账号
+          </span>
         </button>
       </form>
     </div>
@@ -183,6 +192,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { CircleAlert, Eye, EyeOff, Flower2, Leaf, LogIn, Sparkles, Star, UserPlus } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
 import { toast } from '@/utils/toast'
@@ -233,13 +243,13 @@ function clearError() {
 
 async function sendRegisterCode() {
   if (!registerForm.email) {
-    fieldErrors.email = '请先输入邮筱'
+    fieldErrors.email = '请先输入邮箱'
     return
   }
   codeSending.value = true
   try {
     await authApi.sendRegisterCode(registerForm.email)
-    toast.success('验证码已发送，请查收邮件 📧')
+    toast.success('验证码已发送，请查收邮件')
     codeCountdown.value = 60
     codeTimer = setInterval(() => {
       codeCountdown.value--
@@ -265,7 +275,7 @@ async function handleLogin() {
   try {
     const res = await userStore.login(loginForm)
     if (res.success) {
-      toast.success('登录成功！欢迎回来 🌸')
+      toast.success('登录成功，欢迎回来')
       const redirect = route.query.redirect || '/notes'
       router.push(redirect)
     }
@@ -284,14 +294,14 @@ async function handleRegister() {
     return
   }
   if (!registerForm.code) {
-    fieldErrors.code = '请输入邮筱验证码'
+    fieldErrors.code = '请输入邮箱验证码'
     return
   }
   loading.value = true
   try {
     const res = await userStore.register(registerForm)
     if (res.success) {
-      toast.success('注册成功！欢迎加入 Mini Note ✨')
+      toast.success('注册成功，欢迎加入 Mini Note')
       router.push('/notes')
     }
   } catch (err) {
@@ -311,9 +321,8 @@ async function handleRegister() {
 
 onMounted(() => {
   generateLoginCaptcha()
-  const route = useRoute()
   if (route.query.reason === 'replaced') {
-    toast.error('你的账号已在其他设备登录，当前会话已失效 📱')
+    toast.error('你的账号已在其他设备登录，当前会话已失效')
   }
 })
 onUnmounted(() => clearInterval(codeTimer))
@@ -334,7 +343,9 @@ onUnmounted(() => clearInterval(codeTimer))
 /* 背景装饰 */
 .deco {
   position: absolute;
-  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  stroke-width: 1.8;
   opacity: 0.15;
   animation: float 4s ease-in-out infinite;
   pointer-events: none;
@@ -342,9 +353,9 @@ onUnmounted(() => clearInterval(codeTimer))
 }
 
 .deco-1 { top: 10%; left: 8%; animation-delay: 0s; }
-.deco-2 { top: 15%; right: 10%; animation-delay: 1s; font-size: 36px; }
+.deco-2 { top: 15%; right: 10%; animation-delay: 1s; width: 36px; height: 36px; }
 .deco-3 { bottom: 15%; left: 12%; animation-delay: 2s; }
-.deco-4 { bottom: 20%; right: 8%; animation-delay: 0.5s; font-size: 40px; }
+.deco-4 { bottom: 20%; right: 8%; animation-delay: 0.5s; width: 40px; height: 40px; }
 
 @keyframes float {
   0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -367,8 +378,11 @@ onUnmounted(() => clearInterval(codeTimer))
 }
 
 .logo-big {
-  font-size: 52px;
   display: block;
+  width: 52px;
+  height: 52px;
+  color: var(--theme-primary);
+  margin: 0 auto;
   animation: pulse 2s ease-in-out infinite;
 }
 
@@ -426,6 +440,15 @@ onUnmounted(() => clearInterval(codeTimer))
   padding: 10px 14px;
   font-size: 13px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.msg-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .input-error {
@@ -472,19 +495,41 @@ onUnmounted(() => clearInterval(codeTimer))
 
 .show-pass {
   position: absolute;
-  right: 12px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
-  padding: 2px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
   opacity: 0.7;
 }
 
 .show-pass:hover {
   opacity: 1;
+}
+
+.pass-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .btn[disabled] {
