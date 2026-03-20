@@ -11,15 +11,31 @@ CREATE INDEX IF NOT EXISTS idx_notes_user_archived_pinned_updated
 CREATE INDEX IF NOT EXISTS idx_notes_user_archived_pinned
   ON notes (user_id, is_archived, is_pinned);
 
--- 搜索（ILIKE）优化：优先尝试启用 pg_trgm，若权限不足则跳过 trigram 索引
+-- 搜索（ILIKE）优化：优先尝试启用 pg_trgm；若云环境不支持或权限不足则仅跳过 trigram 索引
 DO $$
+DECLARE
+  trgm_available BOOLEAN := FALSE;
 BEGIN
-  BEGIN
-    CREATE EXTENSION IF NOT EXISTS pg_trgm;
-  EXCEPTION
-    WHEN insufficient_privilege THEN
-      RAISE NOTICE 'skip CREATE EXTENSION pg_trgm due to insufficient privilege';
-  END;
+  SELECT EXISTS (
+    SELECT 1
+    FROM pg_available_extensions
+    WHERE name = 'pg_trgm'
+  ) INTO trgm_available;
+
+  IF trgm_available THEN
+    BEGIN
+      CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        RAISE NOTICE 'skip CREATE EXTENSION pg_trgm due to insufficient privilege';
+      WHEN feature_not_supported OR undefined_file THEN
+        RAISE NOTICE 'skip CREATE EXTENSION pg_trgm because extension is not available on this server';
+      WHEN OTHERS THEN
+        RAISE NOTICE 'skip CREATE EXTENSION pg_trgm due to: %', SQLERRM;
+    END;
+  ELSE
+    RAISE NOTICE 'skip CREATE EXTENSION pg_trgm because extension is not in pg_available_extensions';
+  END IF;
 
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
     EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notes_title_trgm ON notes USING GIN (title gin_trgm_ops)';
