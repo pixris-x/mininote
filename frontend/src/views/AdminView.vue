@@ -39,6 +39,19 @@
 
       <!-- 主内容 -->
       <main class="admin-main">
+        <nav class="mobile-tabs" aria-label="管理员菜单">
+          <button
+            v-for="tab in tabs"
+            :key="`mobile-${tab.id}`"
+            class="mobile-tab-item"
+            :class="{ active: activeTab === tab.id }"
+            @click="activeTab = tab.id"
+          >
+            <component :is="tab.icon" class="side-item-icon" />
+            <span>{{ tab.label }}</span>
+          </button>
+        </nav>
+
         <!-- 概览 Tab -->
         <template v-if="activeTab === 'overview'">
           <div class="section-title">

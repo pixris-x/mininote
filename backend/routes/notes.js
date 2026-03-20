@@ -2,45 +2,56 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../config/db')
 const authMiddleware = require('../middleware/auth')
+const {
+  parseNotesListOptions,
+  buildNotesWhereClause,
+  buildNotesListMeta
+} = require('../utils/notes-list-query')
 
 // 获取所有记事（支持搜索、标签过滤）
 router.get('/', authMiddleware, async (req, res) => {
-  const { search, tag, pinned, archived } = req.query
-
   try {
-    let query = `
-      SELECT * FROM notes
-      WHERE user_id = $1
-    `
+    const { hasPagination, pageNum, limitNum, offset } = parseNotesListOptions(req.query)
+    const { whereClause, params: whereParams, paramIdx } = buildNotesWhereClause(req.query)
     const params = [req.user.id]
-    let paramIdx = 2
+    params.push(...whereParams)
 
-    if (archived === 'true') {
-      query += ` AND is_archived = TRUE`
-    } else {
-      query += ` AND is_archived = FALSE`
+    const orderByClause = ` ORDER BY is_pinned DESC, updated_at DESC`
+
+    if (!hasPagination) {
+      const query = `
+        SELECT * FROM notes
+        ${whereClause}
+        ${orderByClause}
+      `
+      const result = await pool.query(query, params)
+      return res.json({ success: true, data: result.rows })
     }
 
-    if (pinned === 'true') {
-      query += ` AND is_pinned = TRUE`
-    }
+    const listQuery = `
+      SELECT * FROM notes
+      ${whereClause}
+      ${orderByClause}
+      LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+    `
+    const countQuery = `
+      SELECT COUNT(*) AS count
+      FROM notes
+      ${whereClause}
+    `
 
-    if (search) {
-      query += ` AND (title ILIKE $${paramIdx} OR content ILIKE $${paramIdx})`
-      params.push(`%${search}%`)
-      paramIdx++
-    }
+    const [listResult, countResult] = await Promise.all([
+      pool.query(listQuery, [...params, limitNum, offset]),
+      pool.query(countQuery, params)
+    ])
 
-    if (tag) {
-      query += ` AND $${paramIdx} = ANY(tags)`
-      params.push(tag)
-      paramIdx++
-    }
+    const meta = buildNotesListMeta(countResult.rows[0]?.count, pageNum, limitNum)
 
-    query += ` ORDER BY is_pinned DESC, updated_at DESC`
-
-    const result = await pool.query(query, params)
-    res.json({ success: true, data: result.rows })
+    res.json({
+      success: true,
+      data: listResult.rows,
+      ...meta
+    })
   } catch (err) {
     console.error('获取记事错误:', err)
     res.status(500).json({ success: false, message: '服务器内部错误' })

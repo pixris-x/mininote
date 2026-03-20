@@ -31,7 +31,8 @@
                     <div v-for="invite in pendingInvites" :key="invite.id" class="invite-card">
                         <div class="invite-card-info">
                             <span class="invite-plan-icon">
-                                <component :is="getPlanIconComponentOrDefault(invite.plan_icon)" class="invite-plan-icon-svg" />
+                                <component :is="getPlanIconComponentOrDefault(invite.plan_icon)"
+                                    class="invite-plan-icon-svg" />
                             </span>
                             <div>
                                 <div class="invite-plan-title">{{ invite.plan_title }}</div>
@@ -57,7 +58,8 @@
                         :class="{ active: activeFilter === f.value }" @click="activeFilter = f.value">{{ f.label
                         }}</button>
                 </div>
-                <button class="btn btn-ghost btn-sm icon-text-btn share-lookup-entry" @click="openShareLookup" title="查看分享行程">
+                <button class="btn btn-ghost btn-sm icon-text-btn share-lookup-entry" @click="openShareLookup"
+                    title="查看分享行程">
                     <Link2 class="btn-inline-icon" />
                     <span>查看分享行程</span>
                 </button>
@@ -95,8 +97,7 @@
                                     (plan.description || '暂无描述') }}</div>
                             </div>
                             <div class="plan-card-actions">
-                                <button class="btn btn-ghost btn-icon-sm" @click.stop="openPlanModal(plan)"
-                                    title="编辑">
+                                <button class="btn btn-ghost btn-icon-sm" @click.stop="openPlanModal(plan)" title="编辑">
                                     <SquarePen class="btn-square-icon" />
                                 </button>
                                 <button v-if="plan.role !== 'collaborator'" class="btn btn-ghost btn-icon-sm"
@@ -159,13 +160,13 @@
                                 <Plus class="btn-inline-icon" />
                                 <span>添加步骤</span>
                             </button>
-                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm icon-text-btn"
-                                @click="openCollabModal()" title="管理协作者">
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'"
+                                class="btn btn-ghost btn-sm icon-text-btn" @click="openCollabModal()" title="管理协作者">
                                 <Users class="btn-inline-icon" />
                                 <span>协作</span>
                             </button>
-                            <button v-if="planStore.currentPlan?.role !== 'collaborator'" class="btn btn-ghost btn-sm icon-text-btn"
-                                @click="openShareModal()" title="分享计划">
+                            <button v-if="planStore.currentPlan?.role !== 'collaborator'"
+                                class="btn btn-ghost btn-sm icon-text-btn" @click="openShareModal()" title="分享计划">
                                 <Link2 class="btn-inline-icon" />
                                 <span>分享</span>
                             </button>
@@ -218,8 +219,7 @@
                                             <ChevronUp class="btn-square-icon" />
                                         </button>
                                         <button v-if="idx < planStore.currentPlan.steps.length - 1"
-                                            class="btn btn-ghost btn-icon-sm" @click="moveStep(idx, 1)"
-                                            title="下移">
+                                            class="btn btn-ghost btn-icon-sm" @click="moveStep(idx, 1)" title="下移">
                                             <ChevronDown class="btn-square-icon" />
                                         </button>
                                         <button class="btn btn-ghost btn-icon-sm" @click="openStepModal(step)"
@@ -706,8 +706,7 @@
                                     <span class="collab-name">{{ c.nickname || c.username }}</span>
                                     <span class="collab-sub">@{{ c.username }}</span>
                                 </div>
-                                <button class="btn btn-ghost btn-icon-sm" @click="removeCollaborator(c)"
-                                    title="移除">
+                                <button class="btn btn-ghost btn-icon-sm" @click="removeCollaborator(c)" title="移除">
                                     <X class="btn-square-icon" />
                                 </button>
                             </div>

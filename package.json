@@ -1,6 +1,6 @@
 {
   "name": "mini-note",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Mini Note - 可爱扁平化记事应用",
   "engines": {
     "node": ">=18.0.0",
@@ -17,6 +17,7 @@
     "db:init": "pnpm -C backend db:init",
     "db:migrate": "pnpm -C backend db:migrate",
     "db:admin": "pnpm -C backend db:admin",
+    "db:seed:notes": "pnpm -C backend db:seed:notes",
     "task:share-clean": "node -e \"require('./backend/scheduler').cleanExpiredShares()\"",
     "task:orphan-clean": "node -e \"require('./backend/scheduler').cleanOrphanUploads()\"",
     "task:reminders": "node -e \"require('./backend/scheduler').sendDueDateReminders()\"",

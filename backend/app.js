@@ -175,15 +175,22 @@ app.use((req, res) => {
 // 全局错误处理（带日志记录）
 app.use(errorLoggerMiddleware)
 
-app.listen(PORT, () => {
-  console.log(`
+function startServer() {
+  return app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════╗
 ║   🌸 Mini Note API 已启动      ║
 ║   端口: ${PORT}                    ║
 ║   环境: ${process.env.NODE_ENV || 'development'}              ║
 ╚════════════════════════════════╝
   `)
-  startScheduler()
-})
+    startScheduler()
+  })
+}
+
+if (require.main === module) {
+  startServer()
+}
 
 module.exports = app
+module.exports.startServer = startServer

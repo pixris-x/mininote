@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <AppLayout>
     <div class="detail-page">
       <!-- 顶部工具栏 -->
@@ -89,7 +89,7 @@
         <h1 v-else class="note-title-preview">{{ note.title || '无标题' }}</h1>
 
         <!-- 内容 -->
-        <TiptapEditor v-model="note.content" placeholder="写点什么..." :editable="!isReadOnly" @change="markDirty" />
+        <AsyncTiptapEditor v-model="note.content" placeholder="写点什么..." :editable="!isReadOnly" @change="markDirty" />
 
         <!-- 底部信息 -->
         <div class="note-meta">
@@ -160,16 +160,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Archive, ArrowLeft, CalendarDays, Check, Clock3, Eye, NotebookText, Pin, Save, Search, SquarePen, Trash2, Undo2, X } from 'lucide-vue-next'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
-import TiptapEditor from '@/components/TiptapEditor.vue'
 import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'
 import dayjs from 'dayjs'
+
+const AsyncTiptapEditor = defineAsyncComponent(() => import('@/components/TiptapEditor.vue'))
 
 
 const route = useRoute()
@@ -332,3 +333,4 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss" src="@/assets/styles/views/NoteDetailView.scss"></style>
+

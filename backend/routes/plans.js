@@ -462,45 +462,82 @@ router.post('/import-share', async (req, res) => {
     return res.status(401).json({ success: false, message: '访问码错误' })
   }
 
-  const stepsRes = await pool.query(
-    `SELECT title, description, badge, badge_color, due_date, start_date, image_urls, location, sort_order
-     FROM plan_steps
-     WHERE plan_id = $1
-     ORDER BY sort_order ASC, created_at ASC`,
-    [src.id]
-  )
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
 
-  const newPlanRes = await pool.query(
-    `INSERT INTO plans (user_id, title, description, color, icon, status)
-     VALUES ($1, $2, $3, $4, $5, 'active')
-     RETURNING *`,
-    [req.user.id, src.title, src.description || '', src.color, sanitizePlanIcon(src.icon, DEFAULT_PLAN_ICON)]
-  )
-  const newPlan = newPlanRes.rows[0]
-
-  for (let i = 0; i < stepsRes.rows.length; i++) {
-    const s = stepsRes.rows[i]
-    await pool.query(
-      `INSERT INTO plan_steps
-         (plan_id, user_id, title, description, status, badge, badge_color,
-          due_date, start_date, sort_order, image_urls, location)
-       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10::jsonb, $11)`,
-      [
-        newPlan.id, req.user.id,
-        s.title, s.description || '',
-        s.badge || '', s.badge_color || '',
-        s.due_date || null, s.start_date || null,
-        s.sort_order || (i + 1),
-        JSON.stringify(Array.isArray(s.image_urls) ? s.image_urls : []),
-        s.location || ''
-      ]
+    const stepsRes = await client.query(
+      `SELECT title, description, badge, badge_color, due_date, start_date, image_urls, location, sort_order
+       FROM plan_steps
+       WHERE plan_id = $1
+       ORDER BY sort_order ASC, created_at ASC`,
+      [src.id]
     )
-  }
 
-  res.json({
-    success: true,
-    data: { ...newPlan, total_steps: stepsRes.rows.length, done_steps: 0, steps: [] }
-  })
+    const newPlanRes = await client.query(
+      `INSERT INTO plans (user_id, title, description, color, icon, status)
+       VALUES ($1, $2, $3, $4, $5, 'active')
+       RETURNING *`,
+      [req.user.id, src.title, src.description || '', src.color, sanitizePlanIcon(src.icon, DEFAULT_PLAN_ICON)]
+    )
+    const newPlan = newPlanRes.rows[0]
+
+    if (stepsRes.rows.length > 0) {
+      const stepPayload = stepsRes.rows.map((s, i) => ({
+        title: s.title,
+        description: s.description || '',
+        badge: s.badge || '',
+        badge_color: s.badge_color || '',
+        due_date: s.due_date || null,
+        start_date: s.start_date || null,
+        sort_order: s.sort_order || (i + 1),
+        image_urls: Array.isArray(s.image_urls) ? s.image_urls : [],
+        location: s.location || ''
+      }))
+
+      await client.query(
+        `INSERT INTO plan_steps
+           (plan_id, user_id, title, description, status, badge, badge_color,
+            due_date, start_date, sort_order, image_urls, location)
+         SELECT
+           $1, $2,
+           s.title,
+           s.description,
+           'pending',
+           s.badge,
+           s.badge_color,
+           s.due_date,
+           s.start_date,
+           s.sort_order,
+           s.image_urls,
+           s.location
+         FROM jsonb_to_recordset($3::jsonb) AS s(
+           title text,
+           description text,
+           badge text,
+           badge_color text,
+           due_date date,
+           start_date date,
+           sort_order integer,
+           image_urls jsonb,
+           location text
+         )`,
+        [newPlan.id, req.user.id, JSON.stringify(stepPayload)]
+      )
+    }
+
+    await client.query('COMMIT')
+    res.json({
+      success: true,
+      data: { ...newPlan, total_steps: stepsRes.rows.length, done_steps: 0, steps: [] }
+    })
+  } catch (err) {
+    await client.query('ROLLBACK')
+    console.error('导入分享计划失败:', err)
+    res.status(500).json({ success: false, message: '导入失败，请稍后重试' })
+  } finally {
+    client.release()
+  }
 })
 
 module.exports = router

@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
+    "test": "node --test test/**/*.test.js",
     "db:init": "node scripts/init-db.js",
     "db:migrate": "node scripts/migrate.js",
-    "db:admin": "node scripts/create-admin.js"
+    "db:admin": "node scripts/create-admin.js",
+    "db:seed:notes": "node scripts/seed-notes.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

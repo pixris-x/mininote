@@ -65,6 +65,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
 }
 
 .icon-text-btn {
@@ -130,6 +131,10 @@
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+}
+
+.mobile-tabs {
+  display: none;
 }
 
 .section-title {
@@ -745,11 +750,78 @@
 }
 
 @media (max-width: 600px) {
+  .admin-header {
+    padding: 0 12px;
+  }
+
+  .header-left {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .logo-text {
+    font-size: 16px;
+  }
+
+  .admin-badge,
+  .admin-user {
+    display: none;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .header-right .btn {
+    padding: 6px 10px;
+  }
+
+  .header-right .icon-text-btn span {
+    display: none;
+  }
+
   .admin-sidebar {
     display: none;
   }
 
   .admin-main {
     padding: 16px;
+  }
+
+  .mobile-tabs {
+    position: sticky;
+    top: -16px;
+    z-index: 20;
+    display: flex;
+    gap: 8px;
+    margin: -16px -16px 16px;
+    padding: 10px 16px;
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-tab-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: 7px 12px;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .mobile-tab-item.active {
+    background: var(--theme-primary-light);
+    color: var(--theme-primary-dark);
+    border-color: var(--theme-primary);
   }
 }

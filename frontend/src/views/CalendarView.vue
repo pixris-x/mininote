@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <AppLayout>
     <div class="calendar-page">
       <div class="page-header">
@@ -340,8 +340,7 @@ import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'
 import { getPlanIconComponentOrDefault } from '@/utils/plan-icons'
 import dayjs from 'dayjs'
-import { getHoliday, getUpcomingHolidays } from '@/utils/holidays'
-import { Solar } from 'lunar-javascript'
+import { getHoliday, getLunarDayLabel, getUpcomingHolidays, preloadHolidayEngine } from '@/utils/holidays'
 
 const router = useRouter()
 const notesStore = useNotesStore()
@@ -358,6 +357,7 @@ const linkSearch = ref('')
 const showQuickNoteModal = ref(false)
 const quickNoteSaving = ref(false)
 const quickNoteForm = ref({ title: '', content: '', color: '#FFFFFF' })
+const holidayEngineReady = ref(false)
 
 // 计划步骤日历集成
 const planStepsData = ref([])
@@ -387,17 +387,8 @@ const firstDayOffset = computed(() => {
 
 // 获取农历日期文字（初一显示月份名，其余显示日期）
 function getLunarDay(day) {
-  try {
-    const lunar = Solar.fromYmd(currentYear.value, currentMonth.value, day).getLunar()
-    const lunarDay = lunar.getDay()
-    if (lunarDay === 1) {
-      // 初一显示农历月份
-      return lunar.getMonthInChinese() + '月'
-    }
-    return lunar.getDayInChinese()
-  } catch {
-    return ''
-  }
+  if (!holidayEngineReady.value) return ''
+  return getLunarDayLabel(currentYear.value, currentMonth.value, day)
 }
 
 // 判断是否是周末
@@ -408,11 +399,13 @@ function isWeekend(day) {
 
 // 获取某天的节日
 function getDayHoliday(day) {
+  if (!holidayEngineReady.value) return null
   return getHoliday(currentYear.value, currentMonth.value, day)
 }
 
 // 即将到来的节日（始终基于今天往后计算，与当前月份无关）
 const upcomingHolidays = computed(() => {
+  if (!holidayEngineReady.value) return []
   return getUpcomingHolidays(90)
 })
 
@@ -583,6 +576,13 @@ watch([currentYear, currentMonth], loadMonthData)
 
 onMounted(async () => {
   await Promise.all([
+    preloadHolidayEngine()
+      .then(() => {
+        holidayEngineReady.value = true
+      })
+      .catch((err) => {
+        console.error(err)
+      }),
     loadMonthData(),
     notesStore.fetchNotes(),
     selectDay(today.date())
@@ -591,3 +591,4 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss" src="@/assets/styles/views/CalendarView.scss"></style>
+

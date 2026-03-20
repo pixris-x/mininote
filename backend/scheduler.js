@@ -168,7 +168,8 @@ async function sendDueDateReminders() {
       JOIN plans      p ON p.id      = ps.plan_id
       JOIN users      u ON u.id      = ps.user_id
       WHERE ps.status NOT IN ('completed', 'skipped')
-        AND ps.due_date::date = (CURRENT_DATE + INTERVAL '1 day')::date
+        AND ps.due_date >= (CURRENT_DATE + 1)
+        AND ps.due_date <  (CURRENT_DATE + 2)
         AND u.email IS NOT NULL
       ORDER BY u.id, ps.due_date
     `)
@@ -303,7 +304,8 @@ async function sendPushReminders() {
       JOIN plans             p   ON p.id    = ps.plan_id
       JOIN push_subscriptions sub ON sub.user_id = ps.user_id
       WHERE ps.status NOT IN ('completed', 'skipped')
-        AND ps.due_date::date = (CURRENT_DATE + INTERVAL '1 day')::date
+        AND ps.due_date >= (CURRENT_DATE + 1)
+        AND ps.due_date <  (CURRENT_DATE + 2)
       ORDER BY ps.user_id, sub.endpoint
     `)
 

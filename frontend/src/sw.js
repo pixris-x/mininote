@@ -7,12 +7,14 @@ import { ExpirationPlugin } from 'workbox-expiration'
 precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
 
-// API 请求：网络优先
+// API 缓存白名单：仅缓存公开、无用户隐私的数据
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
+  ({ request, url }) =>
+    request.method === 'GET' &&
+    url.pathname === '/api/push/vapid-public-key',
   new NetworkFirst({
-    cacheName: 'api-cache',
-    plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 86400 })]
+    cacheName: 'api-public-cache',
+    plugins: [new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 86400 })]
   })
 )
 
@@ -24,6 +26,19 @@ registerRoute(
     plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 604800 })]
   })
 )
+
+// 清理历史运行时缓存（旧版本曾使用 api-cache 缓存全部 API）
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const cacheNames = await caches.keys()
+    await Promise.all(
+      cacheNames
+        .filter((name) => name === 'api-cache')
+        .map((name) => caches.delete(name))
+    )
+    await self.clients.claim()
+  })())
+})
 
 // ── Push 通知处理 ──────────────────────────────────────────────────────────
 
