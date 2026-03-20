@@ -1618,6 +1618,4 @@ async function handleImgUpload(e) {
 }
 </script>
 
-<style scoped>
-@import '../assets/styles/PlanView.scss';
-</style>
+<style scoped lang="scss" src="@/assets/styles/views/PlanView.scss"></style>

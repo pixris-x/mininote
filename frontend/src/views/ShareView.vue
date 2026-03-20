@@ -388,4 +388,4 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped lang="scss" src="@/assets/styles/ShareView.scss"></style>
+<style scoped lang="scss" src="@/assets/styles/views/ShareView.scss"></style>

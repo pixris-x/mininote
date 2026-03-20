@@ -1,0 +1,54 @@
+.resizable-image-wrapper {
+    display: block;
+    line-height: 0;
+    margin: 8px 0;
+}
+
+.resizable-image-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    cursor: default;
+}
+
+.resizable-image-container img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+/* 选中时高亮边框 */
+.selected .resizable-image-container {
+    outline: 2px solid #6c6ef0;
+    outline-offset: 1px;
+    border-radius: 9px;
+}
+
+/* 拖拽手柄 */
+.resize-handle {
+    position: absolute;
+    background: #6c6ef0;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    z-index: 10;
+}
+
+/* 右下角 */
+.resize-handle.se {
+    width: 12px;
+    height: 12px;
+    bottom: -6px;
+    right: -6px;
+    cursor: se-resize;
+}
+
+/* 右侧中间 */
+.resize-handle.e {
+    width: 10px;
+    height: 10px;
+    top: 50%;
+    right: -5px;
+    transform: translateY(-50%);
+    cursor: e-resize;
+}

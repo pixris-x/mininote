@@ -35,8 +35,4 @@ function toastIcon(type) {
 }
 </script>
 
-<style>
-#app-root {
-  min-height: 100vh;
-}
-</style>
+<style lang="scss" src="@/assets/styles/App.scss"></style>
