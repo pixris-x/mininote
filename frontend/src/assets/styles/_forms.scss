@@ -38,6 +38,36 @@
   }
 }
 
+/* 通用下拉框美化（覆盖原生箭头） */
+select.form-input,
+select.input,
+select.select-input,
+select:not([multiple]):not([size]) {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3.1 5.2 7 9.1l3.9-3.9' fill='none' stroke='%239E8E8E' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+select.form-input:hover,
+select.input:hover,
+select.select-input:hover,
+select:not([multiple]):not([size]):hover {
+  border-color: var(--theme-primary);
+}
+
+select.form-input:disabled,
+select.input:disabled,
+select.select-input:disabled,
+select:not([multiple]):not([size]):disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 // 错误提示框
 .error-msg {
   background: #FFE0E0;

@@ -451,6 +451,33 @@
                             placeholder="详细说明、思路、资料链接等..." rows="3" />
                     </div>
 
+                    <div class="form-group">
+                        <label>步骤模板</label>
+                        <div class="template-row">
+                            <AppSelect
+                                v-model="selectedTemplateId"
+                                class="form-select"
+                                :options="stepTemplateOptions"
+                                placeholder="选择模板快速填充"
+                            />
+                            <button type="button" class="btn btn-ghost btn-sm" :disabled="!selectedTemplateId"
+                                @click="applySelectedTemplate">
+                                套用
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-sm template-delete-btn"
+                                :disabled="!selectedTemplateId || templateLoading" @click="deleteSelectedTemplate">
+                                删除
+                            </button>
+                        </div>
+                        <div class="template-row mt-8">
+                            <input v-model="templateName" class="form-input" placeholder="模板名称（默认使用步骤标题）"
+                                maxlength="100" />
+                            <button type="button" class="btn btn-outline btn-sm" :disabled="templateSaving" @click="saveAsTemplate">
+                                {{ templateSaving ? '保存中...' : '保存为模板' }}
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label>特殊标识</label>
@@ -478,6 +505,26 @@
                             <label>截止日期</label>
                             <AppDatePicker v-model="stepForm.due_date" placeholder="选择截止日期" />
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>自动生成</label>
+                        <div class="recurrence-row">
+                            <AppSelect
+                                v-model="stepRecurrence.unit"
+                                class="form-select"
+                                :options="recurrenceUnitOptions"
+                                :disabled="Boolean(editingStep?.id)"
+                            />
+                            <input v-model.number="stepRecurrence.count" class="form-input recurrence-count-input"
+                                type="number" min="1" max="60" :disabled="stepRecurrence.unit === 'none' || Boolean(editingStep?.id)" />
+                        </div>
+                        <p class="form-help" v-if="!editingStep?.id">
+                            {{ stepRecurrence.unit === 'none'
+                                ? '默认仅创建1条步骤'
+                                : `将自动生成 ${normalizedRecurrenceCount} 条步骤（含当前步骤）` }}
+                        </p>
+                        <p class="form-help" v-else>编辑模式不支持批量生成，请新建步骤时使用</p>
                     </div>
 
                     <div class="form-group">
@@ -533,7 +580,7 @@
                 <div class="modal-footer">
                     <button class="btn btn-ghost" @click="showStepModal = false">取消</button>
                     <button class="btn btn-primary" :disabled="!stepForm.title.trim() || uploading" @click="saveStep">
-                        {{ editingStep?.id ? '保存' : '添加' }}
+                        {{ editingStep?.id ? '保存' : (isBatchGenerating ? '添加并生成' : '添加') }}
                     </button>
                 </div>
             </div>
@@ -762,8 +809,9 @@ import {
 } from 'lucide-vue-next'
 import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
+import AppSelect from '@/components/AppSelect.vue'
 import { usePlanStore } from '@/stores/plans'
-import { uploadApi, planApi } from '@/api'
+import { uploadApi, planApi, planStepApi } from '@/api'
 import { toast } from '@/utils/toast'
 import { showConfirm } from '@/utils/alert'
 import {
@@ -796,6 +844,12 @@ const stepStatuses = [
     { value: 'in_progress', label: '进行中', icon: Clock3 },
     { value: 'completed', label: '已完成', icon: CheckCircle2 },
     { value: 'skipped', label: '已跳过', icon: SkipForward }
+]
+const recurrenceUnitOptions = [
+    { value: 'none', label: '不重复' },
+    { value: 'day', label: '按天' },
+    { value: 'week', label: '按周' },
+    { value: 'month', label: '按月' }
 ]
 const stepStatusIcon = { pending: Circle, in_progress: Clock3, completed: CheckCircle2, skipped: SkipForward }
 const statusLabel = { active: '进行中', paused: '已暂停', completed: '已完成' }
@@ -980,6 +1034,25 @@ async function toggleDesc(step) {
 }
 const uploadingItems = ref([]) // [{ id, localUrl }]
 const uploading = computed(() => uploadingItems.value.length > 0)
+const stepTemplates = ref([])
+const stepTemplateOptions = computed(() =>
+    stepTemplates.value.map(tpl => ({ value: String(tpl.id), label: tpl.name }))
+)
+const selectedTemplateId = ref('')
+const templateName = ref('')
+const templateLoading = ref(false)
+const templateSaving = ref(false)
+const stepRecurrence = ref({ unit: 'none', count: 1 })
+const normalizedRecurrenceCount = computed(() => {
+    const raw = Number.parseInt(stepRecurrence.value.count, 10)
+    if (!Number.isFinite(raw)) return 1
+    return Math.min(60, Math.max(1, raw))
+})
+const isBatchGenerating = computed(() =>
+    !editingStep.value?.id &&
+    stepRecurrence.value.unit !== 'none' &&
+    normalizedRecurrenceCount.value > 1
+)
 
 const planForm = ref({ title: '', description: '', color: '#FFFFFF', icon: DEFAULT_PLAN_ICON, status: 'active' })
 const stepForm = ref({ title: '', description: '', status: 'pending', badge: '', badge_color: '', image_urls: [], start_date: '', due_date: '', location: '' })
@@ -991,9 +1064,110 @@ const filteredPlans = computed(() =>
         : planStore.plans
 )
 
+function fillStepFormFromTemplate(template) {
+    if (!template) return
+    const imgs = Array.isArray(template.image_urls) ? [...template.image_urls] : []
+    stepForm.value = {
+        ...stepForm.value,
+        title: template.title || '',
+        description: template.description || '',
+        status: template.status || 'pending',
+        badge: template.badge || '',
+        badge_color: template.badge_color || '',
+        image_urls: imgs,
+        start_date: template.start_date ? formatDate(template.start_date) : '',
+        due_date: template.due_date ? formatDate(template.due_date) : '',
+        location: template.location || ''
+    }
+}
+
+async function loadStepTemplates() {
+    templateLoading.value = true
+    try {
+        const res = await planStepApi.getTemplates()
+        if (res.success) stepTemplates.value = Array.isArray(res.data) ? res.data : []
+    } catch (e) {
+        toast.error(e.message || '加载模板失败')
+    } finally {
+        templateLoading.value = false
+    }
+}
+
+function applySelectedTemplate() {
+    const tplId = Number.parseInt(selectedTemplateId.value, 10)
+    if (!Number.isFinite(tplId)) return
+    const template = stepTemplates.value.find(t => t.id === tplId)
+    if (!template) return
+    fillStepFormFromTemplate(template)
+    templateName.value = template.name || template.title || ''
+    toast.success('模板已套用')
+}
+
+async function saveAsTemplate() {
+    if (!stepForm.value.title.trim()) {
+        toast.error('请先填写步骤标题后再保存模板')
+        return
+    }
+    if (templateSaving.value) return
+
+    const payload = {
+        name: (templateName.value || stepForm.value.title).trim(),
+        title: stepForm.value.title.trim(),
+        description: stepForm.value.description || '',
+        status: stepForm.value.status || 'pending',
+        badge: stepForm.value.badge || '',
+        badge_color: stepForm.value.badge_color || '',
+        image_urls: Array.isArray(stepForm.value.image_urls) ? stepForm.value.image_urls : [],
+        location: stepForm.value.location || '',
+        start_date: stepForm.value.start_date || null,
+        due_date: stepForm.value.due_date || null
+    }
+    if (!payload.name) {
+        toast.error('模板名称不能为空')
+        return
+    }
+
+    templateSaving.value = true
+    try {
+        const res = await planStepApi.createTemplate(payload)
+        if (res.success) {
+            await loadStepTemplates()
+            selectedTemplateId.value = String(res.data.id)
+            templateName.value = res.data.name || payload.name
+            toast.success('步骤模板已保存')
+        }
+    } catch (e) {
+        toast.error(e.message || '保存模板失败')
+    } finally {
+        templateSaving.value = false
+    }
+}
+
+async function deleteSelectedTemplate() {
+    const tplId = Number.parseInt(selectedTemplateId.value, 10)
+    if (!Number.isFinite(tplId)) return
+
+    const template = stepTemplates.value.find(t => t.id === tplId)
+    const ok = await showConfirm(`确定删除模板「${template?.name || '未命名模板'}」吗？`, {
+        title: '删除模板',
+        confirmText: '删除',
+        variant: 'danger'
+    })
+    if (!ok) return
+
+    try {
+        await planStepApi.deleteTemplate(tplId)
+        await loadStepTemplates()
+        selectedTemplateId.value = ''
+        toast.success('模板已删除')
+    } catch (e) {
+        toast.error(e.message || '删除模板失败')
+    }
+}
+
 // ── 生命周期 ────────────────────────────────────────────────────
 onMounted(async () => {
-    await Promise.all([planStore.fetchPlans(), fetchInvites()])
+    await Promise.all([planStore.fetchPlans(), fetchInvites(), loadStepTemplates()])
     const qPlan = route.query.plan
     const qStep = route.query.step
     if (qPlan) {
@@ -1111,6 +1285,8 @@ async function confirmDeletePlan(plan) {
 function openStepModal(step = null) {
     editingStep.value = step
     uploadingItems.value = []
+    selectedTemplateId.value = ''
+    stepRecurrence.value = { unit: 'none', count: 1 }
     const imgs = step ? (Array.isArray(step.image_urls) && step.image_urls.length
         ? [...step.image_urls]
         : (step.image_url ? [step.image_url] : [])) : []
@@ -1127,6 +1303,7 @@ function openStepModal(step = null) {
             location: step.location || ''
         }
         : { title: '', description: '', status: 'pending', badge: '', badge_color: '', image_urls: [], start_date: '', due_date: '', location: '' }
+    templateName.value = step?.title || ''
     showStepModal.value = true
 }
 
@@ -1137,16 +1314,40 @@ async function saveStep() {
             await planStore.updateStep(editingStep.value.id, stepForm.value)
             toast.success('步骤已更新')
         } else {
-            const res = await planStore.createStep({ plan_id: currentPlanId.value, ...stepForm.value })
-            toast.success('步骤已添加')
-            // 滚动到新步骤并高亮闪烁
-            await nextTick()
-            const newId = res?.data?.id
-            if (newId) {
-                const el = document.querySelector(`[data-step-id="${newId}"]`)
-                el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                flashStepId.value = newId
-                setTimeout(() => { flashStepId.value = null }, 1200)
+            if (isBatchGenerating.value) {
+                const res = await planStepApi.generate({
+                    plan_id: currentPlanId.value,
+                    ...stepForm.value,
+                    recurrence: {
+                        unit: stepRecurrence.value.unit,
+                        count: normalizedRecurrenceCount.value,
+                        interval: 1
+                    }
+                })
+                await planStore.fetchPlan(currentPlanId.value)
+                const created = Array.isArray(res?.data?.created) ? res.data.created : []
+                toast.success(`已自动生成 ${created.length || normalizedRecurrenceCount.value} 条步骤`)
+
+                await nextTick()
+                const firstId = created[0]?.id
+                if (firstId) {
+                    const el = document.querySelector(`[data-step-id="${firstId}"]`)
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    flashStepId.value = firstId
+                    setTimeout(() => { flashStepId.value = null }, 1200)
+                }
+            } else {
+                const res = await planStore.createStep({ plan_id: currentPlanId.value, ...stepForm.value })
+                toast.success('步骤已添加')
+                // 滚动到新步骤并高亮闪烁
+                await nextTick()
+                const newId = res?.data?.id
+                if (newId) {
+                    const el = document.querySelector(`[data-step-id="${newId}"]`)
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    flashStepId.value = newId
+                    setTimeout(() => { flashStepId.value = null }, 1200)
+                }
             }
         }
         showStepModal.value = false

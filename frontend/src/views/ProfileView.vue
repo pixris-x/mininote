@@ -68,6 +68,55 @@
                         修改密码
                     </button>
                 </div>
+                <div class="security-body">
+                    <div class="security-row">
+                        <div class="security-main">
+                            <span class="security-label">二步验证（邮箱验证码）</span>
+                            <span class="security-desc">
+                                {{ securityState.two_factor_enabled ? '已开启，登录时需输入邮箱验证码' : '未开启，建议开启提升账号安全' }}
+                            </span>
+                        </div>
+                        <button class="btn btn-outline btn-sm" :disabled="twoFactorSending"
+                            @click="startTwoFactorToggle(securityState.two_factor_enabled ? 'disable' : 'enable')">
+                            {{ twoFactorSending ? '发送中...' : (securityState.two_factor_enabled ? '关闭二步验证' : '开启二步验证') }}
+                        </button>
+                    </div>
+                    <div class="security-row">
+                        <div class="security-main">
+                            <span class="security-label">登录设备管理</span>
+                            <span class="security-desc">查看最近活跃设备，支持移除指定设备或踢出其他设备</span>
+                        </div>
+                        <div class="security-actions">
+                            <button class="btn btn-outline btn-sm" :disabled="sessionsLoading" @click="loadSessions">
+                                刷新设备
+                            </button>
+                            <button class="btn btn-outline btn-sm" :disabled="revokeOthersLoading" @click="revokeOtherDevices">
+                                {{ revokeOthersLoading ? '处理中...' : '踢出其他设备' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="session-list">
+                        <div v-if="sessionsLoading" class="session-empty">设备加载中...</div>
+                        <div v-else-if="sessions.length === 0" class="session-empty">暂无设备会话</div>
+                        <div v-else v-for="session in sessions" :key="session.session_id" class="session-item">
+                            <div class="session-info">
+                                <div class="session-title">
+                                    <span>{{ session.device_name || 'Unknown Device' }}</span>
+                                    <span v-if="session.is_current" class="session-current">当前设备</span>
+                                </div>
+                                <div class="session-meta">
+                                    <span>最近活跃：{{ formatSessionDate(session.last_active_at) }}</span>
+                                    <span>IP：{{ session.ip_address || '-' }}</span>
+                                </div>
+                            </div>
+                            <button v-if="!session.is_current" class="btn btn-ghost btn-sm"
+                                :disabled="Boolean(sessionActionLoading[session.session_id])"
+                                @click="revokeSession(session.session_id)">
+                                {{ sessionActionLoading[session.session_id] ? '移除中...' : '移除' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 消息通知 -->
@@ -202,6 +251,36 @@
                 </div>
             </div>
         </Teleport>
+
+        <!-- 二步验证验证码弹窗 -->
+        <Teleport to="body">
+            <div v-if="showTwoFactorModal" class="modal-overlay" @click.self="closeTwoFactorModal">
+                <div class="modal-card card">
+                    <div class="modal-header">
+                        <h2>
+                            <Shield :size="18" />
+                            <span>{{ twoFactorAction === 'enable' ? '开启二步验证' : '关闭二步验证' }}</span>
+                        </h2>
+                        <button class="btn btn-ghost btn-icon modal-close-btn" aria-label="关闭" @click="closeTwoFactorModal">
+                            <X :size="16" />
+                        </button>
+                    </div>
+                    <form @submit.prevent="verifyTwoFactorToggle" class="edit-form">
+                        <div class="form-group">
+                            <label class="form-label">邮箱验证码</label>
+                            <input v-model="twoFactorCode" type="text" inputmode="numeric" maxlength="6"
+                                class="input" placeholder="请输入6位验证码" autocomplete="one-time-code" required />
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-outline" @click="closeTwoFactorModal">取消</button>
+                            <button type="submit" class="btn btn-primary" :disabled="twoFactorVerifying">
+                                {{ twoFactorVerifying ? '验证中...' : '确认' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
     </AppLayout>
 </template>
 
@@ -213,6 +292,7 @@ import { useUserStore } from '@/stores/user'
 import { useNotesStore } from '@/stores/notes'
 import { userApi, pushApi } from '@/api'
 import { toast } from '@/utils/toast'
+import dayjs from 'dayjs'
 import {
     isPushSupported,
     subscribePush,
@@ -248,6 +328,16 @@ const editSaving = ref(false)
 const passSaving = ref(false)
 const editError = ref('')
 const passError = ref('')
+const securityState = reactive({ two_factor_enabled: false, current_session_id: '' })
+const sessions = ref([])
+const sessionsLoading = ref(false)
+const showTwoFactorModal = ref(false)
+const twoFactorAction = ref('enable')
+const twoFactorCode = ref('')
+const twoFactorSending = ref(false)
+const twoFactorVerifying = ref(false)
+const revokeOthersLoading = ref(false)
+const sessionActionLoading = ref({})
 
 // Push 通知
 const pushSupported = isPushSupported()
@@ -314,6 +404,104 @@ const stats = computed(() => [
 
 const editForm = reactive({ nickname: '', bio: '' })
 const passForm = reactive({ old_password: '', new_password: '' })
+
+function formatSessionDate(date) {
+    if (!date) return '-'
+    return dayjs(date).format('YYYY/MM/DD HH:mm')
+}
+
+async function loadSecurity() {
+    try {
+        const res = await userApi.getSecurity()
+        if (res.success) {
+            securityState.two_factor_enabled = Boolean(res.data.two_factor_enabled)
+            securityState.current_session_id = res.data.current_session_id || ''
+        }
+    } catch (err) {
+        toast.error(err.message || '获取安全信息失败')
+    }
+}
+
+async function loadSessions() {
+    sessionsLoading.value = true
+    try {
+        const res = await userApi.getSessions()
+        if (res.success) sessions.value = res.data || []
+    } catch (err) {
+        toast.error(err.message || '获取设备列表失败')
+    } finally {
+        sessionsLoading.value = false
+    }
+}
+
+async function startTwoFactorToggle(action) {
+    twoFactorSending.value = true
+    try {
+        await userApi.sendTwoFactorCode(action)
+        twoFactorAction.value = action
+        twoFactorCode.value = ''
+        showTwoFactorModal.value = true
+        toast.success('验证码已发送，请查收邮箱')
+    } catch (err) {
+        toast.error(err.message || '发送验证码失败')
+    } finally {
+        twoFactorSending.value = false
+    }
+}
+
+function closeTwoFactorModal() {
+    showTwoFactorModal.value = false
+    twoFactorCode.value = ''
+}
+
+async function verifyTwoFactorToggle() {
+    if (!twoFactorCode.value.trim()) {
+        toast.error('请输入验证码')
+        return
+    }
+    twoFactorVerifying.value = true
+    try {
+        const res = await userApi.verifyTwoFactor(twoFactorAction.value, twoFactorCode.value.trim())
+        if (res.success) {
+            securityState.two_factor_enabled = Boolean(res.data?.two_factor_enabled)
+            await userStore.fetchProfile()
+            toast.success(res.message || '操作成功')
+            closeTwoFactorModal()
+        }
+    } catch (err) {
+        toast.error(err.message || '验证失败')
+    } finally {
+        twoFactorVerifying.value = false
+    }
+}
+
+async function revokeSession(sessionId) {
+    sessionActionLoading.value = { ...sessionActionLoading.value, [sessionId]: true }
+    try {
+        await userApi.revokeSession(sessionId)
+        toast.success('设备已移除')
+        await loadSessions()
+    } catch (err) {
+        toast.error(err.message || '移除失败')
+    } finally {
+        const next = { ...sessionActionLoading.value }
+        delete next[sessionId]
+        sessionActionLoading.value = next
+    }
+}
+
+async function revokeOtherDevices() {
+    revokeOthersLoading.value = true
+    try {
+        const res = await userApi.revokeOtherSessions()
+        toast.success(res.message || '已踢出其他设备')
+        await loadSessions()
+    } catch (err) {
+        toast.error(err.message || '操作失败')
+    } finally {
+        revokeOthersLoading.value = false
+    }
+}
 
 function openEditModal() {
     editForm.nickname = userStore.user?.nickname || ''
@@ -385,6 +573,8 @@ function handleLogout() {
 onMounted(() => {
     userStore.fetchProfile()
     notesStore.fetchNotes()
+    loadSecurity()
+    loadSessions()
     if (pushSupported) {
         checkPushSubscribed().then(v => { pushSubscribed.value = v })
     }
@@ -392,3 +582,4 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss" src="@/assets/styles/views/ProfileView.scss"></style>
+

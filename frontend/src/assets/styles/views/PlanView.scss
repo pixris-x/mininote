@@ -801,6 +801,33 @@
     border-color: var(--theme-primary-dark);
 }
 
+.form-select {
+    width: 100%;
+}
+
+.form-select :deep(.asl-trigger) {
+    min-height: 42px;
+    border-radius: var(--radius-sm);
+    border-width: 1.5px;
+    border-color: var(--color-border);
+    background: var(--color-bg);
+    padding: 10px 12px;
+    font-size: 0.9rem;
+}
+
+.form-select :deep(.asl-trigger--open) {
+    border-color: var(--theme-primary-dark);
+    box-shadow: 0 0 0 3px var(--theme-primary-light);
+}
+
+.form-select :deep(.asl-value) {
+    font-size: 0.9rem;
+}
+
+.form-select :deep(.asl-panel) {
+    border-radius: var(--radius-sm);
+}
+
 .form-textarea {
     resize: vertical;
     min-height: 72px;
@@ -817,6 +844,38 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-bottom: 16px;
+}
+
+.template-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.template-delete-btn {
+    color: #d05f5f;
+}
+
+.template-delete-btn:hover {
+    border-color: #f0b0b0;
+    background: #fff2f2;
+}
+
+.recurrence-row {
+    display: grid;
+    grid-template-columns: 1fr 120px;
+    gap: 8px;
+}
+
+.recurrence-count-input {
+    text-align: center;
+}
+
+.form-help {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--color-text-light);
 }
 
 .mt-8 {
@@ -1227,6 +1286,12 @@
     }
 
     .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row-dates,
+    .template-row,
+    .recurrence-row {
         grid-template-columns: 1fr;
     }
 

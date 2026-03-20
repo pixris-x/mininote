@@ -7,9 +7,10 @@
         <span class="logo-text">Mini Note</span>
       </div>
 
-      <nav class="sidebar-nav">
-        <router-link v-for="item in navItems" :key="item.name" :to="item.path" class="nav-item"
-          :class="{ active: $route.path === item.path }" :title="collapsed ? item.label : ''">
+      <nav class="sidebar-nav" :style="sidebarAnchorStyle" @mouseleave="hoveredSidebarIndex = -1">
+        <router-link v-for="(item, index) in navItems" :key="item.name" :to="item.path" class="nav-item"
+          :class="{ active: isItemActive(item.path) }" :title="collapsed ? item.label : ''" @mouseenter="hoveredSidebarIndex = index"
+          @focus="hoveredSidebarIndex = index">
           <component :is="item.icon" class="nav-icon" :size="20" />
           <span class="nav-label">{{ item.label }}</span>
         </router-link>
@@ -43,9 +44,10 @@
     </main>
 
     <!-- 移动端底部导航 -->
-    <nav class="bottom-nav">
-      <router-link v-for="item in navItems" :key="item.name" :to="item.path" class="bottom-nav-item"
-        :class="{ active: $route.path === item.path }">
+    <nav class="bottom-nav" :style="bottomAnchorStyle" @mouseleave="hoveredBottomIndex = -1">
+      <router-link v-for="(item, index) in navItems" :key="item.name" :to="item.path" class="bottom-nav-item"
+        :class="{ active: isItemActive(item.path) }" @mouseenter="hoveredBottomIndex = index"
+        @focus="hoveredBottomIndex = index">
         <component :is="item.icon" class="nav-icon" :size="22" />
         <span class="nav-label">{{ item.label }}</span>
       </router-link>
@@ -56,7 +58,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from '@/utils/toast'
 import {
   CalendarDays as CalendarDaysIcon,
@@ -66,14 +68,18 @@ import {
   Flower2 as Flower2Icon,
   ListTodo as ListTodoIcon,
   LogOut as LogOutIcon,
+  Search as SearchIcon,
   UserRound as UserRoundIcon,
   Wallet as WalletIcon
 } from 'lucide-vue-next'
 
 const userStore = useUserStore()
 const router = useRouter()
+const route = useRoute()
 
 const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
+const hoveredSidebarIndex = ref(-1)
+const hoveredBottomIndex = ref(-1)
 
 function toggleCollapse() {
   collapsed.value = !collapsed.value
@@ -83,12 +89,38 @@ function toggleCollapse() {
 const navItems = computed(() => {
   const items = [
     { name: 'Notes', path: '/notes', icon: FileTextIcon, label: '记事' },
+    { name: 'Search', path: '/search', icon: SearchIcon, label: '搜索' },
     { name: 'Plans', path: '/plans', icon: ListTodoIcon, label: '计划' },
     { name: 'Calendar', path: '/calendar', icon: CalendarDaysIcon, label: '日历' },
     { name: 'Expense', path: '/expense', icon: WalletIcon, label: '记账' },
     { name: 'Profile', path: '/profile', icon: UserRoundIcon, label: '我的' }
   ]
   return items
+})
+
+function isItemActive(itemPath) {
+  return route.path === itemPath || route.path.startsWith(`${itemPath}/`)
+}
+
+const activeNavIndex = computed(() => navItems.value.findIndex(item => isItemActive(item.path)))
+
+const sidebarAnchorStyle = computed(() => {
+  const index = hoveredSidebarIndex.value >= 0 ? hoveredSidebarIndex.value : activeNavIndex.value
+  return {
+    '--anchor-index': index >= 0 ? index : 0,
+    '--anchor-opacity': index >= 0 ? 1 : 0
+  }
+})
+
+const bottomAnchorStyle = computed(() => {
+  const index = hoveredBottomIndex.value >= 0 ? hoveredBottomIndex.value : activeNavIndex.value
+  const count = Math.max(navItems.value.length, 1)
+  return {
+    '--bottom-count': count,
+    '--bottom-anchor-left': `${(Math.max(index, 0) / count) * 100}%`,
+    '--bottom-anchor-width': `${100 / count}%`,
+    '--bottom-anchor-opacity': index >= 0 ? 1 : 0
+  }
 })
 
 function handleLogout() {
@@ -99,3 +131,4 @@ function handleLogout() {
 </script>
 
 <style scoped lang="scss" src="@/assets/styles/components/AppLayout.scss"></style>
+

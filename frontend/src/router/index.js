@@ -30,6 +30,12 @@ const routes = [
     meta: { requiresAuth: true, title: '记事详情' }
   },
   {
+    path: '/search',
+    name: 'GlobalSearch',
+    component: () => import('@/views/GlobalSearchView.vue'),
+    meta: { requiresAuth: true, title: '全局搜索 - Mini Note' }
+  },
+  {
     path: '/calendar',
     name: 'Calendar',
     component: () => import('@/views/CalendarView.vue'),

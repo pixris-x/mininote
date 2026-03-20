@@ -196,12 +196,12 @@
               系统日志
             </div>
             <div class="log-actions">
-              <select v-model="logFilter.level" class="select-input" @change="fetchLogs(1)">
-                <option value="all">全部级别</option>
-                <option value="error">错误</option>
-                <option value="warn">警告</option>
-                <option value="info">信息</option>
-              </select>
+              <AppSelect
+                v-model="logFilter.level"
+                class="log-level-select"
+                :options="logLevelOptions"
+                @change="fetchLogs(1)"
+              />
               <input
                 v-model="logFilter.search"
                 type="text"
@@ -528,6 +528,7 @@ import {
   CircleX,
   Trash2
 } from 'lucide-vue-next'
+import AppSelect from '@/components/AppSelect.vue'
 import { useUserStore } from '@/stores/user'
 import { adminApi } from '@/api'
 import { toast } from '@/utils/toast'
@@ -542,6 +543,12 @@ const tabs = [
   { id: 'logs', icon: Logs, label: '系统日志' },
   { id: 'users', icon: Users, label: '用户列表' },
   { id: 'push', icon: Bell, label: '通知推送' }
+]
+const logLevelOptions = [
+  { value: 'all', label: '全部级别' },
+  { value: 'error', label: '错误' },
+  { value: 'warn', label: '警告' },
+  { value: 'info', label: '信息' }
 ]
 
 // ===== 概览 =====
@@ -848,3 +855,6 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss" src="@/assets/styles/views/AdminView.scss"></style>
+
+
+

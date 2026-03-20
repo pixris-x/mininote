@@ -19,14 +19,14 @@
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'login' }"
-          @click="activeTab = 'login'; clearError()"
+          @click="activeTab = 'login'; clearError(); resetTwoFactorState()"
         >
           登录
         </button>
         <button
           class="tab-btn"
           :class="{ active: activeTab === 'register' }"
-          @click="activeTab = 'register'; clearError()"
+          @click="activeTab = 'register'; clearError(); resetTwoFactorState()"
         >
           注册
         </button>
@@ -39,66 +39,108 @@
       </div>
 
       <!-- 登录表单 -->
-      <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="form">
-        <div class="form-group">
-          <label class="form-label">用户名 / 邮箱</label>
-          <input
-            v-model="loginForm.username"
-            type="text"
-            class="input"
-            placeholder="请输入用户名或邮箱"
-            autocomplete="username"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label class="form-label">密码</label>
-          <div class="input-wrap">
+      <form v-if="activeTab === 'login'" @submit.prevent="loginStep === 'password' ? handleLogin() : handleVerifyTwoFactor()" class="form">
+        <template v-if="loginStep === 'password'">
+          <div class="form-group">
+            <label class="form-label">用户名 / 邮箱</label>
             <input
-              v-model="loginForm.password"
-              :type="showPass ? 'text' : 'password'"
+              v-model="loginForm.username"
+              type="text"
               class="input"
-              placeholder="请输入密码"
-              autocomplete="current-password"
+              placeholder="请输入用户名或邮箱"
+              autocomplete="username"
               required
             />
-            <button type="button" class="show-pass" @click="showPass = !showPass">
-              <EyeOff v-if="showPass" class="pass-icon" />
-              <Eye v-else class="pass-icon" />
-            </button>
           </div>
-        </div>
-        <!-- 图形验证码 -->
-        <div class="form-group">
-          <label class="form-label">验证码</label>
-          <div class="captcha-row">
-            <div class="captcha-box" @click="generateLoginCaptcha" title="点击刷新">
-              <span class="captcha-num">{{ captcha.a }}</span>
-              <span class="captcha-op">{{ captcha.op }}</span>
-              <span class="captcha-num">{{ captcha.b }}</span>
-              <span class="captcha-eq">=&nbsp;?</span>
+          <div class="form-group">
+            <label class="form-label">密码</label>
+            <div class="input-wrap">
+              <input
+                v-model="loginForm.password"
+                :type="showPass ? 'text' : 'password'"
+                class="input"
+                placeholder="请输入密码"
+                autocomplete="current-password"
+                required
+              />
+              <button type="button" class="show-pass" @click="showPass = !showPass">
+                <EyeOff v-if="showPass" class="pass-icon" />
+                <Eye v-else class="pass-icon" />
+              </button>
             </div>
+          </div>
+          <!-- 图形验证码 -->
+          <div class="form-group">
+            <label class="form-label">验证码</label>
+            <div class="captcha-row">
+              <div class="captcha-box" @click="generateLoginCaptcha" title="点击刷新">
+                <span class="captcha-num">{{ captcha.a }}</span>
+                <span class="captcha-op">{{ captcha.op }}</span>
+                <span class="captcha-num">{{ captcha.b }}</span>
+                <span class="captcha-eq">=&nbsp;?</span>
+              </div>
+              <input
+                v-model="captchaInput"
+                type="text"
+                inputmode="numeric"
+                class="input captcha-input"
+                placeholder="计算结果"
+                autocomplete="off"
+                maxlength="4"
+              />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading">
+            <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
+            <span v-else class="btn-content btn-content-balanced">
+              <LogIn class="btn-icon" />
+              <span class="btn-text">登录</span>
+              <span class="btn-icon-placeholder" aria-hidden="true"></span>
+            </span>
+          </button>
+          <div style="text-align:right;margin-top:4px;">
+            <router-link to="/forgot-password" style="font-size:13px;color:var(--color-text-muted);text-decoration:none;" class="forgot-link">忘记密码？</router-link>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="twofactor-hint">
+            <ShieldCheck class="msg-icon" />
+            <span>请输入发送到 {{ twoFactorState.email_hint || '你的邮箱' }} 的 6 位验证码</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">二步验证码</label>
             <input
-              v-model="captchaInput"
+              v-model="twoFactorState.code"
               type="text"
               inputmode="numeric"
-              class="input captcha-input"
-              placeholder="计算结果"
-              autocomplete="off"
-              maxlength="4"
+              class="input"
+              placeholder="请输入6位验证码"
+              maxlength="6"
+              autocomplete="one-time-code"
+              required
             />
           </div>
-        </div>
-        <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading">
-          <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
-          <span v-else class="btn-content">
-            <LogIn class="btn-icon" />
-            登录
-          </span>
-        </button>
-        <div style="text-align:right;margin-top:4px;">
-          <router-link to="/forgot-password" style="font-size:13px;color:var(--color-text-muted);text-decoration:none;" class="forgot-link">忘记密码？</router-link>
-        </div>
+          <button type="submit" class="btn btn-primary w-full btn-lg" :disabled="loading">
+            <span v-if="loading" class="loading-spinner" style="width:18px;height:18px;border-width:2px"></span>
+            <span v-else class="btn-content btn-content-balanced">
+              <ShieldCheck class="btn-icon" />
+              <span class="btn-text">验证并登录</span>
+              <span class="btn-icon-placeholder" aria-hidden="true"></span>
+            </span>
+          </button>
+          <div class="twofactor-actions">
+            <button type="button" class="btn btn-outline btn-sm" :disabled="resendCountdown > 0 || resendLoading" @click="resendTwoFactorCode">
+              <span v-if="resendLoading" class="loading-spinner" style="width:12px;height:12px;border-width:2px"></span>
+              <span v-else-if="resendCountdown > 0">{{ resendCountdown }}s 后可重发</span>
+              <span v-else>重发验证码</span>
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" @click="backToPasswordStep">
+              <ArrowLeft class="btn-icon" />
+              返回
+            </button>
+          </div>
+        </template>
       </form>
 
       <!-- 注册表单 -->
@@ -192,7 +234,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { CircleAlert, Eye, EyeOff, Flower2, Leaf, LogIn, Sparkles, Star, UserPlus } from 'lucide-vue-next'
+import { ArrowLeft, CircleAlert, Eye, EyeOff, Flower2, Leaf, LogIn, ShieldCheck, Sparkles, Star, UserPlus } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api'
 import { toast } from '@/utils/toast'
@@ -205,6 +247,10 @@ const activeTab = ref('login')
 const loading = ref(false)
 const errorMsg = ref('')
 const showPass = ref(false)
+const loginStep = ref('password')
+const resendLoading = ref(false)
+const resendCountdown = ref(0)
+let resendTimer = null
 
 // 登录验证码
 const captcha = ref({ a: 0, b: 0, op: '+', answer: 0 })
@@ -231,6 +277,7 @@ const codeCountdown = ref(0)
 let codeTimer = null
 
 const loginForm = reactive({ username: '', password: '' })
+const twoFactorState = reactive({ challenge_id: '', code: '', email_hint: '' })
 const registerForm = reactive({ username: '', nickname: '', email: '', password: '', code: '' })
 const fieldErrors = reactive({ username: '', email: '', code: '' })
 
@@ -239,6 +286,38 @@ function clearError() {
   fieldErrors.username = ''
   fieldErrors.email = ''
   fieldErrors.code = ''
+}
+
+function buildDeviceName() {
+  const platform = navigator?.platform || ''
+  const ua = navigator?.userAgent || ''
+  if (/iPhone/i.test(ua)) return 'iPhone'
+  if (/iPad/i.test(ua)) return 'iPad'
+  if (/Android/i.test(ua)) return 'Android'
+  if (/Mac/i.test(platform)) return 'Mac'
+  if (/Win/i.test(platform)) return 'Windows PC'
+  return 'Web Browser'
+}
+
+function resetTwoFactorState() {
+  loginStep.value = 'password'
+  twoFactorState.challenge_id = ''
+  twoFactorState.code = ''
+  twoFactorState.email_hint = ''
+  resendCountdown.value = 0
+  clearInterval(resendTimer)
+}
+
+function startResendCountdown() {
+  resendCountdown.value = 60
+  clearInterval(resendTimer)
+  resendTimer = setInterval(() => {
+    resendCountdown.value -= 1
+    if (resendCountdown.value <= 0) {
+      clearInterval(resendTimer)
+      resendCountdown.value = 0
+    }
+  }, 1000)
 }
 
 async function sendRegisterCode() {
@@ -273,8 +352,20 @@ async function handleLogin() {
   }
   loading.value = true
   try {
-    const res = await userStore.login(loginForm)
+    const res = await userStore.login({
+      ...loginForm,
+      device_name: buildDeviceName()
+    })
     if (res.success) {
+      if (res.data?.requires_two_factor) {
+        loginStep.value = 'twofactor'
+        twoFactorState.challenge_id = res.data.challenge_id
+        twoFactorState.email_hint = res.data.email_hint || ''
+        twoFactorState.code = ''
+        startResendCountdown()
+        toast.info('已发送二步验证码，请查收邮箱')
+        return
+      }
       toast.success('登录成功，欢迎回来')
       const redirect = route.query.redirect || '/notes'
       router.push(redirect)
@@ -285,6 +376,50 @@ async function handleLogin() {
   } finally {
     loading.value = false
   }
+}
+
+async function handleVerifyTwoFactor() {
+  clearError()
+  if (!twoFactorState.code.trim()) {
+    errorMsg.value = '请输入验证码'
+    return
+  }
+  loading.value = true
+  try {
+    const res = await userStore.verifyLogin2FA({
+      challenge_id: twoFactorState.challenge_id,
+      code: twoFactorState.code,
+      device_name: buildDeviceName()
+    })
+    if (res.success) {
+      toast.success('验证成功，欢迎回来')
+      const redirect = route.query.redirect || '/notes'
+      router.push(redirect)
+    }
+  } catch (err) {
+    errorMsg.value = err.message
+  } finally {
+    loading.value = false
+  }
+}
+
+async function resendTwoFactorCode() {
+  if (!twoFactorState.challenge_id || resendCountdown.value > 0) return
+  resendLoading.value = true
+  try {
+    await authApi.resendLogin2FA(twoFactorState.challenge_id)
+    toast.success('验证码已重新发送')
+    startResendCountdown()
+  } catch (err) {
+    errorMsg.value = err.message
+  } finally {
+    resendLoading.value = false
+  }
+}
+
+function backToPasswordStep() {
+  resetTwoFactorState()
+  generateLoginCaptcha()
 }
 
 async function handleRegister() {
@@ -323,9 +458,17 @@ onMounted(() => {
   generateLoginCaptcha()
   if (route.query.reason === 'replaced') {
     toast.error('你的账号已在其他设备登录，当前会话已失效')
+  } else if (route.query.reason === 'revoked') {
+    toast.error('当前设备会话已被移除，请重新登录')
+  } else if (route.query.reason === 'invalid') {
+    toast.error('登录状态已失效，请重新登录')
   }
 })
-onUnmounted(() => clearInterval(codeTimer))
+onUnmounted(() => {
+  clearInterval(codeTimer)
+  clearInterval(resendTimer)
+})
 </script>
 
 <style scoped lang="scss" src="@/assets/styles/views/LoginView.scss"></style>
+

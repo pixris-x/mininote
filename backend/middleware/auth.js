@@ -14,8 +14,33 @@ const authMiddleware = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
-    // 校验 token_version，若旧设备 token 已被新登录顶替则拒绝
-    if (decoded.tv !== undefined) {
+    // 新版：基于 session_id 校验设备会话有效性
+    if (decoded.sid) {
+      const sessionResult = await pool.query(
+        `SELECT revoked_at
+         FROM user_sessions
+         WHERE session_id = $1 AND user_id = $2
+         LIMIT 1`,
+        [decoded.sid, decoded.id]
+      )
+
+      if (sessionResult.rows.length === 0) {
+        return res.status(401).json({ success: false, message: '登录会话不存在，请重新登录', code: 'SESSION_INVALID' })
+      }
+      if (sessionResult.rows[0].revoked_at) {
+        return res.status(401).json({ success: false, message: '该设备登录已失效，请重新登录', code: 'SESSION_REVOKED' })
+      }
+
+      // 仅在超过 5 分钟未更新时刷新活跃时间，降低写入压力
+      await pool.query(
+        `UPDATE user_sessions
+         SET last_active_at = NOW()
+         WHERE session_id = $1
+           AND last_active_at < NOW() - INTERVAL '5 minutes'`,
+        [decoded.sid]
+      )
+    } else if (decoded.tv !== undefined) {
+      // 兼容旧版 token_version 令牌
       const result = await pool.query(
         'SELECT token_version FROM users WHERE id = $1',
         [decoded.id]
@@ -39,3 +64,4 @@ const authMiddleware = async (req, res, next) => {
 }
 
 module.exports = authMiddleware
+
