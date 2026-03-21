@@ -61,6 +61,8 @@
     /* 动画 */
     --transition: 0.2s ease;
     --transition-slow: 0.3s ease;
+    --mobile-nav-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --mobile-nav-height: calc(74px + var(--mobile-nav-safe-bottom));
 }
 
 /* 主题：薄荷绿 */
@@ -432,7 +434,7 @@ body {
 
 /* 移动端底部导航高度补偿 */
 .page-with-nav {
-    padding-bottom: 72px;
+    padding-bottom: var(--mobile-nav-height, 72px);
 }
 
 @media (min-width: 768px) {

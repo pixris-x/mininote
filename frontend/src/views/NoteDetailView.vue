@@ -1,6 +1,5 @@
 ﻿<template>
-  <AppLayout>
-    <div class="detail-page">
+  <div class="detail-page">
       <!-- 顶部工具栏 -->
       <div class="detail-toolbar">
         <button class="btn btn-ghost" @click="$router.back()">
@@ -156,14 +155,12 @@
         </div>
       </Teleport>
     </div>
-  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Archive, ArrowLeft, CalendarDays, Check, Clock3, Eye, NotebookText, Pin, Save, Search, SquarePen, Trash2, Undo2, X } from 'lucide-vue-next'
-import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'

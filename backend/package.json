@@ -10,7 +10,8 @@
     "db:init": "node scripts/init-db.js",
     "db:migrate": "node scripts/migrate.js",
     "db:admin": "node scripts/create-admin.js",
-    "db:seed:notes": "node scripts/seed-notes.js"
+    "db:seed:notes": "node scripts/seed-notes.js",
+    "db:seed:plans": "node scripts/seed-plans.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

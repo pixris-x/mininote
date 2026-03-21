@@ -1,6 +1,5 @@
 <template>
-    <AppLayout>
-        <div class="profile-page">
+    <div class="profile-page">
             <!-- 个人信息卡片 -->
             <div class="profile-hero card">
                 <div class="avatar-big" :style="{ background: userStore.user?.avatar_color }">
@@ -79,6 +78,15 @@
                         <button class="btn btn-outline btn-sm" :disabled="twoFactorSending"
                             @click="startTwoFactorToggle(securityState.two_factor_enabled ? 'disable' : 'enable')">
                             {{ twoFactorSending ? '发送中...' : (securityState.two_factor_enabled ? '关闭二步验证' : '开启二步验证') }}
+                        </button>
+                    </div>
+                    <div class="security-row">
+                        <div class="security-main">
+                            <span class="security-label">邮箱</span>
+                            <span class="security-desc">当前邮箱：{{ userStore.user?.email || '-' }}</span>
+                        </div>
+                        <button class="btn btn-outline btn-sm" @click="openEmailModal">
+                            修改邮箱
                         </button>
                     </div>
                     <div class="security-row">
@@ -252,6 +260,52 @@
             </div>
         </Teleport>
 
+        <!-- 修改邮箱弹窗 -->
+        <Teleport to="body">
+            <div v-if="showEmailModal" class="modal-overlay" @click.self="closeEmailModal">
+                <div class="modal-card card">
+                    <div class="modal-header">
+                        <h2>
+                            <Shield :size="18" />
+                            <span>修改邮箱</span>
+                        </h2>
+                        <button class="btn btn-ghost btn-icon modal-close-btn" aria-label="关闭" @click="closeEmailModal">
+                            <X :size="16" />
+                        </button>
+                    </div>
+                    <form @submit.prevent="verifyEmailChange" class="edit-form">
+                        <div class="form-group">
+                            <label class="form-label">新邮箱</label>
+                            <input v-model="emailForm.new_email" type="email" class="input" placeholder="请输入新邮箱" autocomplete="email" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">当前密码</label>
+                            <input v-model="emailForm.current_password" type="password" class="input" placeholder="用于身份验证" autocomplete="current-password" required />
+                        </div>
+                        <button type="button" class="btn btn-outline" :disabled="emailSendingCode" @click="sendEmailChangeCode">
+                            {{ emailSendingCode ? '发送中...' : '发送验证码' }}
+                        </button>
+                        <div v-if="emailCodeSent" class="form-group">
+                            <label class="form-label">邮箱验证码</label>
+                            <input v-model="emailForm.code" type="text" inputmode="numeric" maxlength="6"
+                                class="input" placeholder="请输入6位验证码" autocomplete="one-time-code" required />
+                            <p class="email-tip">验证码将发送到新邮箱，10 分钟内有效。</p>
+                        </div>
+                        <div v-if="emailError" class="error-msg">
+                            <CircleAlert :size="14" />
+                            <span>{{ emailError }}</span>
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-outline" @click="closeEmailModal">取消</button>
+                            <button type="submit" class="btn btn-primary" :disabled="emailVerifying || !emailCodeSent">
+                                {{ emailVerifying ? '提交中...' : '确认修改' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
         <!-- 二步验证验证码弹窗 -->
         <Teleport to="body">
             <div v-if="showTwoFactorModal" class="modal-overlay" @click.self="closeTwoFactorModal">
@@ -281,13 +335,11 @@
                 </div>
             </div>
         </Teleport>
-    </AppLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import AppLayout from '@/components/AppLayout.vue'
 import { useUserStore } from '@/stores/user'
 import { useNotesStore } from '@/stores/notes'
 import { userApi, pushApi } from '@/api'
@@ -404,6 +456,12 @@ const stats = computed(() => [
 
 const editForm = reactive({ nickname: '', bio: '' })
 const passForm = reactive({ old_password: '', new_password: '' })
+const showEmailModal = ref(false)
+const emailSendingCode = ref(false)
+const emailVerifying = ref(false)
+const emailCodeSent = ref(false)
+const emailError = ref('')
+const emailForm = reactive({ new_email: '', current_password: '', code: '' })
 
 function formatSessionDate(date) {
     if (!date) return '-'
@@ -472,6 +530,74 @@ async function verifyTwoFactorToggle() {
         toast.error(err.message || '验证失败')
     } finally {
         twoFactorVerifying.value = false
+    }
+}
+
+function openEmailModal() {
+    emailForm.new_email = userStore.user?.email || ''
+    emailForm.current_password = ''
+    emailForm.code = ''
+    emailCodeSent.value = false
+    emailError.value = ''
+    showEmailModal.value = true
+}
+
+function closeEmailModal() {
+    showEmailModal.value = false
+    emailError.value = ''
+    emailCodeSent.value = false
+    emailForm.code = ''
+}
+
+async function sendEmailChangeCode() {
+    emailError.value = ''
+    const newEmail = emailForm.new_email.trim()
+
+    if (!newEmail || !emailForm.current_password) {
+        emailError.value = '请先输入新邮箱和当前密码'
+        return
+    }
+
+    emailSendingCode.value = true
+    try {
+        const res = await userApi.sendEmailChangeCode(newEmail, emailForm.current_password)
+        if (res.success) {
+            emailCodeSent.value = true
+            toast.success(res.message || '验证码已发送')
+        }
+    } catch (err) {
+        emailError.value = err.message
+    } finally {
+        emailSendingCode.value = false
+    }
+}
+
+async function verifyEmailChange() {
+    emailError.value = ''
+    if (!emailCodeSent.value) {
+        emailError.value = '请先发送验证码'
+        return
+    }
+
+    const newEmail = emailForm.new_email.trim()
+    const code = emailForm.code.trim()
+    if (!newEmail || !code) {
+        emailError.value = '请填写完整信息'
+        return
+    }
+
+    emailVerifying.value = true
+    try {
+        const res = await userApi.verifyEmailChange(newEmail, code)
+        if (res.success) {
+            await userStore.fetchProfile()
+            toast.success(res.message || '邮箱修改成功')
+            closeEmailModal()
+        }
+    } catch (err) {
+        emailError.value = err.message
+    } finally {
+        emailVerifying.value = false
     }
 }
 

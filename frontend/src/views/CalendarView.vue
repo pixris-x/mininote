@@ -1,6 +1,5 @@
 ﻿<template>
-  <AppLayout>
-    <div class="calendar-page">
+  <div class="calendar-page">
       <div class="page-header">
         <h1 class="page-title">
           <CalendarDays class="page-title-icon" />
@@ -327,14 +326,12 @@
         </div>
       </Teleport>
     </div>
-  </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { CalendarDays, CalendarRange, Check, ChevronLeft, ChevronRight, Link2, NotebookText, SquarePen, Target, X } from 'lucide-vue-next'
-import AppLayout from '@/components/AppLayout.vue'
 import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'

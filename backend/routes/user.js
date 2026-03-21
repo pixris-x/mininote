@@ -3,13 +3,21 @@ const router = express.Router()
 const bcrypt = require('bcryptjs')
 const pool = require('../config/db')
 const authMiddleware = require('../middleware/auth')
-const { sendTwoFactorCodeEmail } = require('../utils/email')
+const { sendTwoFactorCodeEmail, sendEmailChangeCodeEmail } = require('../utils/email')
 const { generate6DigitCode } = require('../utils/auth-security')
 
 function securityPurpose(action) {
   if (action === 'enable') return 'enable_2fa'
   if (action === 'disable') return 'disable_2fa'
   return null
+}
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase()
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
 // 获取当前用户信息
@@ -218,6 +226,173 @@ router.post('/security/2fa/verify', authMiddleware, async (req, res) => {
 })
 
 // 设备会话列表
+// 发送修改邮箱验证码
+router.post('/security/email/send-code', authMiddleware, async (req, res) => {
+  const newEmail = normalizeEmail(req.body?.new_email)
+  const currentPassword = String(req.body?.current_password || '')
+
+  if (!newEmail || !currentPassword) {
+    return res.status(400).json({ success: false, message: '请提供新邮箱和当前密码' })
+  }
+  if (!isValidEmail(newEmail)) {
+    return res.status(400).json({ success: false, message: '邮箱格式不正确', field: 'new_email' })
+  }
+
+  try {
+    const userResult = await pool.query(
+      'SELECT email, password_hash FROM users WHERE id = $1',
+      [req.user.id]
+    )
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: '用户不存在' })
+    }
+
+    const user = userResult.rows[0]
+    if (normalizeEmail(user.email) === newEmail) {
+      return res.status(400).json({ success: false, message: '新邮箱不能和当前邮箱相同', field: 'new_email' })
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash)
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: '当前密码错误', field: 'current_password' })
+    }
+
+    const emailExists = await pool.query(
+      'SELECT id FROM users WHERE email = $1 AND id <> $2 LIMIT 1',
+      [newEmail, req.user.id]
+    )
+    if (emailExists.rows.length > 0) {
+      return res.status(400).json({ success: false, message: '该邮箱已被使用', field: 'new_email' })
+    }
+
+    const recent = await pool.query(
+      `SELECT id FROM user_email_change_requests
+       WHERE user_id = $1
+         AND used = FALSE
+         AND created_at > NOW() - INTERVAL '1 minute'`,
+      [req.user.id]
+    )
+    if (recent.rows.length > 0) {
+      return res.status(429).json({ success: false, message: '发送太频繁，请 1 分钟后再试' })
+    }
+
+    await pool.query(
+      `UPDATE user_email_change_requests
+       SET used = TRUE
+       WHERE user_id = $1 AND used = FALSE`,
+      [req.user.id]
+    )
+
+    const code = generate6DigitCode()
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+    await pool.query(
+      `INSERT INTO user_email_change_requests (user_id, new_email, code, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [req.user.id, newEmail, code, expiresAt]
+    )
+
+    await sendEmailChangeCodeEmail(newEmail, code)
+    res.json({ success: true, message: '验证码已发送到新邮箱（10分钟内有效）' })
+  } catch (err) {
+    console.error('发送修改邮箱验证码失败:', err)
+    res.status(500).json({ success: false, message: '服务器内部错误' })
+  }
+})
+
+// 校验修改邮箱验证码并更新邮箱
+router.post('/security/email/verify', authMiddleware, async (req, res) => {
+  const newEmail = normalizeEmail(req.body?.new_email)
+  const code = String(req.body?.code || '').trim()
+
+  if (!newEmail || !code) {
+    return res.status(400).json({ success: false, message: '请求参数不完整' })
+  }
+  if (!isValidEmail(newEmail)) {
+    return res.status(400).json({ success: false, message: '邮箱格式不正确', field: 'new_email' })
+  }
+
+  try {
+    const requestResult = await pool.query(
+      `SELECT id
+       FROM user_email_change_requests
+       WHERE user_id = $1
+         AND new_email = $2
+         AND code = $3
+         AND used = FALSE
+         AND expires_at > NOW()
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [req.user.id, newEmail, code]
+    )
+
+    if (requestResult.rows.length === 0) {
+      const latestResult = await pool.query(
+        `SELECT id, attempts
+         FROM user_email_change_requests
+         WHERE user_id = $1
+           AND new_email = $2
+           AND used = FALSE
+           AND expires_at > NOW()
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [req.user.id, newEmail]
+      )
+
+      if (latestResult.rows.length > 0) {
+        const row = latestResult.rows[0]
+        const nextAttempts = Number(row.attempts || 0) + 1
+        const lockUsed = nextAttempts >= 5
+        await pool.query(
+          `UPDATE user_email_change_requests
+           SET attempts = $1, used = CASE WHEN $2 THEN TRUE ELSE used END
+           WHERE id = $3`,
+          [nextAttempts, lockUsed, row.id]
+        )
+        if (lockUsed) {
+          return res.status(429).json({ success: false, message: '验证码错误次数过多，请重新获取验证码' })
+        }
+      }
+
+      return res.status(400).json({ success: false, message: '验证码无效或已过期', field: 'code' })
+    }
+
+    const emailExists = await pool.query(
+      'SELECT id FROM users WHERE email = $1 AND id <> $2 LIMIT 1',
+      [newEmail, req.user.id]
+    )
+    if (emailExists.rows.length > 0) {
+      return res.status(400).json({ success: false, message: '该邮箱已被使用', field: 'new_email' })
+    }
+
+    const updateResult = await pool.query(
+      `UPDATE users
+       SET email = $1
+       WHERE id = $2
+       RETURNING id, username, email, nickname, avatar_color, theme, bio, is_admin, two_factor_enabled, created_at`,
+      [newEmail, req.user.id]
+    )
+
+    await pool.query(
+      `UPDATE user_email_change_requests
+       SET used = TRUE
+       WHERE user_id = $1 AND used = FALSE`,
+      [req.user.id]
+    )
+
+    res.json({
+      success: true,
+      message: '邮箱修改成功',
+      data: updateResult.rows[0]
+    })
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ success: false, message: '该邮箱已被使用', field: 'new_email' })
+    }
+    console.error('修改邮箱失败:', err)
+    res.status(500).json({ success: false, message: '服务器内部错误' })
+  }
+})
+
 router.get('/sessions', authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(

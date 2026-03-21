@@ -39,7 +39,7 @@
     </button>
 
     <!-- 主内容区 -->
-    <main class="main-content page-with-nav">
+    <main class="main-content page-with-nav" :class="{ 'page-scroll-locked': isPlansRoute }">
       <slot />
     </main>
 
@@ -103,6 +103,7 @@ function isItemActive(itemPath) {
 }
 
 const activeNavIndex = computed(() => navItems.value.findIndex(item => isItemActive(item.path)))
+const isPlansRoute = computed(() => route.path === '/plans' || route.path.startsWith('/plans/'))
 
 const sidebarAnchorStyle = computed(() => {
   const index = hoveredSidebarIndex.value >= 0 ? hoveredSidebarIndex.value : activeNavIndex.value

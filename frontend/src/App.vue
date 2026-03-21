@@ -16,11 +16,7 @@
     <AppAlert />
 
     <!-- 路由视图 -->
-    <router-view v-slot="{ Component, route }">
-      <transition name="page-fade" mode="out-in">
-        <component :is="Component" :key="route.path" />
-      </transition>
-    </router-view>
+    <router-view />
   </div>
 </template>
 

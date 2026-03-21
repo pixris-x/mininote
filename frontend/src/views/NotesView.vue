@@ -1,6 +1,5 @@
 <template>
-  <AppLayout>
-    <div class="notes-page">
+  <div class="notes-page">
       <!-- 页面头部 -->
       <div class="page-header">
         <div class="header-top">
@@ -135,6 +134,17 @@
     </div>
 
     <!-- 新建记事弹窗 -->
+    <Transition name="notes-back-top-fade">
+      <button
+        v-if="showBackToTop"
+        class="notes-back-to-top"
+        @click="scrollToTop"
+        title="返回顶部"
+      >
+        <ArrowUp :size="18" />
+      </button>
+    </Transition>
+
     <Teleport to="body">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <div class="modal-card card">
@@ -238,18 +248,17 @@
         </div>
       </div>
     </Teleport>
-  </AppLayout>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppLayout from '@/components/AppLayout.vue'
 import NoteCard from '@/components/NoteCard.vue'
 import { useUserStore } from '@/stores/user'
 import { useNotesStore } from '@/stores/notes'
 import { toast } from '@/utils/toast'
 import {
+  ArrowUp,
   ListTodo,
   MessageCircle,
   NotebookText,
@@ -279,6 +288,7 @@ const deleteTarget = ref(null)
 const creating = ref(false)
 const deleting = ref(false)
 const tagInput = ref('')
+const showBackToTop = ref(false)
 
 let searchTimer = null
 let ignoreNextQueryWatch = false
@@ -335,6 +345,14 @@ function handleSearch() {
   searchTimer = setTimeout(() => {
     fetchData({ resetPage: true })
   }, 400)
+}
+
+function handleNotesScroll() {
+  showBackToTop.value = window.scrollY > 300
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function normalizePage(val) {
@@ -488,6 +506,12 @@ watch(
 onMounted(async () => {
   applyPaginationFromQuery()
   await fetchData()
+  window.addEventListener('scroll', handleNotesScroll, { passive: true })
+  handleNotesScroll()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleNotesScroll)
 })
 </script>
 

@@ -1,9 +1,8 @@
 <template>
-    <AppLayout>
-        <div class="plans-page" :class="{ 'mobile-show-detail': mobileShowDetail }">
+    <div class="plans-page" :class="{ 'mobile-show-detail': mobileShowDetail }">
 
             <!-- ── 左侧面板：计划列表 ── -->
-            <aside class="plans-sidebar">
+            <aside class="plans-sidebar" ref="sidebarRef">
                 <div class="plans-sidebar-header">
                     <h2 class="sidebar-title">
                         <Target class="title-icon" />
@@ -65,6 +64,7 @@
                 </button>
 
                 <!-- 加载中 -->
+                <div class="plans-sidebar-scroll" ref="sidebarScrollRef">
                 <div v-if="planStore.loading && !planStore.plans.length" class="loading-center">
                     <div class="loading-spinner"></div>
                 </div>
@@ -78,7 +78,7 @@
                 <!-- 计划卡片列表 -->
                 <div v-else class="plan-list">
                     <div v-for="plan in filteredPlans" :key="plan.id" class="plan-card" :data-plan-id="plan.id"
-                        :class="{ active: currentPlanId === plan.id }"
+                        :class="{ active: currentPlanId === plan.id, 'plan-card-flash': flashPlanId === plan.id }"
                         :style="{ borderLeftColor: plan.color === '#FFFFFF' ? 'var(--theme-primary)' : plan.color }"
                         @click="selectPlan(plan.id)">
                         <div class="plan-card-top">
@@ -97,6 +97,9 @@
                                     (plan.description || '暂无描述') }}</div>
                             </div>
                             <div class="plan-card-actions">
+                                <button v-if="isMobileViewport" class="btn btn-ghost btn-icon-sm" @click.stop="selectPlan(plan.id)" title="进入详情">
+                                    <ChevronRight class="btn-square-icon" />
+                                </button>
                                 <button class="btn btn-ghost btn-icon-sm" @click.stop="openPlanModal(plan)" title="编辑">
                                     <SquarePen class="btn-square-icon" />
                                 </button>
@@ -123,10 +126,12 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </aside>
 
             <!-- ── 右侧面板：时间线 ── -->
-            <main class="plans-main" ref="mainRef">
+            <main class="plans-main" ref="mainPanelRef">
+                <div class="plans-main-scroll" ref="mainRef">
                 <!-- 移动端返回按钮 -->
                 <button class="mobile-back-btn" @click="goBackToList">
                     <ArrowLeft class="btn-inline-icon" />
@@ -341,6 +346,7 @@
                         <div class="timeline-add-label">添加步骤</div>
                     </div>
                 </template>
+                </div>
             </main>
 
             <!-- 返回顶部按钮（放在 plans-page 内，不受 transform 影响） -->
@@ -766,7 +772,6 @@
             </div>
         </Teleport>
 
-    </AppLayout>
 </template>
 
 <script setup>
@@ -807,7 +812,6 @@ import {
     Users,
     X
 } from 'lucide-vue-next'
-import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { usePlanStore } from '@/stores/plans'
@@ -884,9 +888,14 @@ const editingStep = ref(null)
 const previewState = ref({ show: false, imgs: [], index: 0 })
 const timelineRef = ref(null)
 const flashStepId = ref(null)
+const flashPlanId = ref(null)
+const mainPanelRef = ref(null)
 const mainRef = ref(null)
+const sidebarRef = ref(null)
+const sidebarScrollRef = ref(null)
 const showBackToTop = ref(false)
 const mobileShowDetail = ref(false)
+const isMobileViewport = ref(false)
 
 // \u2500\u2500 \u67e5\u770b\u5206\u4eab\u884c\u7a0b \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 const showShareLookup = ref(false)
@@ -932,17 +941,47 @@ async function rejectInvite(invite) {
     }
 }
 
+function getDetailScrollContainer() {
+    return isMobileViewport.value
+        ? (mainPanelRef.value || mainRef.value)
+        : (mainRef.value || mainPanelRef.value)
+}
+
 function handleMainScroll() {
-    const scrollY = mainRef.value ? mainRef.value.scrollTop : window.scrollY
-    showBackToTop.value = scrollY > 300
+    const detailScrollY = getDetailScrollContainer()?.scrollTop || 0
+    const sidebarScrollY = Math.max(
+        sidebarRef.value?.scrollTop || 0,
+        sidebarScrollRef.value?.scrollTop || 0
+    )
+    const windowScrollY = window.scrollY || 0
+
+    if (isMobileViewport.value) {
+        const activeScrollY = mobileShowDetail.value ? detailScrollY : sidebarScrollY
+        showBackToTop.value = activeScrollY > 300
+        return
+    }
+
+    showBackToTop.value = Math.max(detailScrollY, sidebarScrollY, windowScrollY) > 300
+}
+
+function updateViewportState() {
+    isMobileViewport.value = window.innerWidth <= 768
+}
+
+function onPlanCardClick(id) {
+    // 绉诲姩绔彧鍏佽鐐瑰嚮鏄庣‘鐨勨€滆繘鍏ヨ鎯呪€濇寜閽紝閬垮厤鏁村崱璇Е
+    if (isMobileViewport.value) return
+    selectPlan(id)
 }
 
 function scrollToTop() {
-    if (mainRef.value) {
-        mainRef.value.scrollTo({ top: 0, behavior: 'smooth' })
-    } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (isMobileViewport.value && !mobileShowDetail.value && sidebarRef.value) {
+        sidebarRef.value.scrollTo({ top: 0, behavior: 'smooth' })
+        return
     }
+    const detailContainer = getDetailScrollContainer()
+    if (!detailContainer) return window.scrollTo({ top: 0, behavior: 'smooth' })
+    detailContainer.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // \u2500\u2500 \u67e5\u770b\u5206\u4eab\u884c\u7a0b \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -1022,11 +1061,12 @@ async function toggleDesc(step) {
         if (!stepEl) return
         const anchorEl = stepEl.querySelector('.timeline-card') || stepEl
 
-        if (mainRef.value) {
-            const containerRect = mainRef.value.getBoundingClientRect()
+        const detailContainer = getDetailScrollContainer()
+        if (detailContainer) {
+            const containerRect = detailContainer.getBoundingClientRect()
             const anchorRect = anchorEl.getBoundingClientRect()
-            const targetTop = mainRef.value.scrollTop + (anchorRect.top - containerRect.top) - 10
-            mainRef.value.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+            const targetTop = detailContainer.scrollTop + (anchorRect.top - containerRect.top) - 10
+            detailContainer.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
         } else {
             anchorEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }
@@ -1167,6 +1207,7 @@ async function deleteSelectedTemplate() {
 
 // ── 生命周期 ────────────────────────────────────────────────────
 onMounted(async () => {
+    updateViewportState()
     await Promise.all([planStore.fetchPlans(), fetchInvites(), loadStepTemplates()])
     const qPlan = route.query.plan
     const qStep = route.query.step
@@ -1185,16 +1226,42 @@ onMounted(async () => {
         }
     }
     window.addEventListener('scroll', handleMainScroll, { passive: true })
+    window.addEventListener('resize', updateViewportState, { passive: true })
     if (mainRef.value) {
         mainRef.value.addEventListener('scroll', handleMainScroll, { passive: true })
     }
+    if (mainPanelRef.value) {
+        mainPanelRef.value.addEventListener('scroll', handleMainScroll, { passive: true })
+    }
+    if (sidebarRef.value) {
+        sidebarRef.value.addEventListener('scroll', handleMainScroll, { passive: true })
+    }
+    if (sidebarScrollRef.value) {
+        sidebarScrollRef.value.addEventListener('scroll', handleMainScroll, { passive: true })
+    }
+    handleMainScroll()
 })
 
 onUnmounted(() => {
     window.removeEventListener('scroll', handleMainScroll)
+    window.removeEventListener('resize', updateViewportState)
     if (mainRef.value) {
         mainRef.value.removeEventListener('scroll', handleMainScroll)
     }
+    if (mainPanelRef.value) {
+        mainPanelRef.value.removeEventListener('scroll', handleMainScroll)
+    }
+    if (sidebarRef.value) {
+        sidebarRef.value.removeEventListener('scroll', handleMainScroll)
+    }
+    if (sidebarScrollRef.value) {
+        sidebarScrollRef.value.removeEventListener('scroll', handleMainScroll)
+    }
+})
+
+watch([mobileShowDetail, isMobileViewport], async () => {
+    await nextTick()
+    handleMainScroll()
 })
 
 // ── 方法 ────────────────────────────────────────────────────────
@@ -1224,8 +1291,20 @@ async function selectPlan(id) {
     mobileShowDetail.value = true
 }
 
-function goBackToList() {
+async function goBackToList() {
     mobileShowDetail.value = false
+    await nextTick()
+
+    const highlightId = currentPlanId.value
+    if (!highlightId) return
+
+    const planCard = document.querySelector(`[data-plan-id="${highlightId}"]`)
+    planCard?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+    flashPlanId.value = highlightId
+    setTimeout(() => {
+        if (flashPlanId.value === highlightId) flashPlanId.value = null
+    }, 1200)
 }
 
 // 计划 Modal

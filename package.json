@@ -18,6 +18,7 @@
     "db:migrate": "pnpm -C backend db:migrate",
     "db:admin": "pnpm -C backend db:admin",
     "db:seed:notes": "pnpm -C backend db:seed:notes",
+    "db:seed:plans": "pnpm -C backend db:seed:plans",
     "task:share-clean": "node -e \"require('./backend/scheduler').cleanExpiredShares()\"",
     "task:orphan-clean": "node -e \"require('./backend/scheduler').cleanOrphanUploads()\"",
     "task:reminders": "node -e \"require('./backend/scheduler').sendDueDateReminders()\"",

@@ -1,6 +1,5 @@
 <template>
-    <AppLayout>
-        <div class="expense-view">
+    <div class="expense-view">
 
             <!-- 月份导航 + Tab -->
             <div class="page-top">
@@ -367,12 +366,10 @@
             </Teleport>
 
         </div>
-    </AppLayout>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import * as echarts from 'echarts/core'
 import { LineChart, PieChart } from 'echarts/charts'

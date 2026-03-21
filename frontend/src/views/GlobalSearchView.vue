@@ -1,6 +1,5 @@
 <template>
-  <AppLayout>
-    <div class="global-search-page">
+  <div class="global-search-page">
       <div class="page-header">
         <h1 class="page-title">
           <Search class="title-icon" :size="20" />
@@ -277,13 +276,11 @@
         </section>
       </div>
     </div>
-  </AppLayout>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import AppLayout from '@/components/AppLayout.vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import { searchApi } from '@/api'

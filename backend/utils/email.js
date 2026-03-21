@@ -267,10 +267,21 @@ async function sendTwoFactorCodeEmail(to, code, actionText = '登录验证') {
   return data
 }
 
+/**
+ * 发送修改邮箱验证码
+ * 复用账号安全验证码模板，保持样式一致
+ * @param {string} to - 收件邮箱
+ * @param {string} code - 6位验证码
+ */
+async function sendEmailChangeCodeEmail(to, code) {
+  return sendTwoFactorCodeEmail(to, code, '修改邮箱')
+}
+
 module.exports = {
   sendResetPasswordEmail,
   sendRegisterVerifyEmail,
   sendNotificationEmail,
-  sendTwoFactorCodeEmail
+  sendTwoFactorCodeEmail,
+  sendEmailChangeCodeEmail
 }
 

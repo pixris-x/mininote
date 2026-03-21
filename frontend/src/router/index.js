@@ -2,10 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
   {
-    path: '/',
-    redirect: '/notes'
-  },
-  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue'),
@@ -18,46 +14,57 @@ const routes = [
     meta: { guest: true, title: '找回密码 - Mini Note' }
   },
   {
-    path: '/notes',
-    name: 'Notes',
-    component: () => import('@/views/NotesView.vue'),
-    meta: { requiresAuth: true, title: '我的记事' }
-  },
-  {
-    path: '/notes/:id',
-    name: 'NoteDetail',
-    component: () => import('@/views/NoteDetailView.vue'),
-    meta: { requiresAuth: true, title: '记事详情' }
-  },
-  {
-    path: '/search',
-    name: 'GlobalSearch',
-    component: () => import('@/views/GlobalSearchView.vue'),
-    meta: { requiresAuth: true, title: '全局搜索 - Mini Note' }
-  },
-  {
-    path: '/calendar',
-    name: 'Calendar',
-    component: () => import('@/views/CalendarView.vue'),
-    meta: { requiresAuth: true, title: '日历记事' }
-  },
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: () => import('@/views/ProfileView.vue'),
-    meta: { requiresAuth: true, title: '个人主页' }
-  },
-  {
-    path: '/expense',
-    name: 'Expense',
-    component: () => import('@/views/ExpenseView.vue'),
-    meta: { requiresAuth: true, title: '记账本' }
-  },
-  {
-    path: '/plans',
-    name: 'Plans',
-    component: () => import('@/views/PlanView.vue'),
-    meta: { requiresAuth: true, title: '我的计划 - Mini Note' }
+    path: '/',
+    component: () => import('@/layouts/AppShell.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: '/notes'
+      },
+      {
+        path: 'notes',
+        name: 'Notes',
+        component: () => import('@/views/NotesView.vue'),
+        meta: { title: '我的记事' }
+      },
+      {
+        path: 'notes/:id',
+        name: 'NoteDetail',
+        component: () => import('@/views/NoteDetailView.vue'),
+        meta: { title: '记事详情' }
+      },
+      {
+        path: 'search',
+        name: 'GlobalSearch',
+        component: () => import('@/views/GlobalSearchView.vue'),
+        meta: { title: '全局搜索 - Mini Note' }
+      },
+      {
+        path: 'calendar',
+        name: 'Calendar',
+        component: () => import('@/views/CalendarView.vue'),
+        meta: { title: '日历记事' }
+      },
+      {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('@/views/ProfileView.vue'),
+        meta: { title: '个人主页' }
+      },
+      {
+        path: 'expense',
+        name: 'Expense',
+        component: () => import('@/views/ExpenseView.vue'),
+        meta: { title: '记账本' }
+      },
+      {
+        path: 'plans',
+        name: 'Plans',
+        component: () => import('@/views/PlanView.vue'),
+        meta: { title: '我的计划 - Mini Note' }
+      }
+    ]
   },
   {
     path: '/admin',
@@ -86,12 +93,10 @@ const router = createRouter({
   }
 })
 
-// 路由守卫
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('minilist_token')
   const isAuthenticated = !!token
 
-  // 更新页面标题
   document.title = to.meta.title || 'Mini Note'
 
   if (to.meta.requiresAuth && !isAuthenticated) {
@@ -99,7 +104,6 @@ router.beforeEach((to, from, next) => {
   } else if (to.meta.guest && isAuthenticated) {
     next({ name: 'Notes' })
   } else if (to.meta.requiresAdmin) {
-    // 从 localStorage 快速判断（详细鉴权由后端 API 保障）
     const user = JSON.parse(localStorage.getItem('minilist_user') || 'null')
     if (!user?.is_admin) {
       next({ name: 'Notes' })
