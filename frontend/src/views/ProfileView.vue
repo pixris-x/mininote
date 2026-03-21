@@ -68,6 +68,55 @@
                         修改密码
                     </button>
                 </div>
+                <div class="security-body">
+                    <div class="security-row">
+                        <div class="security-main">
+                            <span class="security-label">二步验证（邮箱验证码）</span>
+                            <span class="security-desc">
+                                {{ securityState.two_factor_enabled ? '已开启，登录时需输入邮箱验证码' : '未开启，建议开启提升账号安全' }}
+                            </span>
+                        </div>
+                        <button class="btn btn-outline btn-sm" :disabled="twoFactorSending"
+                            @click="startTwoFactorToggle(securityState.two_factor_enabled ? 'disable' : 'enable')">
+                            {{ twoFactorSending ? '发送中...' : (securityState.two_factor_enabled ? '关闭二步验证' : '开启二步验证') }}
+                        </button>
+                    </div>
+                    <div class="security-row">
+                        <div class="security-main">
+                            <span class="security-label">登录设备管理</span>
+                            <span class="security-desc">查看最近活跃设备，支持移除指定设备或踢出其他设备</span>
+                        </div>
+                        <div class="security-actions">
+                            <button class="btn btn-outline btn-sm" :disabled="sessionsLoading" @click="loadSessions">
+                                刷新设备
+                            </button>
+                            <button class="btn btn-outline btn-sm" :disabled="revokeOthersLoading" @click="revokeOtherDevices">
+                                {{ revokeOthersLoading ? '处理中...' : '踢出其他设备' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="session-list">
+                        <div v-if="sessionsLoading" class="session-empty">设备加载中...</div>
+                        <div v-else-if="sessions.length === 0" class="session-empty">暂无设备会话</div>
+                        <div v-else v-for="session in sessions" :key="session.session_id" class="session-item">
+                            <div class="session-info">
+                                <div class="session-title">
+                                    <span>{{ session.device_name || 'Unknown Device' }}</span>
+                                    <span v-if="session.is_current" class="session-current">当前设备</span>
+                                </div>
+                                <div class="session-meta">
+                                    <span>最近活跃：{{ formatSessionDate(session.last_active_at) }}</span>
+                                    <span>IP：{{ session.ip_address || '-' }}</span>
+                                </div>
+                            </div>
+                            <button v-if="!session.is_current" class="btn btn-ghost btn-sm"
+                                :disabled="Boolean(sessionActionLoading[session.session_id])"
+                                @click="revokeSession(session.session_id)">
+                                {{ sessionActionLoading[session.session_id] ? '移除中...' : '移除' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 消息通知 -->
@@ -202,6 +251,36 @@
                 </div>
             </div>
         </Teleport>
+
+        <!-- 二步验证验证码弹窗 -->
+        <Teleport to="body">
+            <div v-if="showTwoFactorModal" class="modal-overlay" @click.self="closeTwoFactorModal">
+                <div class="modal-card card">
+                    <div class="modal-header">
+                        <h2>
+                            <Shield :size="18" />
+                            <span>{{ twoFactorAction === 'enable' ? '开启二步验证' : '关闭二步验证' }}</span>
+                        </h2>
+                        <button class="btn btn-ghost btn-icon modal-close-btn" aria-label="关闭" @click="closeTwoFactorModal">
+                            <X :size="16" />
+                        </button>
+                    </div>
+                    <form @submit.prevent="verifyTwoFactorToggle" class="edit-form">
+                        <div class="form-group">
+                            <label class="form-label">邮箱验证码</label>
+                            <input v-model="twoFactorCode" type="text" inputmode="numeric" maxlength="6"
+                                class="input" placeholder="请输入6位验证码" autocomplete="one-time-code" required />
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-outline" @click="closeTwoFactorModal">取消</button>
+                            <button type="submit" class="btn btn-primary" :disabled="twoFactorVerifying">
+                                {{ twoFactorVerifying ? '验证中...' : '确认' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
     </AppLayout>
 </template>
 
@@ -213,6 +292,7 @@ import { useUserStore } from '@/stores/user'
 import { useNotesStore } from '@/stores/notes'
 import { userApi, pushApi } from '@/api'
 import { toast } from '@/utils/toast'
+import dayjs from 'dayjs'
 import {
     isPushSupported,
     subscribePush,
@@ -248,6 +328,16 @@ const editSaving = ref(false)
 const passSaving = ref(false)
 const editError = ref('')
 const passError = ref('')
+const securityState = reactive({ two_factor_enabled: false, current_session_id: '' })
+const sessions = ref([])
+const sessionsLoading = ref(false)
+const showTwoFactorModal = ref(false)
+const twoFactorAction = ref('enable')
+const twoFactorCode = ref('')
+const twoFactorSending = ref(false)
+const twoFactorVerifying = ref(false)
+const revokeOthersLoading = ref(false)
+const sessionActionLoading = ref({})
 
 // Push 通知
 const pushSupported = isPushSupported()
@@ -314,6 +404,104 @@ const stats = computed(() => [
 
 const editForm = reactive({ nickname: '', bio: '' })
 const passForm = reactive({ old_password: '', new_password: '' })
+
+function formatSessionDate(date) {
+    if (!date) return '-'
+    return dayjs(date).format('YYYY/MM/DD HH:mm')
+}
+
+async function loadSecurity() {
+    try {
+        const res = await userApi.getSecurity()
+        if (res.success) {
+            securityState.two_factor_enabled = Boolean(res.data.two_factor_enabled)
+            securityState.current_session_id = res.data.current_session_id || ''
+        }
+    } catch (err) {
+        toast.error(err.message || '获取安全信息失败')
+    }
+}
+
+async function loadSessions() {
+    sessionsLoading.value = true
+    try {
+        const res = await userApi.getSessions()
+        if (res.success) sessions.value = res.data || []
+    } catch (err) {
+        toast.error(err.message || '获取设备列表失败')
+    } finally {
+        sessionsLoading.value = false
+    }
+}
+
+async function startTwoFactorToggle(action) {
+    twoFactorSending.value = true
+    try {
+        await userApi.sendTwoFactorCode(action)
+        twoFactorAction.value = action
+        twoFactorCode.value = ''
+        showTwoFactorModal.value = true
+        toast.success('验证码已发送，请查收邮箱')
+    } catch (err) {
+        toast.error(err.message || '发送验证码失败')
+    } finally {
+        twoFactorSending.value = false
+    }
+}
+
+function closeTwoFactorModal() {
+    showTwoFactorModal.value = false
+    twoFactorCode.value = ''
+}
+
+async function verifyTwoFactorToggle() {
+    if (!twoFactorCode.value.trim()) {
+        toast.error('请输入验证码')
+        return
+    }
+    twoFactorVerifying.value = true
+    try {
+        const res = await userApi.verifyTwoFactor(twoFactorAction.value, twoFactorCode.value.trim())
+        if (res.success) {
+            securityState.two_factor_enabled = Boolean(res.data?.two_factor_enabled)
+            await userStore.fetchProfile()
+            toast.success(res.message || '操作成功')
+            closeTwoFactorModal()
+        }
+    } catch (err) {
+        toast.error(err.message || '验证失败')
+    } finally {
+        twoFactorVerifying.value = false
+    }
+}
+
+async function revokeSession(sessionId) {
+    sessionActionLoading.value = { ...sessionActionLoading.value, [sessionId]: true }
+    try {
+        await userApi.revokeSession(sessionId)
+        toast.success('设备已移除')
+        await loadSessions()
+    } catch (err) {
+        toast.error(err.message || '移除失败')
+    } finally {
+        const next = { ...sessionActionLoading.value }
+        delete next[sessionId]
+        sessionActionLoading.value = next
+    }
+}
+
+async function revokeOtherDevices() {
+    revokeOthersLoading.value = true
+    try {
+        const res = await userApi.revokeOtherSessions()
+        toast.success(res.message || '已踢出其他设备')
+        await loadSessions()
+    } catch (err) {
+        toast.error(err.message || '操作失败')
+    } finally {
+        revokeOthersLoading.value = false
+    }
+}
 
 function openEditModal() {
     editForm.nickname = userStore.user?.nickname || ''
@@ -385,380 +573,13 @@ function handleLogout() {
 onMounted(() => {
     userStore.fetchProfile()
     notesStore.fetchNotes()
+    loadSecurity()
+    loadSessions()
     if (pushSupported) {
         checkPushSubscribed().then(v => { pushSubscribed.value = v })
     }
 })
 </script>
 
-<style scoped>
-.profile-page {
-    padding: 24px 20px;
-    max-width: 600px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
+<style scoped lang="scss" src="@/assets/styles/views/ProfileView.scss"></style>
 
-/* 个人信息卡片 */
-.profile-hero {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 24px;
-    position: relative;
-}
-
-.avatar-big {
-    width: 72px;
-    height: 72px;
-    border-radius: var(--radius-full);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    font-weight: 800;
-    color: white;
-    flex-shrink: 0;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.profile-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.profile-name {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--color-text);
-    margin-bottom: 2px;
-}
-
-.profile-username {
-    font-size: 13px;
-    color: var(--color-text-secondary);
-    margin-bottom: 4px;
-}
-
-.profile-bio {
-    font-size: 13px;
-    color: var(--color-text);
-    word-break: break-all;
-}
-
-.profile-bio.placeholder {
-    color: var(--color-text-light);
-    font-style: italic;
-}
-
-.edit-btn {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 36px;
-}
-
-/* 统计 */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
-
-.stat-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px 12px;
-    gap: 4px;
-    border-radius: var(--radius-lg);
-}
-
-.stat-icon {
-    color: var(--theme-primary-dark);
-}
-
-.stat-number {
-    font-size: 26px;
-    font-weight: 800;
-    color: var(--theme-primary-dark);
-}
-
-.stat-label {
-    font-size: 12px;
-    color: var(--color-text-secondary);
-}
-
-/* 设置区块 */
-.section {
-    padding: 20px;
-}
-
-.section-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.section-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--color-text);
-    margin-bottom: 14px;
-}
-
-.section-head .section-title {
-    margin-bottom: 0;
-}
-
-.section-title-icon {
-    color: var(--theme-primary-dark);
-    flex-shrink: 0;
-}
-
-.section-action-btn {
-    min-height: 36px;
-    padding: 7px 16px;
-    white-space: nowrap;
-}
-
-/* 主题选择 */
-.theme-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.theme-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-radius: var(--radius-full);
-    border: 2px solid var(--color-border);
-    background: transparent;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--color-text);
-    transition: all var(--transition);
-    font-family: inherit;
-}
-
-.theme-btn:hover,
-.theme-btn.active {
-    border-color: var(--theme-primary-dark);
-    background: var(--theme-primary-light);
-    color: var(--theme-primary-dark);
-}
-
-.theme-swatch {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.theme-name {
-    font-size: 13px;
-}
-
-/* 头像颜色 */
-.avatar-colors {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.avatar-color-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 3px solid transparent;
-    cursor: pointer;
-    transition: all var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.avatar-color-btn:hover,
-.avatar-color-btn.active {
-    transform: scale(1.2);
-    border-color: var(--theme-primary-dark);
-}
-
-.color-check {
-    color: white;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-/* 退出 */
-.logout-section {
-    padding-bottom: 24px;
-}
-
-.btn-logout {
-    width: 100%;
-    padding: 14px;
-    background: #FFF0F0;
-    color: #E74C3C;
-    border: 2px solid #FFD5D5;
-    border-radius: var(--radius-lg);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all var(--transition);
-    font-family: inherit;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.btn-logout:hover {
-    background: #FFE0E0;
-    border-color: #E74C3C;
-}
-
-/* Push 通知设置 */
-.push-unsupported {
-    font-size: 13px;
-    color: var(--color-text-light);
-    line-height: 1.6;
-}
-
-.push-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.push-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.push-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-text);
-}
-
-.push-desc {
-    font-size: 12px;
-    color: var(--color-text-light);
-}
-
-.push-toggle {
-    position: relative;
-    width: 48px;
-    height: 28px;
-    border-radius: 14px;
-    border: none;
-    background: var(--color-border);
-    cursor: pointer;
-    transition: background 0.2s;
-    flex-shrink: 0;
-    padding: 0;
-}
-
-.push-toggle.active {
-    background: var(--theme-primary);
-}
-
-.push-toggle:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.toggle-thumb {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-    transition: transform 0.2s;
-}
-
-.push-toggle.active .toggle-thumb {
-    transform: translateX(20px);
-}
-
-.push-test-row {
-    margin-top: 12px;
-}
-
-.push-test-row .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-/* 弹窗 */
-.modal-card {
-    width: 100%;
-    max-width: 420px;
-    padding: 24px;
-    animation: popIn 0.2s ease;
-}
-
-.edit-form {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.form-label {
-    color: var(--color-text); /* 覆盖全局的 color-text-secondary，此页使用深色 */
-}
-
-.modal-header h2 {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.modal-close-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-}
-
-.error-msg {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-@media (max-width: 520px) {
-    .section-head {
-        flex-wrap: wrap;
-        align-items: flex-start;
-    }
-
-    .section-action-btn {
-        width: 100%;
-        justify-content: center;
-    }
-}
-</style>

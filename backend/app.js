@@ -9,6 +9,7 @@ const calendarRoutes = require('./routes/calendar')
 const adminRoutes = require('./routes/admin')
 const expensesRoutes = require('./routes/expenses')
 const expenseCategoriesRoutes = require('./routes/expense-categories')
+const searchRoutes = require('./routes/search')
 const uploadRoutes = require('./routes/upload')
 const plansRoutes = require('./routes/plans')
 const planStepsRoutes = require('./routes/plan-steps')
@@ -50,6 +51,7 @@ app.use('/api/calendar', calendarRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/expenses', expensesRoutes)
 app.use('/api/expense-categories', expenseCategoriesRoutes)
+app.use('/api/search', searchRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/plans', plansRoutes)
 app.use('/api/plan-steps', planStepsRoutes)
@@ -175,15 +177,22 @@ app.use((req, res) => {
 // 全局错误处理（带日志记录）
 app.use(errorLoggerMiddleware)
 
-app.listen(PORT, () => {
-  console.log(`
+function startServer() {
+  return app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════╗
 ║   🌸 Mini Note API 已启动      ║
 ║   端口: ${PORT}                    ║
 ║   环境: ${process.env.NODE_ENV || 'development'}              ║
 ╚════════════════════════════════╝
   `)
-  startScheduler()
-})
+    startScheduler()
+  })
+}
+
+if (require.main === module) {
+  startServer()
+}
 
 module.exports = app
+module.exports.startServer = startServer

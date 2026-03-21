@@ -30,7 +30,7 @@
             placeholder="搜索记事标题或内容..."
             @input="handleSearch"
           />
-          <button v-if="searchQuery" class="clear-search" aria-label="清空搜索" @click="searchQuery = ''; fetchData()">
+          <button v-if="searchQuery" class="clear-search" aria-label="清空搜索" @click="searchQuery = ''; fetchData({ resetPage: true })">
             <X :size="14" />
           </button>
         </div>
@@ -42,7 +42,7 @@
             :key="f.value"
             class="filter-btn"
             :class="{ active: activeFilter === f.value }"
-            @click="activeFilter = f.value; fetchData()"
+            @click="activeFilter = f.value; fetchData({ resetPage: true })"
           >
             {{ f.label }}
           </button>
@@ -101,7 +101,36 @@
 
       <!-- 统计信息 -->
       <div v-if="notesStore.notes.length > 0" class="notes-count">
-        共 {{ notesStore.notes.length }} 条记事
+        共 {{ totalNotes }} 条记事
+      </div>
+
+      <div v-if="notesStore.notes.length > 0" class="pagination-area">
+        <div class="page-size-control" role="group" aria-label="每页条数">
+          <span class="page-size-label">每页</span>
+          <div class="page-size-buttons">
+            <button
+              v-for="size in pageSizeOptions"
+              :key="size"
+              type="button"
+              class="page-size-btn"
+              :class="{ active: pageSize === size }"
+              @click="setPageSize(size)"
+            >
+              {{ size }}
+            </button>
+          </div>
+          <span class="page-size-label">条</span>
+        </div>
+
+        <div v-if="totalPages > 1" class="pagination">
+          <button class="btn btn-ghost btn-sm" :disabled="notesStore.loading || currentPage <= 1" @click="changePage(currentPage - 1)">
+            ‹ 上一页
+          </button>
+          <span class="page-info">第 {{ currentPage }} / {{ totalPages }} 页</span>
+          <button class="btn btn-ghost btn-sm" :disabled="notesStore.loading || currentPage >= totalPages" @click="changePage(currentPage + 1)">
+            下一页 ›
+          </button>
+        </div>
       </div>
     </div>
 
@@ -213,8 +242,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/AppLayout.vue'
 import NoteCard from '@/components/NoteCard.vue'
 import { useUserStore } from '@/stores/user'
@@ -235,11 +264,16 @@ import {
 } from 'lucide-vue-next'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const notesStore = useNotesStore()
 
 const searchQuery = ref('')
 const activeFilter = ref('all')
+const currentPage = ref(1)
+const pageSize = ref(20)
+const defaultPageSize = 20
+const pageSizeOptions = [20, 50, 100]
 const showCreateModal = ref(false)
 const deleteTarget = ref(null)
 const creating = ref(false)
@@ -247,6 +281,7 @@ const deleting = ref(false)
 const tagInput = ref('')
 
 let searchTimer = null
+let ignoreNextQueryWatch = false
 
 const filters = [
   { label: '全部', value: 'all' },
@@ -265,6 +300,8 @@ const greeting = computed(() => {
 
 const pinnedNotes = computed(() => notesStore.notes.filter(n => n.is_pinned))
 const normalNotes = computed(() => notesStore.notes.filter(n => !n.is_pinned))
+const totalNotes = computed(() => notesStore.pagination.total || notesStore.notes.length)
+const totalPages = computed(() => Math.max(1, notesStore.pagination.pages || 1))
 
 const createForm = reactive({
   title: '',
@@ -295,10 +332,59 @@ function removeTag(idx) {
 
 function handleSearch() {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(fetchData, 400)
+  searchTimer = setTimeout(() => {
+    fetchData({ resetPage: true })
+  }, 400)
 }
 
-async function fetchData() {
+function normalizePage(val) {
+  const n = parseInt(val, 10)
+  return Number.isFinite(n) && n > 0 ? n : 1
+}
+
+function normalizePageSize(val) {
+  const n = parseInt(val, 10)
+  return pageSizeOptions.includes(n) ? n : defaultPageSize
+}
+
+function applyPaginationFromQuery() {
+  const nextPage = normalizePage(route.query.page)
+  const nextPageSize = normalizePageSize(route.query.limit)
+
+  const changed = currentPage.value !== nextPage || pageSize.value !== nextPageSize
+  currentPage.value = nextPage
+  pageSize.value = nextPageSize
+
+  return changed
+}
+
+async function syncPaginationQuery() {
+  const nextQuery = { ...route.query }
+
+  if (currentPage.value > 1) {
+    nextQuery.page = String(currentPage.value)
+  } else {
+    delete nextQuery.page
+  }
+
+  if (pageSize.value !== defaultPageSize) {
+    nextQuery.limit = String(pageSize.value)
+  } else {
+    delete nextQuery.limit
+  }
+
+  const samePage = (route.query.page ?? '') === (nextQuery.page ?? '')
+  const sameLimit = (route.query.limit ?? '') === (nextQuery.limit ?? '')
+  if (samePage && sameLimit) return
+
+  ignoreNextQueryWatch = true
+  await router.replace({ query: nextQuery })
+}
+
+async function fetchData(options = {}) {
+  const { resetPage = false } = options
+  if (resetPage) currentPage.value = 1
+
   const params = {}
   if (activeFilter.value === 'archived') {
     params.archived = true
@@ -307,7 +393,32 @@ async function fetchData() {
     if (activeFilter.value === 'pinned') params.pinned = true
   }
   if (searchQuery.value) params.search = searchQuery.value
+
+  params.page = currentPage.value
+  params.limit = pageSize.value
+
+  await syncPaginationQuery()
+
   await notesStore.fetchNotes(params)
+
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value
+    params.page = currentPage.value
+    await syncPaginationQuery()
+    await notesStore.fetchNotes(params)
+  }
+}
+
+function changePage(nextPage) {
+  if (nextPage < 1 || nextPage > totalPages.value || notesStore.loading) return
+  currentPage.value = nextPage
+  fetchData()
+}
+
+function setPageSize(size) {
+  if (pageSize.value === size) return
+  pageSize.value = size
+  fetchData({ resetPage: true })
 }
 
 function goDetail(note) {
@@ -317,6 +428,7 @@ function goDetail(note) {
 async function handlePin(note) {
   try {
     await notesStore.togglePin(note.id, note.is_pinned)
+    await fetchData()
     toast.success(note.is_pinned ? '已取消置顶' : '已置顶')
   } catch (err) {
     toast.error(err.message)
@@ -332,6 +444,7 @@ async function confirmDelete() {
   deleting.value = true
   try {
     await notesStore.deleteNote(deleteTarget.value.id)
+    await fetchData()
     toast.success('记事已删除')
     deleteTarget.value = null
   } catch (err) {
@@ -345,6 +458,8 @@ async function handleCreate() {
   creating.value = true
   try {
     await notesStore.createNote({ ...createForm })
+    currentPage.value = 1
+    await fetchData()
     toast.success('记事创建成功')
     showCreateModal.value = false
     resetCreateForm()
@@ -355,317 +470,25 @@ async function handleCreate() {
   }
 }
 
-onMounted(fetchData)
+watch(
+  () => [route.query.page, route.query.limit],
+  async () => {
+    if (ignoreNextQueryWatch) {
+      ignoreNextQueryWatch = false
+      return
+    }
+
+    const changed = applyPaginationFromQuery()
+    if (changed) {
+      await fetchData()
+    }
+  }
+)
+
+onMounted(async () => {
+  applyPaginationFromQuery()
+  await fetchData()
+})
 </script>
 
-<style scoped>
-.notes-page {
-  padding: 24px 20px;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.header-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.page-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.title-icon {
-  color: var(--theme-primary-dark);
-  flex-shrink: 0;
-}
-
-.page-sub {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sub-icon {
-  color: var(--theme-primary-dark);
-  flex-shrink: 0;
-}
-
-.create-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* 搜索 */
-.search-bar {
-  position: relative;
-  margin-bottom: 12px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-text-secondary);
-}
-
-.search-input {
-  width: 100%;
-  padding: 11px 36px;
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-full);
-  font-size: 14px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  outline: none;
-  transition: border-color var(--transition);
-  font-family: inherit;
-}
-
-.search-input:focus {
-  border-color: var(--theme-primary);
-  box-shadow: 0 0 0 3px var(--theme-primary-light);
-}
-
-.clear-search {
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-.clear-search:hover {
-  background: var(--color-border);
-}
-
-/* 过滤 */
-.filter-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* 笔记区块 */
-.notes-section {
-  margin-bottom: 20px;
-}
-
-.section-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-bottom: 12px;
-  padding-left: 2px;
-}
-
-.notes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 14px;
-}
-
-.notes-count {
-  text-align: center;
-  font-size: 12px;
-  color: var(--color-text-light);
-  padding: 16px 0;
-}
-
-/* 弹窗 */
-.modal-card {
-  width: 100%;
-  max-width: 480px;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 24px;
-  animation: popIn 0.2s ease;
-}
-
-.create-form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.title-input {
-  font-size: 16px;
-  font-weight: 600;
-  border: none;
-  border-bottom: 2px solid var(--color-border);
-  border-radius: 0;
-  padding: 8px 0;
-}
-
-.title-input:focus {
-  border-color: var(--theme-primary);
-  box-shadow: none;
-}
-
-.content-input {
-  resize: none;
-  line-height: 1.6;
-}
-
-/* 颜色选择器 */
-.color-picker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.color-options {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.color-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-full);
-  border: 3px solid transparent;
-  cursor: pointer;
-  transition: all var(--transition);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.color-btn:hover, .color-btn.active {
-  transform: scale(1.2);
-  border-color: var(--theme-primary-dark);
-}
-
-/* 标签输入 */
-.tag-input-area {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  min-height: 36px;
-  padding: 6px 10px;
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  transition: border-color var(--transition);
-}
-
-.tag-list:focus-within {
-  border-color: var(--theme-primary);
-}
-
-.tag-removable {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tag-removable button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--theme-primary-dark);
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  line-height: 1;
-}
-
-.tag-removable button:hover {
-  background: var(--theme-primary-light);
-}
-
-.save-btn-content {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tag-input {
-  border: none;
-  outline: none;
-  font-size: 13px;
-  flex: 1;
-  min-width: 80px;
-  font-family: inherit;
-  color: var(--color-text);
-  background: transparent;
-}
-
-.modal-actions {
-  margin-top: 4px;
-}
-
-/* 确认弹窗 */
-.confirm-modal {
-  max-width: 360px;
-  text-align: center;
-  padding: 32px 24px;
-}
-
-.confirm-icon {
-  color: #e57373;
-  margin-bottom: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.confirm-modal h3 {
-  font-size: 18px;
-  margin-bottom: 8px;
-}
-
-.confirm-modal p {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin-bottom: 24px;
-}
-
-.btn-danger {
-  box-shadow: 0 4px 12px rgba(255, 80, 100, 0.25);
-}
-
-.form-label {
-  font-size: 12px; /* 此处比全局 13px 略小，保留 */
-  flex-shrink: 0;
-}
-
-.modal-close-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-</style>
+<style scoped lang="scss" src="@/assets/styles/views/NotesView.scss"></style>

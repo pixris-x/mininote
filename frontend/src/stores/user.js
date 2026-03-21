@@ -19,17 +19,31 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  function applyAuthData(data) {
+    if (!data?.token || !data?.user) return
+    user.value = data.user
+    token.value = data.token
+    localStorage.setItem('minilist_token', data.token)
+    localStorage.setItem('minilist_user', JSON.stringify(data.user))
+    applyTheme(data.user.theme)
+  }
+
   async function login(credentials) {
     loading.value = true
     try {
       const res = await authApi.login(credentials)
-      if (res.success) {
-        user.value = res.data.user
-        token.value = res.data.token
-        localStorage.setItem('minilist_token', res.data.token)
-        localStorage.setItem('minilist_user', JSON.stringify(res.data.user))
-        applyTheme(res.data.user.theme)
-      }
+      if (res.success && res.data?.token) applyAuthData(res.data)
+      return res
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function verifyLogin2FA(payload) {
+    loading.value = true
+    try {
+      const res = await authApi.verifyLogin2FA(payload)
+      if (res.success && res.data?.token) applyAuthData(res.data)
       return res
     } finally {
       loading.value = false
@@ -40,13 +54,7 @@ export const useUserStore = defineStore('user', () => {
     loading.value = true
     try {
       const res = await authApi.register(data)
-      if (res.success) {
-        user.value = res.data.user
-        token.value = res.data.token
-        localStorage.setItem('minilist_token', res.data.token)
-        localStorage.setItem('minilist_user', JSON.stringify(res.data.user))
-        applyTheme(res.data.user.theme)
-      }
+      if (res.success && res.data?.token) applyAuthData(res.data)
       return res
     } finally {
       loading.value = false
@@ -55,6 +63,9 @@ export const useUserStore = defineStore('user', () => {
 
   function logout() {
     const authToken = token.value || localStorage.getItem('minilist_token') || ''
+    if (authToken) {
+      authApi.logout().catch(() => {})
+    }
     user.value = null
     token.value = ''
     localStorage.removeItem('minilist_token')
@@ -107,5 +118,18 @@ export const useUserStore = defineStore('user', () => {
     applyTheme(user.value.theme)
   }
 
-  return { user, token, loading, isLoggedIn, avatarLabel, login, register, logout, fetchProfile, updateProfile }
+  return {
+    user,
+    token,
+    loading,
+    isLoggedIn,
+    avatarLabel,
+    login,
+    verifyLogin2FA,
+    register,
+    logout,
+    fetchProfile,
+    updateProfile
+  }
 })
+

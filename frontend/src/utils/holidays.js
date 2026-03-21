@@ -3,7 +3,8 @@
  * 使用 lunar-javascript 动态计算任意年份农历节日、节气
  * type: 'holiday'(法定节假日) | 'festival'(传统节日) | 'solar'(节气)
  */
-import { Solar } from 'lunar-javascript'
+let Solar = null
+let solarLoadPromise = null
 
 // ===== 公历固定节日（每年相同）=====
 const SOLAR_HOLIDAYS = {
@@ -66,6 +67,25 @@ function pad(n) {
 }
 
 /**
+ * 预加载节日计算引擎（lunar-javascript）
+ * 通过动态导入把相关包从首批代码中拆出
+ */
+export async function preloadHolidayEngine() {
+  if (Solar) return
+  if (!solarLoadPromise) {
+    solarLoadPromise = import('lunar-javascript')
+      .then((mod) => {
+        Solar = mod.Solar
+      })
+      .catch((err) => {
+        solarLoadPromise = null
+        throw err
+      })
+  }
+  await solarLoadPromise
+}
+
+/**
  * 获取指定日期的节日/节气信息（动态计算，支持任意年份）
  * 优先级：法定节假日 > 农历传统节日 > 节气
  * @returns {{ name: string, type: string } | null}
@@ -85,6 +105,8 @@ export function getHoliday(year, month, day) {
   }
 
   try {
+    if (!Solar) return result
+
     const solar = Solar.fromYmd(year, month, day)
     const lunar = solar.getLunar()
 
@@ -153,4 +175,21 @@ export function getUpcomingHolidays(daysAhead = 90) {
   }
 
   return result
+}
+
+/**
+ * 获取某天农历文案（初一显示月份名，其余显示日期）
+ */
+export function getLunarDayLabel(year, month, day) {
+  if (!Solar) return ''
+  try {
+    const lunar = Solar.fromYmd(year, month, day).getLunar()
+    const lunarDay = lunar.getDay()
+    if (lunarDay === 1) {
+      return lunar.getMonthInChinese() + '月'
+    }
+    return lunar.getDayInChinese()
+  } catch {
+    return ''
+  }
 }

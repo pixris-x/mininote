@@ -4,5 +4,6 @@ dist/
 .env
 *.log
 logs/
+dev-dist/
 backend/uploads/
 .DS_Store

@@ -3,9 +3,82 @@ const router = express.Router()
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const pool = require('../config/db')
-const { sendResetPasswordEmail, sendRegisterVerifyEmail } = require('../utils/email')
+const authMiddleware = require('../middleware/auth')
+const {
+  sendResetPasswordEmail,
+  sendRegisterVerifyEmail,
+  sendTwoFactorCodeEmail
+} = require('../utils/email')
 const { logger } = require('../utils/logger')
+const {
+  detectDeviceName,
+  extractClientIp,
+  generate6DigitCode,
+  generateChallengeId,
+  generateSessionId
+} = require('../utils/auth-security')
 require('dotenv').config()
+
+const CODE_PURPOSE_LOGIN_2FA = 'login_2fa'
+
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return ''
+  const [name, domain] = email.split('@')
+  if (name.length <= 2) return `**@${domain}`
+  return `${name[0]}${'*'.repeat(Math.max(name.length - 2, 1))}${name[name.length - 1]}@${domain}`
+}
+
+function buildAuthToken(user, sessionId) {
+  return jwt.sign(
+    { id: user.id, username: user.username, sid: sessionId },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN }
+  )
+}
+
+async function createUserSession(userId, req) {
+  const sessionId = generateSessionId()
+  const deviceName = detectDeviceName(req)
+  const userAgent = String(req.headers['user-agent'] || '').slice(0, 500)
+  const ipAddress = extractClientIp(req)
+
+  await pool.query(
+    `INSERT INTO user_sessions (user_id, session_id, device_name, user_agent, ip_address)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [userId, sessionId, deviceName, userAgent, ipAddress]
+  )
+
+  return sessionId
+}
+
+async function issueLoginSuccessResponse(user, req, res) {
+  const sessionId = await createUserSession(user.id, req)
+  const token = buildAuthToken(user, sessionId)
+  const { password_hash, code_id, verify_code, attempts, ...userInfo } = user
+  return res.json({ success: true, message: '登录成功', data: { user: userInfo, token } })
+}
+
+async function createLoginTwoFactorChallenge(user) {
+  const challengeId = generateChallengeId()
+  const code = generate6DigitCode()
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+
+  await pool.query(
+    `UPDATE user_verification_codes
+     SET used = TRUE
+     WHERE user_id = $1 AND purpose = $2 AND used = FALSE`,
+    [user.id, CODE_PURPOSE_LOGIN_2FA]
+  )
+
+  await pool.query(
+    `INSERT INTO user_verification_codes (user_id, purpose, challenge_id, code, expires_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [user.id, CODE_PURPOSE_LOGIN_2FA, challengeId, code, expiresAt]
+  )
+
+  await sendTwoFactorCodeEmail(user.email, code, '登录验证')
+  return { challengeId, expiresAt }
+}
 
 // 注册
 router.post('/register', async (req, res) => {
@@ -23,7 +96,6 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // 验证邮箱验证码
     const tokenResult = await pool.query(
       `SELECT id FROM password_reset_tokens
        WHERE email = $1 AND code = $2 AND used = FALSE AND expires_at > NOW()`,
@@ -55,18 +127,14 @@ router.post('/register', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO users (username, email, password_hash, nickname, avatar_color)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, username, email, nickname, avatar_color, theme, bio, is_admin, created_at`,
+       RETURNING id, username, email, nickname, avatar_color, theme, bio, is_admin, two_factor_enabled, created_at`,
       [username, email, passwordHash, nickname || username, avatarColor]
     )
 
     const user = result.rows[0]
-    const token = jwt.sign(
-      { id: user.id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    )
+    const sessionId = await createUserSession(user.id, req)
+    const token = buildAuthToken(user, sessionId)
 
-    // 标记验证码已使用
     await pool.query(
       `UPDATE password_reset_tokens SET used = TRUE WHERE email = $1 AND used = FALSE`,
       [email]
@@ -87,13 +155,11 @@ router.post('/send-register-code', async (req, res) => {
   }
 
   try {
-    // 检查邮箱是否已被注册
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email])
     if (existing.rows.length > 0) {
       return res.status(400).json({ success: false, message: '该邮箱已被注册', field: 'email' })
     }
 
-    // 限制频率：1 分钟内只能发一次
     const recent = await pool.query(
       `SELECT id FROM password_reset_tokens
        WHERE email = $1 AND created_at > NOW() - INTERVAL '1 minute' AND used = FALSE`,
@@ -103,13 +169,12 @@ router.post('/send-register-code', async (req, res) => {
       return res.status(429).json({ success: false, message: '发送太频繁，请 1 分钟后再试' })
     }
 
-    // 让旧验证码失效
     await pool.query(
       `UPDATE password_reset_tokens SET used = TRUE WHERE email = $1 AND used = FALSE`,
       [email]
     )
 
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const code = generate6DigitCode()
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
 
     await pool.query(
@@ -152,23 +217,144 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: '密码错误，请重新输入' })
     }
 
-    // 递增 token_version，使旧设备上的 token 立即失效
-    const updated = await pool.query(
-      'UPDATE users SET token_version = token_version + 1 WHERE id = $1 RETURNING token_version',
-      [user.id]
-    )
-    const tokenVersion = updated.rows[0].token_version
+    if (user.two_factor_enabled) {
+      const challenge = await createLoginTwoFactorChallenge(user)
+      return res.json({
+        success: true,
+        message: '已发送二步验证码',
+        data: {
+          requires_two_factor: true,
+          challenge_id: challenge.challengeId,
+          expires_at: challenge.expiresAt.toISOString(),
+          email_hint: maskEmail(user.email)
+        }
+      })
+    }
 
-    const token = jwt.sign(
-      { id: user.id, username: user.username, tv: tokenVersion },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    )
-
-    const { password_hash, ...userInfo } = user
-    res.json({ success: true, message: '登录成功', data: { user: userInfo, token } })
+    return issueLoginSuccessResponse(user, req, res)
   } catch (err) {
     console.error('登录错误:', err)
+    res.status(500).json({ success: false, message: '服务器内部错误' })
+  }
+})
+
+// 二步验证：校验登录验证码
+router.post('/login/verify-2fa', async (req, res) => {
+  const { challenge_id, code } = req.body
+  if (!challenge_id || !code) {
+    return res.status(400).json({ success: false, message: '验证码信息不完整' })
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT c.id AS code_id, c.code AS verify_code, c.attempts, u.*
+       FROM user_verification_codes c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.challenge_id = $1
+         AND c.purpose = $2
+         AND c.used = FALSE
+         AND c.expires_at > NOW()
+       LIMIT 1`,
+      [challenge_id, CODE_PURPOSE_LOGIN_2FA]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ success: false, message: '验证码无效或已过期' })
+    }
+
+    const row = result.rows[0]
+    if (String(row.verify_code) !== String(code).trim()) {
+      const nextAttempts = Number(row.attempts || 0) + 1
+      const lockUsed = nextAttempts >= 5
+      await pool.query(
+        `UPDATE user_verification_codes
+         SET attempts = $1, used = CASE WHEN $2 THEN TRUE ELSE used END
+         WHERE id = $3`,
+        [nextAttempts, lockUsed, row.code_id]
+      )
+      if (lockUsed) {
+        return res.status(429).json({ success: false, message: '验证码错误次数过多，请重新登录后再试' })
+      }
+      return res.status(400).json({ success: false, message: '验证码错误，请重新输入' })
+    }
+
+    await pool.query(
+      'UPDATE user_verification_codes SET used = TRUE WHERE id = $1',
+      [row.code_id]
+    )
+
+    return issueLoginSuccessResponse(row, req, res)
+  } catch (err) {
+    console.error('二步验证登录错误:', err)
+    res.status(500).json({ success: false, message: '服务器内部错误' })
+  }
+})
+
+// 二步验证：重发登录验证码
+router.post('/login/resend-2fa', async (req, res) => {
+  const { challenge_id } = req.body
+  if (!challenge_id) {
+    return res.status(400).json({ success: false, message: '缺少 challenge_id' })
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT c.id, c.user_id, c.created_at, u.email
+       FROM user_verification_codes c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.challenge_id = $1
+         AND c.purpose = $2
+         AND c.used = FALSE
+         AND c.expires_at > NOW()
+       LIMIT 1`,
+      [challenge_id, CODE_PURPOSE_LOGIN_2FA]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ success: false, message: '登录验证已失效，请重新登录' })
+    }
+
+    const row = result.rows[0]
+    const recent = await pool.query(
+      `SELECT id FROM user_verification_codes
+       WHERE id = $1 AND created_at > NOW() - INTERVAL '1 minute'`,
+      [row.id]
+    )
+    if (recent.rows.length > 0) {
+      return res.status(429).json({ success: false, message: '发送太频繁，请 1 分钟后再试' })
+    }
+
+    const newCode = generate6DigitCode()
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+    await pool.query(
+      `UPDATE user_verification_codes
+       SET code = $1, expires_at = $2, created_at = NOW(), attempts = 0
+       WHERE id = $3`,
+      [newCode, expiresAt, row.id]
+    )
+
+    await sendTwoFactorCodeEmail(row.email, newCode, '登录验证')
+    return res.json({ success: true, message: '验证码已重新发送' })
+  } catch (err) {
+    console.error('重发二步验证码错误:', err)
+    res.status(500).json({ success: false, message: '服务器内部错误' })
+  }
+})
+
+// 当前设备退出登录
+router.post('/logout', authMiddleware, async (req, res) => {
+  try {
+    if (req.user?.sid) {
+      await pool.query(
+        `UPDATE user_sessions
+         SET revoked_at = NOW()
+         WHERE session_id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+        [req.user.sid, req.user.id]
+      )
+    }
+    res.json({ success: true, message: '已退出登录' })
+  } catch (err) {
+    console.error('退出登录错误:', err)
     res.status(500).json({ success: false, message: '服务器内部错误' })
   }
 })
@@ -181,16 +367,13 @@ router.post('/forgot-password', async (req, res) => {
   }
 
   try {
-    // 查询用户是否存在
     const result = await pool.query('SELECT id, username FROM users WHERE email = $1', [email])
-    // 无论是否存在都返回成功，防止枚举邮箱
     if (result.rows.length === 0) {
       return res.json({ success: true, message: '如果该邮箱已注册，验证码将发送至你的邮箱' })
     }
 
     const user = result.rows[0]
 
-    // 限制频率：同一邮箱 1 分钟内只能发一次
     const recent = await pool.query(
       `SELECT id FROM password_reset_tokens
        WHERE email = $1 AND created_at > NOW() - INTERVAL '1 minute' AND used = FALSE`,
@@ -200,15 +383,13 @@ router.post('/forgot-password', async (req, res) => {
       return res.status(429).json({ success: false, message: '发送太频繁，请 1 分钟后再试' })
     }
 
-    // 让旧验证码失效
     await pool.query(
       `UPDATE password_reset_tokens SET used = TRUE WHERE email = $1 AND used = FALSE`,
       [email]
     )
 
-    // 生成 6 位数字验证码
-    const code = String(Math.floor(100000 + Math.random() * 900000))
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 分钟
+    const code = generate6DigitCode()
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
 
     await pool.query(
       `INSERT INTO password_reset_tokens (email, code, expires_at) VALUES ($1, $2, $3)`,
@@ -219,7 +400,6 @@ router.post('/forgot-password', async (req, res) => {
 
     res.json({ success: true, message: '验证码已发送，请查收邮件（15分钟内有效）' })
   } catch (err) {
-    // 区分邮件发送失败 vs 数据库错误
     const isEmailError = err.message?.includes('邮件发送失败') || err.message?.includes('resend')
     const detail = isEmailError
       ? `Resend 邮件发送失败 → ${err.message}`
@@ -249,7 +429,6 @@ router.post('/reset-password', async (req, res) => {
   }
 
   try {
-    // 查找有效验证码
     const tokenResult = await pool.query(
       `SELECT id FROM password_reset_tokens
        WHERE email = $1 AND code = $2 AND used = FALSE AND expires_at > NOW()`,
@@ -260,11 +439,9 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ success: false, message: '验证码无效或已过期' })
     }
 
-    // 更新密码
     const passwordHash = await bcrypt.hash(newPassword, 10)
     await pool.query('UPDATE users SET password_hash = $1 WHERE email = $2', [passwordHash, email])
 
-    // 标记验证码已使用
     await pool.query(
       `UPDATE password_reset_tokens SET used = TRUE WHERE email = $1 AND code = $2`,
       [email, code]
@@ -286,3 +463,5 @@ router.post('/reset-password', async (req, res) => {
 })
 
 module.exports = router
+
+

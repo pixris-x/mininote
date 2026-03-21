@@ -6,6 +6,12 @@ export const useNotesStore = defineStore('notes', () => {
   const notes = ref([])
   const loading = ref(false)
   const currentNote = ref(null)
+  const pagination = ref({
+    total: 0,
+    page: 1,
+    limit: 20,
+    pages: 1
+  })
 
   const NOTE_COLORS = [
     { label: '白色', value: '#FFFFFF' },
@@ -22,7 +28,22 @@ export const useNotesStore = defineStore('notes', () => {
     try {
       const res = await notesApi.getAll(params)
       if (res.success) {
-        notes.value = res.data
+        notes.value = Array.isArray(res.data) ? res.data : []
+
+        const total = Number.isFinite(Number(res.total))
+          ? Number(res.total)
+          : notes.value.length
+        const page = Number.isFinite(Number(res.page))
+          ? Number(res.page)
+          : (Number(params.page) || 1)
+        const limit = Number.isFinite(Number(res.limit))
+          ? Number(res.limit)
+          : (Number(params.limit) || Math.max(notes.value.length, 1))
+        const pages = Number.isFinite(Number(res.pages))
+          ? Number(res.pages)
+          : Math.max(1, Math.ceil(total / Math.max(limit, 1)))
+
+        pagination.value = { total, page, limit, pages }
       }
       return res
     } finally {
@@ -47,6 +68,11 @@ export const useNotesStore = defineStore('notes', () => {
     const res = await notesApi.create(data)
     if (res.success) {
       notes.value.unshift(res.data)
+      pagination.value.total += 1
+      pagination.value.pages = Math.max(
+        1,
+        Math.ceil(pagination.value.total / Math.max(pagination.value.limit, 1))
+      )
     }
     return res
   }
@@ -69,6 +95,11 @@ export const useNotesStore = defineStore('notes', () => {
     const res = await notesApi.delete(id)
     if (res.success) {
       notes.value = notes.value.filter(n => n.id !== parseInt(id))
+      pagination.value.total = Math.max(0, pagination.value.total - 1)
+      pagination.value.pages = Math.max(
+        1,
+        Math.ceil(pagination.value.total / Math.max(pagination.value.limit, 1))
+      )
       if (currentNote.value?.id === parseInt(id)) {
         currentNote.value = null
       }
@@ -80,5 +111,5 @@ export const useNotesStore = defineStore('notes', () => {
     return updateNote(id, { is_pinned: !current })
   }
 
-  return { notes, loading, currentNote, NOTE_COLORS, fetchNotes, fetchNote, createNote, updateNote, deleteNote, togglePin }
+  return { notes, loading, currentNote, pagination, NOTE_COLORS, fetchNotes, fetchNote, createNote, updateNote, deleteNote, togglePin }
 })
