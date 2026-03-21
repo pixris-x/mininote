@@ -6,6 +6,7 @@ const webpush = require('web-push')
 const { sendNotificationEmail } = require('../utils/email')
 const { DEFAULT_PLAN_ICON, sanitizePlanIcon, toPlanIconKey } = require('../utils/plan-icons')
 const { createUserNotification, NOTIFICATION_TYPES } = require('../utils/notifications')
+const { normalizeShareMaxVisits, getShareUnavailableResponse, consumeShareVisit } = require('../utils/share-access')
 
 // 发送推送通知 + 邮件给指定用户
 async function notifyUser(userId, payload) {
@@ -403,6 +404,11 @@ router.post('/:id/collaborators/reject', async (req, res) => {
 const crypto = require('crypto')
 router.post('/:id/share', async (req, res) => {
   const { expiresIn = 7 } = req.body // 天数，0 表示永久
+  const normalizedMaxVisits = normalizeShareMaxVisits(req.body.maxVisits ?? 0)
+  if (normalizedMaxVisits.error) {
+    return res.status(400).json({ success: false, message: normalizedMaxVisits.error })
+  }
+
   const check = await pool.query(
     'SELECT id FROM plans WHERE id = $1 AND user_id = $2',
     [req.params.id, req.user.id]
@@ -419,12 +425,25 @@ router.post('/:id/share', async (req, res) => {
 
   await pool.query(
     `UPDATE plans
-     SET share_token = $1, share_pin = $2, share_expires_at = $3
-     WHERE id = $4 AND user_id = $5`,
-    [token, pin, expiresAt, req.params.id, req.user.id]
+     SET share_token = $1,
+         share_pin = $2,
+         share_expires_at = $3,
+         share_max_visits = $4,
+         share_visit_count = 0,
+         share_last_visited_at = NULL
+     WHERE id = $5 AND user_id = $6`,
+    [token, pin, expiresAt, normalizedMaxVisits.value, req.params.id, req.user.id]
   )
 
-  res.json({ success: true, token, pin, expiresAt })
+  res.json({
+    success: true,
+    token,
+    pin,
+    expiresAt,
+    maxVisits: normalizedMaxVisits.value,
+    visitCount: 0,
+    lastVisitedAt: null
+  })
 })
 
 // DELETE /api/plans/:id/share — 撤销分享 token
@@ -437,7 +456,14 @@ router.delete('/:id/share', async (req, res) => {
     return res.status(404).json({ success: false, message: '计划不存在' })
   }
   await pool.query(
-    'UPDATE plans SET share_token = NULL, share_pin = NULL, share_expires_at = NULL WHERE id = $1 AND user_id = $2',
+    `UPDATE plans
+     SET share_token = NULL,
+         share_pin = NULL,
+         share_expires_at = NULL,
+         share_max_visits = NULL,
+         share_visit_count = 0,
+         share_last_visited_at = NULL
+     WHERE id = $1 AND user_id = $2`,
     [req.params.id, req.user.id]
   )
   res.json({ success: true, message: '分享已撤销' })
@@ -452,7 +478,7 @@ router.post('/import-share', async (req, res) => {
 
   const planRes = await pool.query(
     `SELECT p.id, p.title, p.description, p.color, p.icon,
-            p.share_pin, p.share_expires_at
+            p.share_pin, p.share_expires_at, p.share_max_visits, p.share_visit_count
      FROM plans p
      WHERE p.share_token = $1`,
     [token]
@@ -464,8 +490,9 @@ router.post('/import-share', async (req, res) => {
 
   const src = planRes.rows[0]
 
-  if (src.share_expires_at && new Date(src.share_expires_at) < new Date()) {
-    return res.status(410).json({ success: false, message: '分享链接已过期' })
+  const unavailable = getShareUnavailableResponse(src)
+  if (unavailable) {
+    return res.status(unavailable.status).json(unavailable.body)
   }
 
   if (!src.share_pin) {
@@ -474,6 +501,11 @@ router.post('/import-share', async (req, res) => {
 
   if (src.share_pin !== String(pin || '')) {
     return res.status(401).json({ success: false, message: '访问码错误' })
+  }
+
+  const visitStats = await consumeShareVisit(pool, src.id)
+  if (!visitStats) {
+    return res.status(410).json({ success: false, message: '分享链接访问次数已达上限', exhausted: true })
   }
 
   const client = await pool.connect()

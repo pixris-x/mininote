@@ -72,7 +72,10 @@ async function cleanExpiredShares() {
       UPDATE plans
       SET share_token      = NULL,
           share_pin        = NULL,
-          share_expires_at = NULL
+          share_expires_at = NULL,
+          share_max_visits = NULL,
+          share_visit_count = 0,
+          share_last_visited_at = NULL
       WHERE share_expires_at IS NOT NULL
         AND share_expires_at < NOW()
       RETURNING id

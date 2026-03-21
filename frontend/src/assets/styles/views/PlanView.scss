@@ -1593,33 +1593,6 @@
     margin: 0;
 }
 
-.share-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--color-border);
-}
-
-.share-tab {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    flex: 1;
-    padding: 10px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-
-.share-tab.active {
-    color: var(--theme-primary-dark);
-    border-bottom-color: var(--theme-primary-dark);
-}
-
 .share-panel {
     padding: 20px;
     display: flex;
@@ -1754,7 +1727,7 @@
 .back-to-top-btn {
     position: fixed;
     right: 28px;
-    bottom: 32px;
+    bottom: 52px;
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -1774,7 +1747,7 @@
 
 @media (max-width: 767px) {
     .back-to-top-btn {
-        bottom: 88px;
+        bottom: 108px;
         right: 16px;
     }
 }

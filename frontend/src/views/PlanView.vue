@@ -605,18 +605,8 @@
                             <X class="btn-square-icon" />
                         </button>
                     </div>
-                    <div class="share-tabs">
-                        <button :class="['share-tab', { active: shareTab === 'link' }]" @click="shareTab = 'link'">
-                            <Link2 class="btn-inline-icon" />
-                            分享链接
-                        </button>
-                        <button :class="['share-tab', { active: shareTab === 'image' }]" @click="shareTab = 'image'">
-                            <ImageIcon class="btn-inline-icon" />
-                            生成图片
-                        </button>
-                    </div>
 
-                    <div v-if="shareTab === 'link'" class="share-panel">
+                    <div class="share-panel">
                         <p class="share-desc">生成一个带访问码的分享链接，访问者需要输入正确的4位访问码才能查看。</p>
 
                         <!-- 已有链接：显示链接 + 访问码 -->
@@ -649,6 +639,13 @@
                                 <Clock3 class="meta-icon-sm" />
                                 永久有效
                             </div>
+                            <div v-if="shareLastVisitedAt" class="share-expires-tip">
+                                <Clock3 class="meta-icon-sm" />
+                                最近访问：{{ formatExpiresAt(shareLastVisitedAt) }}
+                            </div>
+                            <div class="share-expires-tip">
+                                <span>访问次数：{{ formatShareVisits(shareVisitCount, shareMaxVisits) }}</span>
+                            </div>
                         </template>
 
                         <!-- 未生成：过期时间选择器 -->
@@ -658,6 +655,15 @@
                                 <button v-for="opt in expiresOptions" :key="opt.value"
                                     :class="['share-expires-btn', { active: shareExpiresIn === opt.value }]"
                                     @click="shareExpiresIn = opt.value">{{ opt.label }}</button>
+                            </div>
+                        </div>
+
+                        <div v-if="!shareToken" class="share-expires-row">
+                            <label class="share-expires-label">访问次数</label>
+                            <div class="share-expires-btns">
+                                <button v-for="opt in visitLimitOptions" :key="opt.value"
+                                    :class="['share-expires-btn', { active: shareMaxVisits === opt.value }]"
+                                    @click="shareMaxVisits = opt.value">{{ opt.label }}</button>
                             </div>
                         </div>
 
@@ -680,13 +686,6 @@
                         </div>
                     </div>
 
-                    <div v-if="shareTab === 'image'" class="share-panel">
-                        <p class="share-desc">将当前计划步骤列表截图保存为 PNG 图片。</p>
-                        <button class="btn btn-primary icon-text-btn" :disabled="exportingImage" @click="exportAsImage">
-                            <Camera class="btn-inline-icon" />
-                            <span>{{ exportingImage ? '生成中...' : '生成并下载图片' }}</span>
-                        </button>
-                    </div>
                 </div>
             </div>
         </Teleport>
@@ -794,7 +793,6 @@ import {
     Clipboard,
     Clock3,
     Copy,
-    Image as ImageIcon,
     KeyRound,
     Link2,
     LogOut,
@@ -825,7 +823,6 @@ import {
     sanitizePlanIcon
 } from '@/utils/plan-icons'
 import dayjs from 'dayjs'
-import html2canvas from 'html2canvas'
 
 const planStore = usePlanStore()
 const router = useRouter()
@@ -873,15 +870,16 @@ const currentPlanId = ref(null)
 const showPlanModal = ref(false)
 const showStepModal = ref(false)
 const showShareModal = ref(false)
-const shareTab = ref('link')
 const shareToken = ref('')
 const sharePin = ref('')
 const shareExpiresAt = ref(null)
 const shareExpiresIn = ref(7) // 天数，0 = 永久
+const shareMaxVisits = ref(0)
+const shareVisitCount = ref(0)
+const shareLastVisitedAt = ref(null)
 const shareLoading = ref(false)
 const copied = ref(false)
 const copiedPin = ref(false)
-const exportingImage = ref(false)
 const shareUrl = computed(() => shareToken.value ? `${window.location.origin}/share/${shareToken.value}` : '')
 const editingPlan = ref(null)
 const editingStep = ref(null)
@@ -1511,17 +1509,22 @@ async function leavePlan(plan) {
 
 // ── 分享功能 ────────────────────────────────────────────────────
 function openShareModal() {
-    shareTab.value = 'link'
     copied.value = false
     copiedPin.value = false
     sharePin.value = ''
     shareExpiresAt.value = null
     shareExpiresIn.value = 7
     // 如果当前计划已有 token，直接展示链接（但不显示 PIN，因为 PIN 只在生成时返回一次）
+    shareMaxVisits.value = 0
+    shareVisitCount.value = 0
+    shareLastVisitedAt.value = null
     shareToken.value = planStore.currentPlan?.share_token || ''
     if (shareToken.value) {
         shareExpiresAt.value = planStore.currentPlan?.share_expires_at ?? null
         sharePin.value = planStore.currentPlan?.share_pin || ''
+        shareMaxVisits.value = Number(planStore.currentPlan?.share_max_visits || 0)
+        shareVisitCount.value = Number(planStore.currentPlan?.share_visit_count || 0)
+        shareLastVisitedAt.value = planStore.currentPlan?.share_last_visited_at || null
     }
     showShareModal.value = true
 }
@@ -1529,14 +1532,23 @@ function openShareModal() {
 async function generateShareToken() {
     shareLoading.value = true
     try {
-        const res = await planApi.share(currentPlanId.value, { expiresIn: shareExpiresIn.value })
+        const res = await planApi.share(currentPlanId.value, {
+            expiresIn: shareExpiresIn.value,
+            maxVisits: shareMaxVisits.value
+        })
         shareToken.value = res.token
         sharePin.value = res.pin
         shareExpiresAt.value = res.expiresAt
+        shareMaxVisits.value = Number(res.maxVisits || 0)
+        shareVisitCount.value = Number(res.visitCount || 0)
+        shareLastVisitedAt.value = res.lastVisitedAt || null
         if (planStore.currentPlan) {
             planStore.currentPlan.share_token = res.token
             planStore.currentPlan.share_expires_at = res.expiresAt
             planStore.currentPlan.share_pin = res.pin
+            planStore.currentPlan.share_max_visits = res.maxVisits
+            planStore.currentPlan.share_visit_count = res.visitCount || 0
+            planStore.currentPlan.share_last_visited_at = res.lastVisitedAt || null
         }
     } catch (e) {
         toast.error(e.message)
@@ -1551,6 +1563,9 @@ async function regenerateShareToken() {
     shareToken.value = ''
     sharePin.value = ''
     shareExpiresIn.value = 7
+    shareMaxVisits.value = 0
+    shareVisitCount.value = 0
+    shareLastVisitedAt.value = null
 }
 
 async function revokeShareToken() {
@@ -1562,9 +1577,15 @@ async function revokeShareToken() {
         shareToken.value = ''
         sharePin.value = ''
         shareExpiresAt.value = null
+        shareMaxVisits.value = 0
+        shareVisitCount.value = 0
+        shareLastVisitedAt.value = null
         if (planStore.currentPlan) planStore.currentPlan.share_token = null
         if (planStore.currentPlan) planStore.currentPlan.share_expires_at = null
         if (planStore.currentPlan) planStore.currentPlan.share_pin = null
+        if (planStore.currentPlan) planStore.currentPlan.share_max_visits = null
+        if (planStore.currentPlan) planStore.currentPlan.share_visit_count = 0
+        if (planStore.currentPlan) planStore.currentPlan.share_last_visited_at = null
         toast.success('分享链接已撤销')
     } catch (e) {
         toast.error(e.message)
@@ -1600,12 +1621,26 @@ const expiresOptions = [
     { label: '永久', value: 0 },
 ]
 
+const visitLimitOptions = [
+    { label: '无限', value: 0 },
+    { label: '10', value: 10 },
+    { label: '30', value: 30 },
+    { label: '100', value: 100 },
+]
+
 function formatExpiresAt(dateStr) {
     if (!dateStr) return '永久'
     return dayjs(dateStr).format('YYYY-MM-DD HH:mm')
 }
 
-async function exportAsImage() {
+function formatShareVisits(visitCount, maxVisits) {
+    const used = Number(visitCount || 0)
+    const max = Number(maxVisits || 0)
+    if (max > 0) return `${used}/${max}`
+    return `${used} / 无限`
+}
+
+/* async function exportAsImage() {
     exportingImage.value = true
     const plan = planStore.currentPlan
     if (!plan) { exportingImage.value = false; return }
@@ -1796,6 +1831,7 @@ async function exportAsImage() {
         exportingImage.value = false
     }
 }
+*/
 
 async function confirmDeleteStep(step) {
     const ok = await showConfirm(`确定删除步骤「${step.title}」吗？`, {
