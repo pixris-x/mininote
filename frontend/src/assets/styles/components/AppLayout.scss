@@ -135,10 +135,37 @@
   overflow: hidden;
 }
 
+.nav-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ff5a7a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
 .collapsed .nav-item {
   padding: 0;
   justify-content: center;
   gap: 0;
+}
+
+.collapsed .nav-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  margin-left: 0;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
 }
 
 .nav-item:hover {
@@ -332,6 +359,22 @@
   padding: 6px 4px;
   border-radius: 12px;
   transition: color 0.3s, transform 0.3s;
+}
+
+.bottom-badge {
+  position: absolute;
+  top: 4px;
+  right: 18%;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ff5a7a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
 }
 
 .bottom-nav-item .nav-icon {

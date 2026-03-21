@@ -41,6 +41,12 @@ const routes = [
         meta: { title: '全局搜索 - Mini Note' }
       },
       {
+        path: 'notifications',
+        name: 'Notifications',
+        component: () => import('@/views/NotificationView.vue'),
+        meta: { title: '通知中心 - Mini Note' }
+      },
+      {
         path: 'calendar',
         name: 'Calendar',
         component: () => import('@/views/CalendarView.vue'),

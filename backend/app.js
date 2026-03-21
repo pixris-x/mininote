@@ -14,6 +14,7 @@ const uploadRoutes = require('./routes/upload')
 const plansRoutes = require('./routes/plans')
 const planStepsRoutes = require('./routes/plan-steps')
 const pushRoutes = require('./routes/push')
+const notificationsRoutes = require('./routes/notifications')
 const { errorLoggerMiddleware, requestLoggerMiddleware } = require('./utils/logger')
 const { startScheduler } = require('./scheduler')
 
@@ -56,6 +57,7 @@ app.use('/api/upload', uploadRoutes)
 app.use('/api/plans', plansRoutes)
 app.use('/api/plan-steps', planStepsRoutes)
 app.use('/api/push', pushRoutes)
+app.use('/api/notifications', notificationsRoutes)
 
 // 公开分享：获取基本信息（用于显示验证码输入页，必须 PIN）
 const pool = require('./config/db')

@@ -189,5 +189,14 @@ export const pushApi = {
   sendTest: () => api.post('/push/test')
 }
 
+// ====== 通知中心 API ======
+export const notificationApi = {
+  getList: (params) => api.get('/notifications', { params }),
+  getSummary: () => api.get('/notifications/summary'),
+  markRead: (id) => api.patch(`/notifications/${id}/read`),
+  markBatchRead: (ids) => api.patch('/notifications/read/batch', { ids }),
+  markAllRead: (type = 'all') => api.patch('/notifications/read/all', { type })
+}
+
 export default api
 

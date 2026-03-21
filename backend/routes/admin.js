@@ -8,6 +8,10 @@ const {
   normalizeNotificationUrl,
   sendBroadcastPush
 } = require('../utils/admin-push')
+const {
+  createNotificationsForPushSubscribers,
+  NOTIFICATION_TYPES
+} = require('../utils/notifications')
 
 // 所有管理员接口都需要登录 + 管理员权限
 router.use(authMiddleware, adminMiddleware)
@@ -266,6 +270,16 @@ router.post('/push/send', async (req, res) => {
 
   try {
     const result = await sendBroadcastPush(validated.data)
+    if (result.total > 0) {
+      await createNotificationsForPushSubscribers({
+        type: NOTIFICATION_TYPES.SYSTEM,
+        source: 'admin_push',
+        title: validated.data.title,
+        content: validated.data.body,
+        linkUrl: validated.data.url,
+        payload: { via: 'send_now' }
+      })
+    }
     const message = result.total === 0
       ? '当前没有已开启推送通知的用户'
       : `发送完成：成功 ${result.sent}，失败 ${result.failed}`
@@ -362,6 +376,16 @@ router.post('/push/notifications/:id/send-now', async (req, res) => {
       body: notification.body,
       url: notification.target_url
     })
+    if (result.total > 0) {
+      await createNotificationsForPushSubscribers({
+        type: NOTIFICATION_TYPES.SYSTEM,
+        source: 'admin_push',
+        title: notification.title,
+        content: notification.body,
+        linkUrl: notification.target_url,
+        payload: { via: 'send_now', notification_id: id }
+      })
+    }
 
     const finalStatus = (result.total > 0 && result.sent === 0) ? 'failed' : 'sent'
     await pool.query(

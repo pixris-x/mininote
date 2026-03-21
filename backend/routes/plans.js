@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/auth')
 const webpush = require('web-push')
 const { sendNotificationEmail } = require('../utils/email')
 const { DEFAULT_PLAN_ICON, sanitizePlanIcon, toPlanIconKey } = require('../utils/plan-icons')
+const { createUserNotification, NOTIFICATION_TYPES } = require('../utils/notifications')
 
 // 发送推送通知 + 邮件给指定用户
 async function notifyUser(userId, payload) {
@@ -39,6 +40,19 @@ async function notifyUser(userId, payload) {
     if (email) {
       sendNotificationEmail(email, payload.title, payload.body)
     }
+  } catch (_) {}
+
+  // 通知中心落库
+  try {
+    await createUserNotification({
+      userId,
+      type: payload.type || NOTIFICATION_TYPES.PUSH,
+      source: payload.source || 'plans',
+      title: payload.title || '新通知',
+      content: payload.body || '',
+      linkUrl: payload.url || '/plans',
+      payload
+    })
   } catch (_) {}
 }
 

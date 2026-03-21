@@ -17,6 +17,11 @@ require('dotenv').config({ path: path.join(__dirname, '.env') })
 const pool = require('./config/db')
 const { Resend } = require('resend')
 const { sendBroadcastPush } = require('./utils/admin-push')
+const {
+  createNotifications,
+  createNotificationsForPushSubscribers,
+  NOTIFICATION_TYPES
+} = require('./utils/notifications')
 
 // 延迟初始化，确保 dotenv 已加载后再读取 API Key
 function getResend() {
@@ -162,6 +167,7 @@ async function sendDueDateReminders() {
         ps.plan_id,
         p.title  AS plan_title,
         p.icon   AS plan_icon,
+        u.id     AS user_id,
         u.email,
         u.nickname
       FROM plan_steps ps
@@ -184,14 +190,42 @@ async function sendDueDateReminders() {
     // 按用户邮箱合并步骤
     const byUser = new Map()
     for (const row of res.rows) {
-      if (!byUser.has(row.email)) {
-        byUser.set(row.email, { nickname: row.nickname, steps: [] })
+      if (!byUser.has(row.user_id)) {
+        byUser.set(row.user_id, {
+          userId: row.user_id,
+          email: row.email,
+          nickname: row.nickname,
+          steps: []
+        })
       }
-      byUser.get(row.email).steps.push(row)
+      byUser.get(row.user_id).steps.push(row)
     }
 
+    const reminderNotifications = []
+    for (const item of byUser.values()) {
+      const { userId, steps } = item
+      const content = steps.length === 1
+        ? `${steps[0].plan_title} · ${steps[0].title} 将于明天到期`
+        : `你有 ${steps.length} 个计划步骤将于明天到期`
+
+      reminderNotifications.push({
+        userId,
+        type: NOTIFICATION_TYPES.DUE_REMINDER,
+        source: 'scheduler_due',
+        title: '明日到期提醒',
+        content,
+        linkUrl: '/plans',
+        payload: {
+          step_ids: steps.map(step => step.id),
+          due_date: steps[0]?.due_date || null
+        }
+      })
+    }
+
+    await createNotifications(reminderNotifications)
+
     let sent = 0
-    for (const [email, { nickname, steps }] of byUser) {
+    for (const { email, nickname, steps } of byUser.values()) {
       const listHtml = steps.map(s => `
         <tr>
           <td style="padding:10px 12px;border-bottom:1px solid #fce4ec;">
@@ -440,6 +474,17 @@ async function sendScheduledAdminPushNotifications() {
         })
 
         const finalStatus = (result.total > 0 && result.sent === 0) ? 'failed' : 'sent'
+
+        if (finalStatus === 'sent' && result.total > 0) {
+          await createNotificationsForPushSubscribers({
+            type: NOTIFICATION_TYPES.SYSTEM,
+            source: 'admin_push',
+            title: item.title,
+            content: item.body,
+            linkUrl: item.target_url,
+            payload: { via: 'schedule', notification_id: item.id }
+          })
+        }
 
         await pool.query(
           `UPDATE admin_push_notifications
