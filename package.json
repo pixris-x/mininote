@@ -1,19 +1,28 @@
 {
   "name": "mini-note",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Mini Note - 可爱扁平化记事应用",
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=8.0.0"
   },
   "scripts": {
-    "install:all": "pnpm -C backend install && pnpm -C frontend install",
-    "dev": "concurrently -n be,fe -c cyan,magenta --kill-others-on-fail \"pnpm dev:backend\" \"pnpm dev:frontend\"",
+    "install:all": "pnpm -C backend install && pnpm -C frontend-nuxt install",
+    "install:all:legacy": "pnpm -C backend install && pnpm -C frontend install",
+    "install:all:nuxt": "pnpm -C backend install && pnpm -C frontend-nuxt install",
+    "dev": "concurrently -n be,nuxt -c cyan,green --kill-others-on-fail \"pnpm dev:backend\" \"pnpm dev:frontend:nuxt\"",
+    "dev:legacy": "concurrently -n be,fe -c cyan,magenta --kill-others-on-fail \"pnpm dev:backend\" \"pnpm dev:frontend\"",
+    "dev:nuxt": "concurrently -n be,nuxt -c cyan,green --kill-others-on-fail \"pnpm dev:backend\" \"pnpm dev:frontend:nuxt\"",
     "dev:backend": "pnpm -C backend dev",
     "dev:frontend": "pnpm -C frontend dev",
+    "dev:frontend:nuxt": "pnpm -C frontend-nuxt dev",
     "start": "pnpm -C backend start",
-    "build": "pnpm -C frontend build",
-    "preview": "pnpm build && pnpm -C frontend preview",
+    "build": "pnpm -C frontend-nuxt build",
+    "build:legacy": "pnpm -C frontend build",
+    "build:nuxt": "pnpm -C frontend-nuxt build",
+    "preview": "pnpm build && pnpm -C frontend-nuxt preview",
+    "preview:legacy": "pnpm build:legacy && pnpm -C frontend preview",
+    "preview:nuxt": "pnpm build:nuxt && pnpm -C frontend-nuxt preview",
     "db:init": "pnpm -C backend db:init",
     "db:migrate": "pnpm -C backend db:migrate",
     "db:admin": "pnpm -C backend db:admin",
@@ -24,8 +33,9 @@
     "task:reminders": "node -e \"require('./backend/scheduler').sendDueDateReminders()\"",
     "task:push": "node -e \"require('./backend/scheduler').sendPushReminders()\"",
     "task:push-test": "node backend/scripts/test-push.js",
-    "clean": "rimraf frontend/dist backend/logs/*.log",
-    "clean:all": "rimraf frontend/dist frontend/node_modules backend/node_modules"
+    "clean": "rimraf frontend-nuxt/.output frontend-nuxt/.nuxt backend/logs/*.log",
+    "clean:nuxt": "rimraf frontend-nuxt/.nuxt frontend-nuxt/.output frontend-nuxt/node_modules",
+    "clean:all": "rimraf frontend/dist frontend/node_modules frontend-nuxt/.nuxt frontend-nuxt/.output frontend-nuxt/node_modules backend/node_modules"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
