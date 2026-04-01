@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Mini Note 后台定时任务调度器
  *
  * 任务列表：
@@ -15,18 +15,14 @@ const webpush = require('web-push')
 // 确保无论从哪个目录运行，都能找到 backend/.env
 require('dotenv').config({ path: path.join(__dirname, '.env') })
 const pool = require('./config/db')
-const { Resend } = require('resend')
 const { sendBroadcastPush } = require('./utils/admin-push')
+const { sendHtmlEmail, buildStableEmailIdempotencyKey } = require('./utils/email')
 const {
   createNotifications,
   createNotificationsForPushSubscribers,
   NOTIFICATION_TYPES
 } = require('./utils/notifications')
 
-// 延迟初始化，确保 dotenv 已加载后再读取 API Key
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY)
-}
 const UPLOADS_DIR = path.join(__dirname, 'uploads', 'images')
 
 // ─── 工具 ───────────────────────────────────────────────────────────────────
@@ -292,12 +288,16 @@ async function sendDueDateReminders() {
   </table>
 </body>
 </html>`
-
-      await getResend().emails.send({
-        from: process.env.EMAIL_FROM || 'Mini Note <noreply@mininote.pixris.online>',
+      await sendHtmlEmail({
         to: email,
         subject: `📅 Mini Note · ${steps.length} 个步骤明天到期`,
-        html
+        html,
+        idempotencyKey: buildStableEmailIdempotencyKey(
+          'due-reminder',
+          email,
+          steps.map((step) => step.id).join(','),
+          steps[0]?.due_date || ''
+        )
       })
       sent++
     }
@@ -562,3 +562,7 @@ module.exports = {
   sendPushReminders,
   sendScheduledAdminPushNotifications
 }
+
+
+
+
