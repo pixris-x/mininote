@@ -57,7 +57,10 @@ DB_PASSWORD=your_password
 JWT_SECRET=your_jwt_secret
 JWT_EXPIRES_IN=7d
 CORS_ORIGINS=http://localhost:5173
-RESEND_API_KEY=your_resend_api_key
+EMAIL_CENTER_BASE_URL=https://your-email-center.example.com
+EMAIL_CENTER_API_KEY=your_email_center_api_key
+EMAIL_CENTER_SENDER_EMAIL=hi@example.com
+EMAIL_CENTER_SOURCE_PROJECT=minilist
 EMAIL_FROM=Mini Note <hi@example.com>
 FRONTEND_URL=http://localhost:5173
 ```

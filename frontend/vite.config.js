@@ -11,7 +11,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
+      includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-192x192.png'],
       manifest: {
         name: 'Mini Note',
         short_name: 'Mini Note',
@@ -62,7 +62,6 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
-          if (id.includes('echarts')) return 'echarts'
           if (id.includes('@tiptap')) return 'tiptap'
           if (id.includes('lunar-javascript')) return 'lunar'
         }

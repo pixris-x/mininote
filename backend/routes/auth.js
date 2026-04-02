@@ -186,7 +186,7 @@ router.post('/send-register-code', async (req, res) => {
 
     res.json({ success: true, message: '验证码已发送，请查收邮件（15分钟内有效）' })
   } catch (err) {
-    const isEmailError = err.message?.includes('邮件发送失败') || err.message?.includes('resend')
+    const isEmailError = err.message?.includes('邮件发送失败') || err.message?.includes('邮件中心')
     logger.error('发送注册验证码失败', { detail: err.message, route: req.path, method: req.method, statusCode: 500, errorStack: err.stack })
     res.status(500).json({ success: false, message: isEmailError ? '邮件发送失败，请稍后重试' : '服务器内部错误' })
   }
@@ -400,9 +400,9 @@ router.post('/forgot-password', async (req, res) => {
 
     res.json({ success: true, message: '验证码已发送，请查收邮件（15分钟内有效）' })
   } catch (err) {
-    const isEmailError = err.message?.includes('邮件发送失败') || err.message?.includes('resend')
+    const isEmailError = err.message?.includes('邮件发送失败') || err.message?.includes('邮件中心')
     const detail = isEmailError
-      ? `Resend 邮件发送失败 → ${err.message}`
+      ? `邮件中心发送失败 → ${err.message}`
       : `数据库或其他错误 → ${err.message}`
     const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null
     logger.error('忘记密码流程失败', {

@@ -170,9 +170,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import axios from 'axios'
 import dayjs from 'dayjs'
-import { planApi } from '@/api'
+import { planApi, shareApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { toast } from '@/utils/toast'
 import { getPlanIconComponentOrDefault } from '@/utils/plan-icons'
@@ -300,10 +299,7 @@ async function toggleStep(step) {
     const newStatus = step.status === 'completed' ? 'pending' : 'completed'
     togglingId.value = step.id
     try {
-        await axios.patch(`/api/share/${route.params.token}/steps/${step.id}/status`, {
-            status: newStatus,
-            pin: verifiedPin.value
-        })
+        await shareApi.updateStepStatus(route.params.token, step.id, newStatus, verifiedPin.value)
         step.status = newStatus
     } catch (e) {
         toast.error(isExpiredError(e) ? EXPIRED_MSG : (e.response?.data?.message || '操作失败，请重试'))
@@ -317,8 +313,8 @@ async function verifyPin() {
     pinError.value = ''
     pinLoading.value = true
     try {
-        const res = await axios.post(`/api/share/${route.params.token}/verify`, { pin: pinInput.value })
-        plan.value = res.data.data
+        const res = await shareApi.verify(route.params.token, pinInput.value)
+        plan.value = res.data
         pinVerified.value = true
         verifiedPin.value = pinInput.value
     } catch (e) {
@@ -370,8 +366,8 @@ function onPreviewTouchEnd(e) {
 onMounted(async () => {
     window.addEventListener('scroll', handleShareScroll, { passive: true })
     try {
-        const res = await axios.get(`/api/share/${route.params.token}`)
-        const data = res.data.data
+        const res = await shareApi.getByToken(route.params.token)
+        const data = res.data
         meta.value = data
         needsPin.value = true
         loading.value = false

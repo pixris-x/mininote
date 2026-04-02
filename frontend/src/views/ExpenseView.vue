@@ -160,7 +160,9 @@
                         <div class="chart-card-title">支出趋势</div>
                         <div v-if="!hasTrendData" class="chart-empty">暂无支出数据</div>
                         <template v-else>
-                            <div ref="trendChartEl" class="echarts-box"></div>
+                            <div class="chart-box">
+                                <Line :data="trendChartData" :options="trendChartOptions" />
+                            </div>
                             <div class="trend-summary">
                                 <span>最高 <b>&#165;{{ formatAmount(trendMax.amount) }}</b>（{{ trendMax.day }}日）</span>
                                 <span>日均 <b>&#165;{{ formatAmount(dailyAvg) }}</b></span>
@@ -194,7 +196,9 @@
                     <div class="chart-card">
                         <div class="chart-card-title">支出占比</div>
                         <div v-if="!catBreakdown.length" class="chart-empty">暂无支出数据</div>
-                        <div v-else ref="pieChartEl" class="echarts-box echarts-box--pie"></div>
+                        <div v-else class="chart-box chart-box--pie">
+                            <Doughnut :data="pieChartData" :options="pieChartOptions" />
+                        </div>
                     </div>
 
                     <!-- 分类排行榜 -->
@@ -369,15 +373,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
-import * as echarts from 'echarts/core'
-import { LineChart, PieChart } from 'echarts/charts'
 import {
-    GridComponent, TooltipComponent, LegendComponent
-} from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-echarts.use([LineChart, PieChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer])
+    ArcElement,
+    CategoryScale,
+    Chart as ChartJS,
+    Filler,
+    Legend,
+    LineElement,
+    LinearScale,
+    PointElement,
+    Title,
+    Tooltip
+} from 'chart.js'
+import { Doughnut, Line } from 'vue-chartjs'
 import { useExpenseStore } from '@/stores/expense'
 import { toast } from '@/utils/toast'
 import { showConfirm } from '@/utils/alert'
@@ -437,6 +447,18 @@ import {
     X
 } from 'lucide-vue-next'
 import dayjs from 'dayjs'
+
+ChartJS.register(
+    Title,
+    Tooltip,
+    Legend,
+    LineElement,
+    PointElement,
+    LinearScale,
+    CategoryScale,
+    ArcElement,
+    Filler
+)
 
 const store = useExpenseStore()
 const EXPENSE_ICON_COMPONENTS = {
@@ -569,14 +591,31 @@ const dailyAvg = computed(() => {
     return total / passed
 })
 
-// ===== ECharts =====
-const trendChartEl = ref(null)
-const pieChartEl = ref(null)
-let trendChart = null
-let pieChart = null
-
 function getCSSVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+}
+
+function withAlpha(color, alpha) {
+    if (!color) return `rgba(162, 155, 254, ${alpha})`
+
+    if (color.startsWith('#')) {
+        let hex = color.slice(1)
+        if (hex.length === 3) {
+            hex = hex.split('').map(ch => ch + ch).join('')
+        }
+        if (hex.length === 6) {
+            const value = Number.parseInt(hex, 16)
+            const r = (value >> 16) & 255
+            const g = (value >> 8) & 255
+            const b = value & 255
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`
+        }
+    }
+
+    const rgbMatch = color.match(/^rgb\((.+)\)$/i)
+    if (rgbMatch) return `rgba(${rgbMatch[1]}, ${alpha})`
+
+    return color
 }
 
 // 每日支出 map
@@ -599,6 +638,17 @@ const trendMax = computed(() => {
     return { day: maxDay, amount: maxAmt }
 })
 
+const trendChartLabels = computed(() => {
+    const maxDay = isCurrentMonth.value ? today.date() : daysInMonth.value
+    return Array.from({ length: maxDay }, (_, i) => `${i + 1}日`)
+})
+
+const trendChartValues = computed(() => {
+    const maxDay = isCurrentMonth.value ? today.date() : daysInMonth.value
+    const map = trendDayMap.value
+    return Array.from({ length: maxDay }, (_, i) => +(map[i + 1] || 0).toFixed(2))
+})
+
 // 每日明细：只显示已到达的日期
 const dailyTableRows = computed(() => {
     const maxDay = isCurrentMonth.value ? today.date() : daysInMonth.value
@@ -617,91 +667,141 @@ const dailyTableRows = computed(() => {
     })
 })
 
-function buildTrendOption() {
+const trendChartData = computed(() => {
     const primaryDark = getCSSVar('--theme-primary-dark') || '#e91e63'
     const primary = getCSSVar('--theme-primary') || '#f48fb1'
+    return {
+        labels: trendChartLabels.value,
+        datasets: [
+            {
+                label: '支出趋势',
+                data: trendChartValues.value,
+                borderColor: primaryDark,
+                backgroundColor: withAlpha(primary, 0.22),
+                fill: true,
+                tension: 0.35,
+                borderWidth: 2.5,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                pointBackgroundColor: primaryDark,
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }
+        ]
+    }
+})
+
+const trendChartOptions = computed(() => {
     const borderColor = getCSSVar('--color-border') || '#eee'
     const textColor = getCSSVar('--color-text-secondary') || '#999'
-    const maxDay = isCurrentMonth.value ? today.date() : daysInMonth.value
-    const map = trendDayMap.value
-    const xData = Array.from({ length: maxDay }, (_, i) => `${i + 1}日`)
-    const yData = Array.from({ length: maxDay }, (_, i) => +(map[i + 1] || 0).toFixed(2))
-    return {
-        grid: { top: 20, right: 16, bottom: 28, left: 56 },
-        tooltip: {
-            trigger: 'axis',
-            formatter: params => `${params[0].axisValue}<br/>¥${Number(params[0].value).toFixed(2)}`
-        },
-        xAxis: {
-            type: 'category', data: xData,
-            axisLabel: { fontSize: 10, color: textColor },
-            axisLine: { lineStyle: { color: borderColor } },
-            axisTick: { show: false }
-        },
-        yAxis: {
-            type: 'value',
-            axisLabel: { fontSize: 10, color: textColor, formatter: v => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v },
-            splitLine: { lineStyle: { color: borderColor, type: 'dashed' } }
-        },
-        series: [{
-            type: 'line', data: yData, smooth: true,
-            symbol: 'circle', symbolSize: 6,
-            lineStyle: { color: primaryDark, width: 2.5 },
-            itemStyle: { color: primaryDark, borderColor: '#fff', borderWidth: 2 },
-            areaStyle: {
-                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                    { offset: 0, color: primary + 'aa' },
-                    { offset: 1, color: primary + '11' }
-                ])
-            }
-        }]
-    }
-}
 
-function buildPieOption() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                callbacks: {
+                    label: context => `¥${Number(context.parsed.y || 0).toFixed(2)}`
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: {
+                    display: false
+                },
+                border: {
+                    color: borderColor
+                },
+                ticks: {
+                    color: textColor,
+                    font: {
+                        size: 10
+                    },
+                    maxRotation: 0,
+                    autoSkip: true,
+                    maxTicksLimit: 8
+                }
+            },
+            y: {
+                beginAtZero: true,
+                border: {
+                    display: false
+                },
+                grid: {
+                    color: withAlpha(borderColor, 0.8),
+                    borderDash: [4, 4]
+                },
+                ticks: {
+                    color: textColor,
+                    font: {
+                        size: 10
+                    },
+                    callback: value => Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(1)}k` : value
+                }
+            }
+        }
+    }
+})
+
+const pieChartData = computed(() => {
     const bd = catBreakdown.value
     return {
-        tooltip: { trigger: 'item', formatter: '{b}: ¥{c} ({d}%)' },
-        legend: { show: false },
-        series: [{
-            type: 'pie',
-            radius: ['42%', '68%'],
-            center: ['50%', '50%'],
-            data: bd.map(c => ({
-                name: c.name,
-                value: +Number(c.total).toFixed(2),
-                itemStyle: { color: c.color || '#a29bfe' }
-            })),
-            label: { formatter: '{b}\n{d}%', fontSize: 11, lineHeight: 16 },
-            labelLine: { length: 10, length2: 8 },
-            emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' } }
-        }]
+        labels: bd.map(c => c.name),
+        datasets: [
+            {
+                data: bd.map(c => +Number(c.total).toFixed(2)),
+                backgroundColor: bd.map(c => c.color || '#a29bfe'),
+                borderColor: getCSSVar('--color-surface') || '#fff',
+                borderWidth: 2,
+                hoverOffset: 10
+            }
+        ]
     }
-}
+})
 
-function refreshTrendChart() {
-    if (!trendChartEl.value) return
-    if (trendChart) { trendChart.dispose(); trendChart = null }
-    trendChart = echarts.init(trendChartEl.value)
-    trendChart.setOption(buildTrendOption(), true)
-}
+const pieChartOptions = computed(() => {
+    const textColor = getCSSVar('--color-text-secondary') || '#999'
 
-function refreshPieChart() {
-    if (!pieChartEl.value) return
-    if (pieChart) { pieChart.dispose(); pieChart = null }
-    pieChart = echarts.init(pieChartEl.value)
-    pieChart.setOption(buildPieOption(), true)
-}
-
-function onResize() { trendChart?.resize(); pieChart?.resize() }
-
-function tryRefreshCharts() {
-    nextTick(() => {
-        if (activeTab.value !== 'stats') return
-        if (statsTab.value === 'trend' && hasTrendData.value) refreshTrendChart()
-        if (statsTab.value === 'rank' && catBreakdown.value.length) refreshPieChart()
-    })
-}
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '58%',
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    color: textColor,
+                    usePointStyle: true,
+                    pointStyle: 'circle',
+                    boxWidth: 8,
+                    boxHeight: 8,
+                    padding: 16,
+                    font: {
+                        size: 11
+                    }
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: (context) => {
+                        const total = context.dataset.data.reduce((sum, item) => sum + Number(item || 0), 0)
+                        const value = Number(context.parsed || 0)
+                        const pct = total > 0 ? Math.round((value / total) * 100) : 0
+                        return `${context.label}: ¥${value.toFixed(2)} (${pct}%)`
+                    }
+                }
+            }
+        }
+    }
+})
 
 function formatAmount(n) { return Number(n).toFixed(2) }
 function formatDate(dateStr) {
@@ -725,21 +825,9 @@ async function loadData() {
     ])
 }
 watch([currentYear, currentMonth], loadData)
-// 切换主 Tab
-watch(activeTab, tryRefreshCharts)
-// 切换统计子 Tab
-watch(statsTab, tryRefreshCharts)
-// 数据加载完成后刷新
-watch(() => store.expenses, tryRefreshCharts)
 onMounted(async () => {
     await store.fetchCategories()
     await loadData()
-    window.addEventListener('resize', onResize)
-})
-onUnmounted(() => {
-    window.removeEventListener('resize', onResize)
-    trendChart?.dispose()
-    pieChart?.dispose()
 })
 
 // ===== Modal =====

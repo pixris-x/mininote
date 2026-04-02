@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authApi, userApi } from '@/api'
+import { authApi, pushApi, userApi } from '@/api'
 
 export const useUserStore = defineStore('user', () => {
   const user = ref(JSON.parse(localStorage.getItem('minilist_user') || 'null'))
@@ -77,11 +77,8 @@ export const useUserStore = defineStore('user', () => {
         const sub = await reg.pushManager.getSubscription()
         if (sub) {
           try {
-            // 通知后端删除
-            await fetch('/api/push/unsubscribe', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-              body: JSON.stringify({ endpoint: sub.endpoint })
+            await pushApi.unsubscribe(sub.endpoint, {
+              headers: { Authorization: `Bearer ${authToken}` }
             })
           } catch {}
           await sub.unsubscribe()

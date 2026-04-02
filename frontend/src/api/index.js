@@ -1,63 +1,184 @@
-import axios from 'axios'
+const API_BASE_URL = '/api'
+const API_TIMEOUT = 30000
 
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 30000,
-  headers: { 'Content-Type': 'application/json' }
-})
+function buildUrl(path, params) {
+  const url = new URL(`${API_BASE_URL}${path}`, window.location.origin)
 
-// 请求拦截：自动附加 token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('minilist_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
+  if (!params) return `${url.pathname}${url.search}`
 
-// 响应拦截：处理 401 自动跳转登录
-api.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    if (error.response?.status === 401) {
-      // 登录/注册/重置密码接口返回 401 是预期行为，不强制跳转
-      const url = error.config?.url || ''
-      const isAuthEndpoint =
-        url.includes('/auth/login') ||
-        url.includes('/auth/login/verify-2fa') ||
-        url.includes('/auth/login/resend-2fa') ||
-        url.includes('/auth/logout') ||
-        url.includes('/auth/register') ||
-        url.includes('/auth/reset-password')
-      if (!isAuthEndpoint) {
-        const code = error.response?.data?.code
-        const reason = code === 'SESSION_REPLACED'
-          ? 'replaced'
-          : code === 'SESSION_REVOKED'
-            ? 'revoked'
-            : code === 'SESSION_INVALID'
-              ? 'invalid'
-              : ''
-        localStorage.removeItem('minilist_token')
-        localStorage.removeItem('minilist_user')
-        if (reason) {
-          // 跳转时携带提示信息
-          window.location.href = `/login?reason=${reason}`
-        } else {
-          window.location.href = '/login'
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null) return
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item !== undefined && item !== null) {
+          url.searchParams.append(key, item)
         }
+      })
+      return
+    }
+
+    url.searchParams.append(key, value)
+  })
+
+  return `${url.pathname}${url.search}`
+}
+
+function isFormData(value) {
+  return typeof FormData !== 'undefined' && value instanceof FormData
+}
+
+async function parseResponseBody(response) {
+  if (response.status === 204) return null
+
+  const contentType = response.headers.get('content-type') || ''
+
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json()
+    } catch {
+      return null
+    }
+  }
+
+  try {
+    const text = await response.text()
+    if (!text) return null
+
+    try {
+      return JSON.parse(text)
+    } catch {
+      return text
+    }
+  } catch {
+    return null
+  }
+}
+
+function createHttpError(message, { status = 0, data = null, url = '', field = undefined } = {}) {
+  const error = new Error(message || '网络错误，请稍后重试')
+  error.name = 'HttpError'
+  error.status = status
+  error.data = data
+  error.response = { status, data, url }
+  if (field) error.field = field
+  return error
+}
+
+function isAuthEndpoint(url) {
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/login/verify-2fa') ||
+    url.includes('/auth/login/resend-2fa') ||
+    url.includes('/auth/logout') ||
+    url.includes('/auth/register') ||
+    url.includes('/auth/reset-password')
+  )
+}
+
+function handleUnauthorized(url, data) {
+  if (isAuthEndpoint(url)) return
+
+  const code = data?.code
+  const reason = code === 'SESSION_REPLACED'
+    ? 'replaced'
+    : code === 'SESSION_REVOKED'
+      ? 'revoked'
+      : code === 'SESSION_INVALID'
+        ? 'invalid'
+        : ''
+
+  localStorage.removeItem('minilist_token')
+  localStorage.removeItem('minilist_user')
+
+  if (reason) {
+    window.location.href = `/login?reason=${reason}`
+  } else {
+    window.location.href = '/login'
+  }
+}
+
+async function request(method, path, config = {}) {
+  const {
+    params,
+    data,
+    headers = {},
+    timeout = API_TIMEOUT
+  } = config
+
+  const url = buildUrl(path, params)
+  const requestHeaders = new Headers(headers)
+  const token = localStorage.getItem('minilist_token')
+
+  if (token) {
+    requestHeaders.set('Authorization', `Bearer ${token}`)
+  }
+
+  let body
+  if (data !== undefined) {
+    if (isFormData(data)) {
+      body = data
+      requestHeaders.delete('Content-Type')
+    } else {
+      body = JSON.stringify(data)
+      if (!requestHeaders.has('Content-Type')) {
+        requestHeaders.set('Content-Type', 'application/json')
       }
     }
-    const data = error.response?.data || {}
-    const message = data.message || '网络错误，请稍后重试'
-    const err = new Error(message)
-    if (data.field) err.field = data.field
-    return Promise.reject(err)
   }
-)
+
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeout)
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body,
+      signal: controller.signal,
+      credentials: 'same-origin'
+    })
+
+    const responseData = await parseResponseBody(response)
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        handleUnauthorized(path, responseData)
+      }
+
+      throw createHttpError(
+        responseData?.message || '网络错误，请稍后重试',
+        {
+          status: response.status,
+          data: responseData,
+          url,
+          field: responseData?.field
+        }
+      )
+    }
+
+    return responseData
+  } catch (error) {
+    if (error?.name === 'HttpError') throw error
+
+    if (error?.name === 'AbortError') {
+      throw createHttpError('请求超时，请稍后重试', { url })
+    }
+
+    throw createHttpError('网络错误，请稍后重试', { url })
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+const api = {
+  request,
+  get: (url, config) => request('GET', url, config),
+  post: (url, data, config = {}) => request('POST', url, { ...config, data }),
+  put: (url, data, config = {}) => request('PUT', url, { ...config, data }),
+  patch: (url, data, config = {}) => request('PATCH', url, { ...config, data }),
+  delete: (url, config = {}) => request('DELETE', url, config)
+}
 
 // ====== 认证 API ======
 export const authApi = {
@@ -146,14 +267,19 @@ export const planApi = {
   share: (id, data) => api.post(`/plans/${id}/share`, data),
   unshare: (id) => api.delete(`/plans/${id}/share`),
   importShare: (data) => api.post('/plans/import-share', data),
-  // 协作者
   addCollaborator: (id, username) => api.post(`/plans/${id}/collaborators`, { username }),
   removeCollaborator: (id, userId) => api.delete(`/plans/${id}/collaborators/${userId}`),
   leave: (id) => api.delete(`/plans/${id}/leave`),
-  // 邀请
   getInvites: () => api.get('/plans/invites'),
   acceptInvite: (id) => api.post(`/plans/${id}/collaborators/accept`),
   rejectInvite: (id) => api.post(`/plans/${id}/collaborators/reject`)
+}
+
+// ====== 分享 API ======
+export const shareApi = {
+  getByToken: (token) => api.get(`/share/${token}`),
+  verify: (token, pin) => api.post(`/share/${token}/verify`, { pin }),
+  updateStepStatus: (token, stepId, status, pin) => api.patch(`/share/${token}/steps/${stepId}/status`, { status, pin })
 }
 
 // ====== 计划步骤 API ======
@@ -174,9 +300,7 @@ export const uploadApi = {
   image: (file) => {
     const form = new FormData()
     form.append('file', file)
-    return api.post('/upload/image', form, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    return api.post('/upload/image', form)
   }
 }
 
@@ -184,7 +308,7 @@ export const uploadApi = {
 export const pushApi = {
   getVapidPublicKey: () => api.get('/push/vapid-public-key'),
   subscribe: (sub) => api.post('/push/subscribe', sub),
-  unsubscribe: (endpoint) => api.delete('/push/unsubscribe', { data: { endpoint } }),
+  unsubscribe: (endpoint, config = {}) => api.delete('/push/unsubscribe', { ...config, data: { endpoint } }),
   getStatus: () => api.get('/push/status'),
   sendTest: () => api.post('/push/test')
 }
@@ -199,4 +323,3 @@ export const notificationApi = {
 }
 
 export default api
-
