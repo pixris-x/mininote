@@ -655,6 +655,12 @@
   border-radius: 2px;
 }
 
+.day-dot--birthday {
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
 /* 计划步骤 Day Panel */
 .day-section-title {
   display: inline-flex;
@@ -774,4 +780,190 @@
 .no-day-icon {
   width: 48px;
   height: 48px;
+}
+
+.upcoming-birthday {
+  border-left-color: #ff6b6b;
+  cursor: pointer;
+}
+
+.upcoming-birthday:hover {
+  background: #fff5f5;
+}
+
+.upcoming-reminder {
+  border-left-color: #fb923c;
+  cursor: pointer;
+}
+
+.upcoming-reminder:hover {
+  background: #fff7ed;
+}
+
+.day-birthday-list {
+  margin-bottom: 14px;
+}
+
+.day-birthday-item {
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border-left: 3px solid #ff6b6b;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.day-birthday-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.day-birthday-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.day-birthday-tag {
+  font-size: 0.68rem;
+  border-radius: 8px;
+  padding: 1px 6px;
+  background: #ffe8ee;
+  color: #d9537a;
+  font-weight: 600;
+}
+
+.day-birthday-tag.lunar {
+  background: #eef2ff;
+  color: #6c5ce7;
+}
+
+.day-birthday-meta {
+  margin-top: 6px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.day-birthday-note {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.day-birthday-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.day-birthday-actions .danger {
+  color: #c0392b;
+}
+
+.birthday-modal {
+  max-width: 520px;
+}
+
+.birthday-inline-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.birthday-inline-row .form-group {
+  flex: 1;
+}
+
+.birthday-switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.switch-btn {
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  border: none;
+  background: #d4d7de;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  padding: 2px;
+}
+
+.switch-btn.active {
+  background: #34c759;
+}
+
+.switch-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  display: block;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.switch-btn.active .switch-thumb {
+  transform: translateX(20px);
+}
+
+.birthday-preview {
+  margin: -4px 0 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--theme-primary-light);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.birthday-notify-card {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.birthday-notify-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.birthday-remind-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.birthday-remind-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+@media (max-width: 640px) {
+  .birthday-inline-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .birthday-switch-row {
+    justify-content: space-between;
+  }
 }

@@ -6,16 +6,19 @@
  *  2. 清理孤儿上传图片        每周日 04:00
  *  3. 计划步骤到期提醒邮件    每天 08:00
  *  4. 管理员定时推送通知      每分钟检查
+ *  5. 生日提醒通知（中心+Push）每分钟
  */
 
 const cron = require('node-cron')
 const fs = require('fs')
 const path = require('path')
 const webpush = require('web-push')
+const { Lunar } = require('lunar-javascript')
 // 确保无论从哪个目录运行，都能找到 backend/.env
 require('dotenv').config({ path: path.join(__dirname, '.env') })
 const pool = require('./config/db')
 const { sendBroadcastPush } = require('./utils/admin-push')
+const { sendPushToUser } = require('./utils/user-push')
 const { sendHtmlEmail, buildStableEmailIdempotencyKey } = require('./utils/email')
 const {
   createNotifications,
@@ -36,6 +39,131 @@ function normalizeFrontendUrl(raw) {
   const value = String(raw || '').trim()
   if (!value) return 'https://mininote.pixris.online'
   return /^https?:\/\//i.test(value) ? value : `https://${value}`
+}
+
+function toShanghaiDateString(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+  const parts = formatter.formatToParts(date)
+  const map = {}
+  for (const part of parts) {
+    if (part.type !== 'literal') {
+      map[part.type] = part.value
+    }
+  }
+  return `${map.year}-${map.month}-${map.day}`
+}
+
+function toShanghaiTimeString(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Shanghai',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+  const parts = formatter.formatToParts(date)
+  const map = {}
+  for (const part of parts) {
+    if (part.type !== 'literal') {
+      map[part.type] = part.value
+    }
+  }
+  return `${map.hour}:${map.minute}:${map.second}`
+}
+
+function shiftDateByDays(isoDate, deltaDays) {
+  const date = new Date(`${isoDate}T00:00:00.000Z`)
+  if (Number.isNaN(date.getTime())) return null
+  date.setUTCDate(date.getUTCDate() + deltaDays)
+  return date.toISOString().slice(0, 10)
+}
+
+function normalizeDateString(value) {
+  if (!value) return null
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10)
+  }
+  const text = String(value).slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null
+}
+
+function normalizeNotifyTime(value) {
+  const text = String(value || '').trim().slice(0, 8)
+  if (/^\d{2}:\d{2}$/.test(text)) return `${text}:00`
+  if (/^\d{2}:\d{2}:\d{2}$/.test(text)) return text
+  return '09:00:00'
+}
+
+function normalizeOffsets(rawOffsets) {
+  const allowed = new Set([0, 3, 7])
+  let items = []
+
+  if (Array.isArray(rawOffsets)) {
+    items = rawOffsets
+  } else if (typeof rawOffsets === 'string') {
+    const text = rawOffsets.trim()
+    if (text.startsWith('{') && text.endsWith('}')) {
+      items = text.slice(1, -1).split(',')
+    }
+  }
+
+  const values = []
+  for (const item of items) {
+    const n = Number.parseInt(item, 10)
+    if (Number.isInteger(n) && allowed.has(n) && !values.includes(n)) {
+      values.push(n)
+    }
+  }
+  return values
+}
+
+function isLeapYear(year) {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+function getSolarOccurrenceForYear(baseDate, year) {
+  const dateText = normalizeDateString(baseDate)
+  if (!dateText) return null
+
+  const month = Number.parseInt(dateText.slice(5, 7), 10)
+  const day = Number.parseInt(dateText.slice(8, 10), 10)
+  if (!Number.isInteger(month) || !Number.isInteger(day)) return null
+
+  if (month === 2 && day === 29 && !isLeapYear(year)) {
+    return `${year}-02-28`
+  }
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function getLunarOccurrenceForYear(row, year) {
+  const month = Number.parseInt(row.lunar_month, 10)
+  const day = Number.parseInt(row.lunar_day, 10)
+  if (!Number.isInteger(month) || !Number.isInteger(day)) return null
+
+  const monthCandidates = row.lunar_is_leap
+    ? [-Math.abs(month), Math.abs(month)]
+    : [Math.abs(month)]
+
+  for (const lunarMonth of monthCandidates) {
+    try {
+      return Lunar.fromYmd(year, lunarMonth, day).getSolar().toYmd()
+    } catch {
+      // 闰月不存在时自动尝试同月非闰
+    }
+  }
+  return null
+}
+
+function buildBirthdayReminderContent(title, offsetDays) {
+  if (offsetDays === 0) {
+    return `今天是「${title}」的生日，记得送上祝福`
+  }
+  return `「${title}」还有 ${offsetDays} 天生日，别忘了提前准备`
 }
 
 /**
@@ -531,6 +659,152 @@ async function sendScheduledAdminPushNotifications() {
   }
 }
 
+// ─── 任务 6：生日提醒通知（通知中心 + Push）──────────────────────────────────
+
+async function sendBirthdayReminderNotifications() {
+  const t0 = Date.now()
+  try {
+    const today = toShanghaiDateString()
+    const nowTime = toShanghaiTimeString()
+    const year = Number.parseInt(today.slice(0, 4), 10)
+
+    const birthdayRes = await pool.query(
+      `SELECT id, user_id, title, solar_date, is_lunar, lunar_month, lunar_day, lunar_is_leap,
+              repeat_type, notify_enabled, notify_time, remind_offsets
+       FROM birthdays
+       WHERE notify_enabled = TRUE`
+    )
+
+    if (birthdayRes.rowCount === 0) return
+
+    const dueByKey = new Map()
+
+    for (const row of birthdayRes.rows) {
+      const offsets = normalizeOffsets(row.remind_offsets)
+      if (offsets.length === 0) continue
+
+      const notifyTime = normalizeNotifyTime(row.notify_time)
+      if (nowTime < notifyTime) continue
+
+      const occurrenceDates = new Set()
+      if (row.repeat_type === 'none') {
+        const fixed = normalizeDateString(row.solar_date)
+        if (fixed) occurrenceDates.add(fixed)
+      } else if (row.is_lunar) {
+        const y1 = getLunarOccurrenceForYear(row, year)
+        const y2 = getLunarOccurrenceForYear(row, year + 1)
+        if (y1) occurrenceDates.add(y1)
+        if (y2) occurrenceDates.add(y2)
+      } else {
+        const y1 = getSolarOccurrenceForYear(row.solar_date, year)
+        const y2 = getSolarOccurrenceForYear(row.solar_date, year + 1)
+        if (y1) occurrenceDates.add(y1)
+        if (y2) occurrenceDates.add(y2)
+      }
+
+      for (const occurrenceDate of occurrenceDates) {
+        for (const offsetDays of offsets) {
+          const reminderDate = shiftDateByDays(occurrenceDate, -offsetDays)
+          if (reminderDate !== today) continue
+
+          const key = `${row.user_id}|${row.id}|${occurrenceDate}|${offsetDays}`
+          dueByKey.set(key, {
+            user_id: row.user_id,
+            birthday_id: row.id,
+            title: row.title,
+            occurrence_date: occurrenceDate,
+            offset_days: offsetDays
+          })
+        }
+      }
+    }
+
+    const dueItems = [...dueByKey.values()]
+    if (dueItems.length === 0) return
+
+    const insertRes = await pool.query(
+      `INSERT INTO birthday_notification_logs (user_id, birthday_id, occurrence_date, offset_days)
+       SELECT x.user_id, x.birthday_id, x.occurrence_date::date, x.offset_days
+       FROM jsonb_to_recordset($1::jsonb) AS x(
+         user_id INTEGER,
+         birthday_id INTEGER,
+         occurrence_date TEXT,
+         offset_days INTEGER
+       )
+       ON CONFLICT (user_id, birthday_id, occurrence_date, offset_days) DO NOTHING
+       RETURNING user_id, birthday_id, occurrence_date, offset_days`,
+      [JSON.stringify(dueItems)]
+    )
+
+    if (insertRes.rowCount === 0) return
+
+    const dueMap = new Map()
+    for (const item of dueItems) {
+      const key = `${item.user_id}|${item.birthday_id}|${item.occurrence_date}|${item.offset_days}`
+      dueMap.set(key, item)
+    }
+
+    const notifications = []
+    const byUser = new Map()
+
+    for (const row of insertRes.rows) {
+      const occurrenceDate = normalizeDateString(row.occurrence_date)
+      if (!occurrenceDate) continue
+
+      const key = `${row.user_id}|${row.birthday_id}|${occurrenceDate}|${row.offset_days}`
+      const due = dueMap.get(key)
+      if (!due) continue
+
+      notifications.push({
+        userId: due.user_id,
+        type: NOTIFICATION_TYPES.BIRTHDAY_REMINDER,
+        source: 'scheduler_birthday',
+        title: due.offset_days === 0 ? '生日当天提醒' : '生日临近提醒',
+        content: buildBirthdayReminderContent(due.title, due.offset_days),
+        linkUrl: '/calendar',
+        payload: {
+          birthday_id: due.birthday_id,
+          occurrence_date: due.occurrence_date,
+          offset_days: due.offset_days
+        }
+      })
+
+      if (!byUser.has(due.user_id)) byUser.set(due.user_id, [])
+      byUser.get(due.user_id).push(due)
+    }
+
+    if (notifications.length === 0) return
+    await createNotifications(notifications)
+
+    let pushedUsers = 0
+    for (const [userId, items] of byUser.entries()) {
+      const first = items[0]
+      const title = first.offset_days === 0 ? '🎂 生日当天提醒' : '🎂 生日临近提醒'
+      const body = items.length === 1
+        ? buildBirthdayReminderContent(first.title, first.offset_days)
+        : `你有 ${items.length} 条生日提醒，点击查看`
+
+      const pushRes = await sendPushToUser(userId, {
+        title,
+        body,
+        url: '/notifications?type=birthday_reminder'
+      })
+      if (pushRes?.sent > 0) pushedUsers++
+    }
+
+    const msg = `生日提醒已入站 ${notifications.length} 条，Push 触达 ${pushedUsers} 位用户`
+    log('BIRTHDAY', msg)
+    await writeLog('birthday_reminder', 'success', msg, notifications.length, Date.now() - t0)
+  } catch (err) {
+    if (err?.code === '42P01') {
+      log('BIRTHDAY', '生日提醒表未初始化，跳过任务')
+      return
+    }
+    log('BIRTHDAY', `错误: ${err.message}`)
+    await writeLog('birthday_reminder', 'error', err.message, 0, Date.now() - t0)
+  }
+}
+
 // ─── 注册定时任务 ────────────────────────────────────────────────────────────
 
 function startScheduler() {
@@ -547,11 +821,15 @@ function startScheduler() {
   // 每分钟扫描管理员定时推送任务
   cron.schedule('*/1 * * * *', sendScheduledAdminPushNotifications, { timezone: 'Asia/Shanghai' })
 
+  // 每分钟扫描生日提醒（无需用户打开网页）
+  cron.schedule('*/1 * * * *', sendBirthdayReminderNotifications, { timezone: 'Asia/Shanghai' })
+
   log('INIT', '定时任务已启动 ✅')
   log('INIT', '  - 过期分享清理   : 每天 03:00')
   log('INIT', '  - 孤儿图片清理   : 每周日 04:00')
   log('INIT', '  - 步骤到期提醒   : 每天 08:00（邮件 + Push）')
   log('INIT', '  - 管理员定时推送 : 每分钟扫描')
+  log('INIT', '  - 生日提醒通知   : 每分钟（中心 + Push）')
 }
 
 module.exports = {
@@ -560,7 +838,8 @@ module.exports = {
   cleanOrphanUploads,
   sendDueDateReminders,
   sendPushReminders,
-  sendScheduledAdminPushNotifications
+  sendScheduledAdminPushNotifications,
+  sendBirthdayReminderNotifications
 }
 
 

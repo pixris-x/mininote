@@ -3,6 +3,7 @@ const pool = require('../config/db')
 const NOTIFICATION_TYPES = {
   PUSH: 'push',
   DUE_REMINDER: 'due_reminder',
+  BIRTHDAY_REMINDER: 'birthday_reminder',
   SYSTEM: 'system'
 }
 

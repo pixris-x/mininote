@@ -7,7 +7,7 @@
             <BellRing class="title-icon" :size="20" />
             <span>通知中心</span>
           </h1>
-          <p class="page-sub">统一查看推送、到期提醒和系统消息</p>
+          <p class="page-sub">统一查看推送、到期提醒、生日提醒和系统消息</p>
         </div>
         <button
           class="btn btn-outline btn-sm"
@@ -56,7 +56,7 @@
     <div v-else-if="notificationStore.items.length === 0" class="empty-state">
       <BellOff class="empty-icon" :size="44" />
       <h3>暂无通知</h3>
-      <p>有新的推送、到期提醒或系统消息时，会在这里出现</p>
+      <p>有新的推送、到期提醒、生日提醒或系统消息时，会在这里出现</p>
     </div>
 
     <template v-else>
@@ -207,6 +207,7 @@ const typeFilters = [
   { label: '全部类型', value: 'all' },
   { label: '推送', value: 'push' },
   { label: '到期提醒', value: 'due_reminder' },
+  { label: '生日提醒', value: 'birthday_reminder' },
   { label: '系统消息', value: 'system' }
 ]
 
@@ -226,12 +227,14 @@ const allSelectableChecked = computed(() => {
 function typeLabel(type) {
   if (type === 'push') return '推送'
   if (type === 'due_reminder') return '到期提醒'
+  if (type === 'birthday_reminder') return '生日提醒'
   return '系统消息'
 }
 
 function typeUnreadCount(type) {
   if (type === 'push') return Number(summary.value.unread_push || 0)
   if (type === 'due_reminder') return Number(summary.value.unread_due_reminder || 0)
+  if (type === 'birthday_reminder') return Number(summary.value.unread_birthday_reminder || 0)
   if (type === 'system') return Number(summary.value.unread_system || 0)
   return 0
 }

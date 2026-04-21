@@ -6,6 +6,7 @@ const EMPTY_SUMMARY = {
   unread_total: 0,
   unread_push: 0,
   unread_due_reminder: 0,
+  unread_birthday_reminder: 0,
   unread_system: 0
 }
 
@@ -14,6 +15,7 @@ function normalizeSummary(data = {}) {
     unread_total: Number(data.unread_total || 0),
     unread_push: Number(data.unread_push || 0),
     unread_due_reminder: Number(data.unread_due_reminder || 0),
+    unread_birthday_reminder: Number(data.unread_birthday_reminder || 0),
     unread_system: Number(data.unread_system || 0)
   }
 }
