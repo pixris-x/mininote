@@ -61,7 +61,6 @@ async function issueLoginSuccessResponse(user, req, res) {
 async function createLoginTwoFactorChallenge(user) {
   const challengeId = generateChallengeId()
   const code = generate6DigitCode()
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
 
   await pool.query(
     `UPDATE user_verification_codes
@@ -70,11 +69,14 @@ async function createLoginTwoFactorChallenge(user) {
     [user.id, CODE_PURPOSE_LOGIN_2FA]
   )
 
-  await pool.query(
+  // 有效期由数据库时钟生成，避免与应用服务器时区/时钟不一致导致验证码提前过期
+  const expiresResult = await pool.query(
     `INSERT INTO user_verification_codes (user_id, purpose, challenge_id, code, expires_at)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [user.id, CODE_PURPOSE_LOGIN_2FA, challengeId, code, expiresAt]
+     VALUES ($1, $2, $3, $4, NOW() + INTERVAL '10 minutes')
+     RETURNING expires_at`,
+    [user.id, CODE_PURPOSE_LOGIN_2FA, challengeId, code]
   )
+  const expiresAt = expiresResult.rows[0].expires_at
 
   await sendTwoFactorCodeEmail(user.email, code, '登录验证')
   return { challengeId, expiresAt }
@@ -175,11 +177,12 @@ router.post('/send-register-code', async (req, res) => {
     )
 
     const code = generate6DigitCode()
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
 
+    // 有效期由数据库时钟生成，避免与应用服务器时区/时钟不一致导致验证码提前过期
     await pool.query(
-      `INSERT INTO password_reset_tokens (email, code, expires_at) VALUES ($1, $2, $3)`,
-      [email, code, expiresAt]
+      `INSERT INTO password_reset_tokens (email, code, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+      [email, code]
     )
 
     await sendRegisterVerifyEmail(email, code)
@@ -325,12 +328,12 @@ router.post('/login/resend-2fa', async (req, res) => {
     }
 
     const newCode = generate6DigitCode()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+    // 有效期由数据库时钟生成，避免与应用服务器时区/时钟不一致导致验证码提前过期
     await pool.query(
       `UPDATE user_verification_codes
-       SET code = $1, expires_at = $2, created_at = NOW(), attempts = 0
-       WHERE id = $3`,
-      [newCode, expiresAt, row.id]
+       SET code = $1, expires_at = NOW() + INTERVAL '10 minutes', created_at = NOW(), attempts = 0
+       WHERE id = $2`,
+      [newCode, row.id]
     )
 
     await sendTwoFactorCodeEmail(row.email, newCode, '登录验证')
@@ -389,11 +392,12 @@ router.post('/forgot-password', async (req, res) => {
     )
 
     const code = generate6DigitCode()
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000)
 
+    // 有效期由数据库时钟生成，避免与应用服务器时区/时钟不一致导致验证码提前过期
     await pool.query(
-      `INSERT INTO password_reset_tokens (email, code, expires_at) VALUES ($1, $2, $3)`,
-      [email, code, expiresAt]
+      `INSERT INTO password_reset_tokens (email, code, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+      [email, code]
     )
 
     await sendResetPasswordEmail(email, code, user.username)

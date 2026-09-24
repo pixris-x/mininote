@@ -163,11 +163,11 @@ router.post('/security/2fa/send-code', authMiddleware, async (req, res) => {
     )
 
     const code = generate6DigitCode()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+    // 有效期由数据库时钟生成，避免与应用服务器时区/时钟不一致导致验证码提前过期
     await pool.query(
       `INSERT INTO user_verification_codes (user_id, purpose, code, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [req.user.id, purpose, code, expiresAt]
+       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
+      [req.user.id, purpose, code]
     )
 
     await sendTwoFactorCodeEmail(user.email, code, action === 'enable' ? '启用二步验证' : '关闭二步验证')
@@ -284,11 +284,11 @@ router.post('/security/email/send-code', authMiddleware, async (req, res) => {
     )
 
     const code = generate6DigitCode()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+    // 有效期由数据库时钟生成，避免与应用服务器时区/时钟不一致导致验证码提前过期
     await pool.query(
       `INSERT INTO user_email_change_requests (user_id, new_email, code, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [req.user.id, newEmail, code, expiresAt]
+       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
+      [req.user.id, newEmail, code]
     )
 
     await sendEmailChangeCodeEmail(newEmail, code)
