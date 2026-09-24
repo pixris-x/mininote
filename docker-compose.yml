@@ -1,0 +1,238 @@
+# ============================================================
+# Mini Note
+#
+# 网络架构：
+#
+# Cloudflare
+#     ↓
+# 宝塔
+#     ↓
+# mininote.web.pixris.com:80
+#     ↓
+# minilist-web
+#     ├── /          Vue/Vite
+#     ├── /api/      → api:3000
+#     └── /uploads/  → api:3000
+#
+# API：
+#     internal + database
+#
+# PostgreSQL：
+#     postgres.db.pixris.com:5432
+#
+# backend/.env：
+#     仅 migrate / api 使用
+# ============================================================
+
+
+# ============================================================
+# API Build
+# ============================================================
+
+x-api-build: &api-build
+  context: ./backend
+  dockerfile: ../docker/api.Dockerfile
+
+
+# ============================================================
+# API 公共环境变量
+# ============================================================
+
+x-api-env: &api-env
+  NODE_ENV: production
+  APP_HOST: 0.0.0.0
+  PORT: 3000
+
+
+services:
+
+  # ==========================================================
+  # 数据库迁移
+  # ==========================================================
+
+  migrate:
+    build: *api-build
+
+    image: minilist-api:latest
+    container_name: minilist-migrate
+
+    restart: "no"
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      <<: *api-env
+
+    command:
+      - node
+      - scripts/migrate.js
+
+    networks:
+      - database
+
+
+  # ==========================================================
+  # API
+  # ==========================================================
+
+  api:
+    build: *api-build
+
+    image: minilist-api:latest
+    container_name: minilist-api
+
+    restart: unless-stopped
+
+    # .env 只给后端
+    env_file:
+      - ./backend/.env
+
+    environment:
+      <<: *api-env
+
+    # 只暴露给 Docker 网络
+    # 不映射到宿主机
+    expose:
+      - "3000"
+
+    # app.js 的 __dirname = /app
+    # 所以 uploads 实际目录是 /app/uploads
+    volumes:
+      - upload_data:/app/uploads
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "http://127.0.0.1:3000/health"
+        ]
+
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+    networks:
+
+      # Web ↔ API
+      internal:
+
+      # API ↔ PostgreSQL
+      database:
+
+
+  # ==========================================================
+  # Web
+  #
+  # Vue 静态资源
+  # /api/     → api:3000
+  # /uploads/ → api:3000
+  # ==========================================================
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/web.Dockerfile
+
+    image: minilist-web:latest
+    container_name: minilist-web
+
+    restart: unless-stopped
+
+    # 不再使用：
+    #
+    # ports:
+    #   - "8090:80"
+    #
+    # 宝塔直接通过外部 web 网络访问
+    expose:
+      - "80"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "http://127.0.0.1/"
+        ]
+
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    depends_on:
+      api:
+        condition: service_started
+
+    networks:
+
+      # Web → API
+      internal:
+
+      # 宝塔 → Web
+      web:
+        aliases:
+          - mininote.web.pixris.com
+
+
+# ============================================================
+# Volumes
+# ============================================================
+
+volumes:
+
+  # API 上传图片持久化
+  upload_data:
+
+
+# ============================================================
+# Networks
+# ============================================================
+
+networks:
+
+  # ----------------------------------------------------------
+  # Mini Note 项目私有网络
+  #
+  # minilist-web
+  #      ↓
+  # minilist-api
+  #
+  # 外部服务无法直接访问
+  # ----------------------------------------------------------
+
+  internal:
+    driver: bridge
+
+
+  # ----------------------------------------------------------
+  # PostgreSQL 公共数据库网络
+  #
+  # postgres.db.pixris.com
+  # ----------------------------------------------------------
+
+  database:
+    external: true
+    name: database
+
+
+  # ----------------------------------------------------------
+  # 宝塔公共 Web 网络
+  #
+  # baota
+  #   ↓
+  # mininote.web.pixris.com
+  # ----------------------------------------------------------
+
+  web:
+    external: true
+    name: web
