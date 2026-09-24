@@ -1,4 +1,12 @@
-# Mini Note 前端镜像：Vite 构建产物纯静态托管，/api 与 /uploads 反代到 api 服务
+# ============================================================
+# Mini Note Web
+# Vue / Vite 构建 + Nginx 静态托管
+# ============================================================
+
+
+# ============================================================
+# Build
+# ============================================================
 
 FROM m.daocloud.io/docker.io/library/node:22-alpine AS build
 
@@ -8,18 +16,42 @@ RUN corepack enable
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+
+# ------------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------------
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 RUN pnpm install --frozen-lockfile
+
+
+# ------------------------------------------------------------
+# Source
+# ------------------------------------------------------------
 
 COPY index.html vite.config.js ./
 COPY public ./public
 COPY src ./src
 
+
+# ------------------------------------------------------------
+# Build
+# ------------------------------------------------------------
+
 RUN pnpm run build
 
 
+# ============================================================
+# Nginx
+# ============================================================
+
 FROM m.daocloud.io/docker.io/library/nginx:alpine
+
+
+# ------------------------------------------------------------
+# Nginx configuration
+# ------------------------------------------------------------
 
 COPY <<'EOF' /etc/nginx/conf.d/default.conf
 server {
@@ -30,19 +62,44 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+
+    # ========================================================
+    # API
+    # ========================================================
+
     location /api/ {
         proxy_pass http://api:3000;
+
         proxy_http_version 1.1;
+
         proxy_set_header Host $host;
+
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+
+    # ========================================================
+    # Uploads
+    # ========================================================
+
     location /uploads/ {
         proxy_pass http://api:3000;
+
+        proxy_http_version 1.1;
+
         proxy_set_header Host $host;
+
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+
+    # ========================================================
+    # Vue History Mode
+    # ========================================================
 
     location / {
         try_files $uri $uri/ /index.html;
@@ -50,9 +107,17 @@ server {
 }
 EOF
 
+
+# ------------------------------------------------------------
+# Static files
+# ------------------------------------------------------------
+
 COPY --from=build /app/dist /usr/share/nginx/html
 
+
+# 防止 SVG / 静态资源出现之前 EmailCenter 那种 403 权限问题
 RUN find /usr/share/nginx/html -type d -exec chmod 755 {} \; \
     && find /usr/share/nginx/html -type f -exec chmod 644 {} \;
+
 
 EXPOSE 80
