@@ -45,7 +45,7 @@ const displayWidth = computed(() => {
     return typeof w === 'number' ? `${w}px` : w
 })
 
-function startResize(e, direction) {
+function startResize(e, _direction) {
     e.preventDefault()
 
     const container = e.target.closest('.resizable-image-container')

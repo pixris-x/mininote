@@ -1,0 +1,29 @@
+// ===== PageHeader 统一页头组件 =====
+// 页头结构收口：所有页面共用同一套标题 / 副标题 / 操作区布局，
+// 视图内不得再重复定义 .header-top / .page-title / .title-icon。
+
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title-icon {
+  color: var(--theme-primary-dark);
+  flex-shrink: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}

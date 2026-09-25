@@ -98,7 +98,9 @@ export function getBirthdayOccurrenceDate(birthday, year) {
   if (!isLunar) {
     const month = baseDate.month() + 1
     const day = baseDate.date()
-    if (month === 2 && day === 29 && !dayjs(`${year}-02-29`).isValid()) {
+    if (month === 2 && day === 29 && dayjs(`${year}-02-29`).date() !== 29) {
+      // dayjs 对溢出日期默认滚动到下个月且 isValid() 仍为 true，
+      // 因此用 date() !== 29 判断该年是否真的存在 2 月 29 日
       return `${year}-02-28`
     }
     return `${year}-${pad(month)}-${pad(day)}`

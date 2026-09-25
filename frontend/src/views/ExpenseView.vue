@@ -1,5 +1,6 @@
 <template>
     <div class="expense-view">
+        <PageHeader :icon="Wallet" title="记账" />
 
             <!-- 月份导航 + Tab -->
             <div class="page-top">
@@ -375,6 +376,7 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import AppDatePicker from '@/components/AppDatePicker.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import {
     ArcElement,
     CategoryScale,
@@ -551,7 +553,6 @@ const statsTab = ref('trend')
 
 // ===== 分类筛选下拉 =====
 const showFilterDropdown = ref(false)
-const allFilterCats = computed(() => store.categories)
 const selectedFilterCat = computed(() => store.categories.find(c => c.id === filterCategory.value) || null)
 
 // ===== Modal 分类下拉 =====

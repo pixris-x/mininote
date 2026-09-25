@@ -1,23 +1,19 @@
 <template>
   <div class="notes-page">
       <!-- 页面头部 -->
-      <div class="page-header">
-        <div class="header-top">
-          <div>
-            <h1 class="page-title">
-              <NotebookText class="title-icon" :size="20" />
-              <span>我的记事</span>
-            </h1>
-            <p class="page-sub">
-              <span>{{ greeting }}，{{ userStore.user?.nickname }}</span>
-              <Sparkles class="sub-icon" :size="14" />
-            </p>
-          </div>
+      <PageHeader :icon="NotebookText" title="我的记事">
+        <template #subtitle>
+          <p class="page-sub">
+            <span>{{ greeting }}，{{ userStore.user?.nickname }}</span>
+            <Sparkles class="sub-icon" :size="14" />
+          </p>
+        </template>
+        <template #actions>
           <button class="btn btn-primary create-btn" @click="showCreateModal = true">
             <Plus :size="16" />
             <span>新建</span>
           </button>
-        </div>
+        </template>
 
         <!-- 搜索栏 -->
         <div class="search-bar">
@@ -46,7 +42,7 @@
             {{ f.label }}
           </button>
         </div>
-      </div>
+      </PageHeader>
 
       <!-- 加载中 -->
       <div v-if="notesStore.loading" class="loading-center">
@@ -210,7 +206,7 @@
                   class="tag-input"
                   placeholder="输入标签按 Enter"
                   @keydown.enter.prevent="addTag"
-                  @keydown.comma.prevent="addTag"
+                  @keydown="onTagCommaKeydown"
                 />
               </div>
             </div>
@@ -254,6 +250,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NoteCard from '@/components/NoteCard.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { useUserStore } from '@/stores/user'
 import { useNotesStore } from '@/stores/notes'
 import { toast } from '@/utils/toast'
@@ -334,6 +331,13 @@ function addTag() {
     createForm.tags.push(v)
   }
   tagInput.value = ''
+}
+
+function onTagCommaKeydown(e) {
+  // Vue 不支持 .comma 键修饰符（event.key 是 ',' 而非 'comma'），需手动匹配
+  if (e.key !== ',') return
+  e.preventDefault()
+  addTag()
 }
 
 function removeTag(idx) {

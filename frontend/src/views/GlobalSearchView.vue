@@ -1,12 +1,6 @@
 <template>
   <div class="global-search-page">
-      <div class="page-header">
-        <h1 class="page-title">
-          <Search class="title-icon" :size="20" />
-          <span>全局搜索</span>
-        </h1>
-        <p class="page-sub">一页查看记事、计划、记账结果</p>
-      </div>
+      <PageHeader :icon="Search" title="全局搜索" subtitle="一页查看记事、计划、记账结果" />
 
       <section class="search-panel card">
         <div class="search-input-wrap">
@@ -283,6 +277,7 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppDatePicker from '@/components/AppDatePicker.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { searchApi } from '@/api'
 import { toast } from '@/utils/toast'
 import {

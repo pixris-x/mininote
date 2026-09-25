@@ -4,17 +4,6 @@
   margin: 0 auto;
 }
 
-.page-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.page-title-icon {
-  width: 22px;
-  height: 22px;
-}
-
 .inline-icon {
   width: 14px;
   height: 14px;
@@ -101,12 +90,6 @@
     min-height: 300px;
   }
 }
-
-.page-header {
-  margin-bottom: 20px;
-}
-
-/* 局部覆盖全局 24px */
 
 /* 月份导航 */
 .month-nav {

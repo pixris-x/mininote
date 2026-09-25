@@ -132,7 +132,7 @@ export function getHoliday(year, month, day) {
         result = { name: '除夕', type: 'holiday' }
       }
     }
-  } catch (e) {
+  } catch (_e) {
     // 计算异常时降级，不影响页面
   }
 

@@ -1,14 +1,7 @@
 <template>
   <div class="notification-page">
-    <div class="page-header">
-      <div class="header-top">
-        <div>
-          <h1 class="page-title">
-            <BellRing class="title-icon" :size="20" />
-            <span>通知中心</span>
-          </h1>
-          <p class="page-sub">统一查看推送、到期提醒、生日提醒和系统消息</p>
-        </div>
+    <PageHeader :icon="BellRing" title="通知中心" subtitle="统一查看推送、到期提醒、生日提醒和系统消息">
+      <template #actions>
         <button
           class="btn btn-outline btn-sm"
           :disabled="batchLoading || summary.unread_total <= 0"
@@ -17,7 +10,7 @@
           <CheckCheck :size="14" />
           <span>全部已读</span>
         </button>
-      </div>
+      </template>
 
       <div class="filter-wrap">
         <div class="filter-row">
@@ -46,7 +39,7 @@
           </button>
         </div>
       </div>
-    </div>
+    </PageHeader>
 
     <div v-if="notificationStore.loading && notificationStore.items.length === 0" class="loading-center">
       <div class="loading-spinner"></div>
@@ -178,6 +171,7 @@ import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { toast } from '@/utils/toast'
 import { useNotificationStore } from '@/stores/notifications'
+import PageHeader from '@/components/PageHeader.vue'
 import {
   ArrowUp,
   BellOff,

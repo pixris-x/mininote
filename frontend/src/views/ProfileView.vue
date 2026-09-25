@@ -1,5 +1,6 @@
 <template>
     <div class="profile-page">
+        <PageHeader :icon="UserRound" title="我的" />
             <!-- 个人信息卡片 -->
             <div class="profile-hero card">
                 <div class="avatar-big" :style="{ background: userStore.user?.avatar_color }">
@@ -367,8 +368,10 @@ import {
     Shield,
     SquarePen,
     SwatchBook,
+    UserRound,
     X
 } from 'lucide-vue-next'
+import PageHeader from '@/components/PageHeader.vue'
 
 const router = useRouter()
 const userStore = useUserStore()

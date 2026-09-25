@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { notesApi } from '@/api'
+import { NOTE_COLORS } from '@/constants/colors'
 
 export const useNotesStore = defineStore('notes', () => {
   const notes = ref([])
@@ -12,16 +13,6 @@ export const useNotesStore = defineStore('notes', () => {
     limit: 20,
     pages: 1
   })
-
-  const NOTE_COLORS = [
-    { label: '白色', value: '#FFFFFF' },
-    { label: '粉色', value: '#FFD6E0' },
-    { label: '薄荷', value: '#D4F5E9' },
-    { label: '薰衣草', value: '#E4E8F8' },
-    { label: '蜜桃', value: '#FFE8D6' },
-    { label: '柠檬', value: '#FFF8D6' },
-    { label: '天蓝', value: '#D6EEFF' }
-  ]
 
   async function fetchNotes(params = {}) {
     loading.value = true

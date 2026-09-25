@@ -1,12 +1,6 @@
 ﻿<template>
   <div class="calendar-page">
-    <div class="page-header">
-      <h1 class="page-title">
-        <CalendarDays class="page-title-icon" />
-        日历记事
-      </h1>
-      <p class="page-sub">在日历上记录每一天的故事，也不错过每一个生日</p>
-    </div>
+    <PageHeader :icon="CalendarDays" title="日历记事" subtitle="在日历上记录每一天的故事，也不错过每一个生日" />
 
     <div class="calendar-layout">
       <!-- 左列：日历 + 即将到来 -->
@@ -213,7 +207,7 @@
                   </span>
                   <span class="day-plan-step-plan">{{ step.plan_title }}</span>
                   <span class="day-plan-step-status" :class="`step-st-${step.status}`">
-                    {{ stepStatusLabel[step.status] || step.status }}
+                    {{ STEP_STATUS_LABELS[step.status] || step.status }}
                   </span>
                 </div>
                 <div class="day-plan-step-title">{{ step.title }}</div>
@@ -478,6 +472,9 @@ import {
   X
 } from 'lucide-vue-next'
 import dayjs from 'dayjs'
+import PageHeader from '@/components/PageHeader.vue'
+import { NOTE_COLORS, BIRTHDAY_COLORS } from '@/constants/colors'
+import { STEP_STATUS_LABELS } from '@/constants/plan'
 import { useNotesStore } from '@/stores/notes'
 import { calendarApi } from '@/api'
 import { toast } from '@/utils/toast'
@@ -521,27 +518,6 @@ const birthdayForm = ref(defaultBirthdayForm())
 // 计划步骤日历集成
 const planStepsData = ref([])
 const selectedDaySteps = ref([])
-const stepStatusLabel = { pending: '待开始', in_progress: '进行中', completed: '已完成', skipped: '已跳过' }
-
-const NOTE_COLORS = [
-  { label: '白色', value: '#FFFFFF' },
-  { label: '粉色', value: '#FFD6E0' },
-  { label: '薄荷', value: '#D4F5E9' },
-  { label: '薰衣草', value: '#E4E8F8' },
-  { label: '蜜桃', value: '#FFE8D6' },
-  { label: '柠檬', value: '#FFF8D6' },
-  { label: '天蓝', value: '#D6EEFF' }
-]
-
-const BIRTHDAY_COLORS = [
-  { label: '珊瑚红', value: '#FF6B6B' },
-  { label: '玫瑰粉', value: '#FF8AAE' },
-  { label: '紫罗兰', value: '#A78BFA' },
-  { label: '天空蓝', value: '#60A5FA' },
-  { label: '薄荷绿', value: '#34D399' },
-  { label: '橙色', value: '#FB923C' }
-]
-
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
 
@@ -913,7 +889,7 @@ function closeBirthdayModal() {
 
 function toggleRemindOffset(offset, checked) {
   const list = normalizeRemindOffsets(birthdayForm.value.remind_offsets)
-  let next = list
+  let next
 
   if (checked) {
     next = normalizeRemindOffsets([...list, offset])

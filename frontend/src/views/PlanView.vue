@@ -115,7 +115,7 @@
                         </div>
                         <div class="plan-card-bottom">
                             <span class="plan-status-badge" :class="`status-${plan.status}`">
-                                {{ statusLabel[plan.status] }}
+                                {{ PLAN_STATUS_LABELS[plan.status] }}
                             </span>
                             <div class="plan-progress-wrap">
                                 <div class="plan-progress-bar">
@@ -201,7 +201,7 @@
                                 <div class="timeline-dot" :class="[`dot-${step.status}`, 'dot-clickable']"
                                     :title="step.status === 'completed' ? '点击取消完成' : '点击标记完成'"
                                     @click="quickToggleStep(step)">
-                                    <component :is="stepStatusIcon[step.status]" class="step-status-icon" />
+                                    <component :is="STEP_STATUS_ICONS[step.status]" class="step-status-icon" />
                                 </div>
                                 <div v-if="idx < planStore.currentPlan.steps.length - 1" class="timeline-connector">
                                 </div>
@@ -412,7 +412,7 @@
                     <div class="form-group">
                         <label>颜色标记</label>
                         <div class="color-picker">
-                            <button v-for="c in planColors" :key="c" class="color-dot"
+                            <button v-for="c in PLAN_COLORS" :key="c" class="color-dot"
                                 :class="{ active: planForm.color === c }" :style="{ background: c }"
                                 @click="planForm.color = c"></button>
                         </div>
@@ -822,6 +822,8 @@ import {
     getPlanIconComponentOrDefault,
     sanitizePlanIcon
 } from '@/utils/plan-icons'
+import { PLAN_STATUS_LABELS, STEP_STATUS_ICONS } from '@/constants/plan'
+import { PLAN_COLORS } from '@/constants/colors'
 import dayjs from 'dayjs'
 
 const planStore = usePlanStore()
@@ -852,9 +854,6 @@ const recurrenceUnitOptions = [
     { value: 'week', label: '按周' },
     { value: 'month', label: '按月' }
 ]
-const stepStatusIcon = { pending: Circle, in_progress: Clock3, completed: CheckCircle2, skipped: SkipForward }
-const statusLabel = { active: '进行中', paused: '已暂停', completed: '已完成' }
-const planColors = ['#FFFFFF', '#FFD6E0', '#D4F5E9', '#E4E8F8', '#FFE8D6', '#FFF8D6', '#D6EEFF', '#DCEDC8']
 const planIconOptions = PLAN_ICON_OPTIONS
 const badgePresets = [
     { label: '里程碑', color: '#FF85A1' },
@@ -964,12 +963,6 @@ function handleMainScroll() {
 
 function updateViewportState() {
     isMobileViewport.value = window.innerWidth <= 768
-}
-
-function onPlanCardClick(id) {
-    // 绉诲姩绔彧鍏佽鐐瑰嚮鏄庣‘鐨勨€滆繘鍏ヨ鎯呪€濇寜閽紝閬垮厤鏁村崱璇Е
-    if (isMobileViewport.value) return
-    selectPlan(id)
 }
 
 function scrollToTop() {
